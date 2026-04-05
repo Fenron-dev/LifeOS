@@ -397,17 +397,22 @@ class _IngredientEditorState extends ConsumerState<_IngredientEditor> {
           // Unit dropdown
           SizedBox(
             width: 88,
-            child: DropdownButtonFormField<String>(
-              value: units.contains(row.unit) ? row.unit : units.first,
+            child: InputDecorator(
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
-              items: units
-                  .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                  .toList(),
-              onChanged: (v) => setState(() => row.unit = v ?? row.unit),
+              child: DropdownButton<String>(
+                value: units.contains(row.unit) ? row.unit : units.first,
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                isDense: true,
+                items: units
+                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                    .toList(),
+                onChanged: (v) => setState(() => row.unit = v ?? row.unit),
+              ),
             ),
           ),
           const SizedBox(width: 6),

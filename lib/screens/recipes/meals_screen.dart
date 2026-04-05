@@ -266,21 +266,26 @@ class _MealFormState extends ConsumerState<_MealForm> {
                           const SizedBox(width: 4),
                           SizedBox(
                             width: 80,
-                            child: DropdownButtonFormField<String>(
-                              value: units.contains(row.unit)
-                                  ? row.unit
-                                  : units.first,
+                            child: InputDecorator(
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
                                 contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 8),
+                                    horizontal: 6, vertical: 4),
                               ),
-                              items: units
-                                  .map((u) =>
-                                      DropdownMenuItem(value: u, child: Text(u)))
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setState(() => row.unit = v ?? row.unit),
+                              child: DropdownButton<String>(
+                                value: units.contains(row.unit)
+                                    ? row.unit
+                                    : units.first,
+                                isExpanded: true,
+                                underline: const SizedBox.shrink(),
+                                isDense: true,
+                                items: units
+                                    .map((u) => DropdownMenuItem(
+                                        value: u, child: Text(u)))
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => row.unit = v ?? row.unit),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 4),
