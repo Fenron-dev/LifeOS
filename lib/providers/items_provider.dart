@@ -86,6 +86,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
     String? nutriscore,
     int? novaGroup,
     String? ingredientsText,
+    String? stockUnit,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -110,6 +111,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       nutriscore: Value(nutriscore),
       novaGroup: Value(novaGroup),
       ingredientsText: Value(ingredientsText),
+      stockUnit: Value(stockUnit),
     ));
     return id;
   }
@@ -138,6 +140,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       nutriscore: Value(item.nutriscore),
       novaGroup: Value(item.novaGroup),
       ingredientsText: Value(item.ingredientsText),
+      stockUnit: Value(item.stockUnit),
       updatedAt: Value(DateTime.now()),
     ));
   }

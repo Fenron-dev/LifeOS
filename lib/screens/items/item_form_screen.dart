@@ -7,6 +7,7 @@ import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
+import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../screens/settings/unit_conversions_screen.dart';
 import '../../services/open_food_facts_service.dart';
@@ -77,6 +78,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   bool _loadingOff = false;
   bool _showNutrition = false;
 
+  // Stock unit for inventory aggregation
+  String? _stockUnit;
+
   // Group membership
   Set<String> _selectedGroupIds = {};
   Set<String> _originalGroupIds = {};
@@ -111,7 +115,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _categoryId = i.categoryId;
       _nutriscore = i.nutriscore;
       _novaGroup = i.novaGroup;
-      // Show section if any nutrition data exists
+      _stockUnit = i.stockUnit;
       _showNutrition = _hasAnyNutrition(i);
     }
     // Load existing group memberships and item conversions
@@ -289,6 +293,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         nutriscore: _nutriscore,
         novaGroup: _novaGroup,
         ingredientsText: ingredients,
+        stockUnit: _stockUnit,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -312,6 +317,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         nutriscore: Value(_nutriscore),
         novaGroup: Value(_novaGroup),
         ingredientsText: Value(ingredients),
+        stockUnit: Value(_stockUnit),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -450,6 +456,28 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               subtitle: const Text('Für Mindestmengen: gilt als vorhanden bis leer'),
               contentPadding: EdgeInsets.zero,
             ),
+            const SizedBox(height: 12),
+            // Stock unit dropdown
+            Consumer(builder: (context, ref, _) {
+              final unitNames = ref.watch(unitNamesProvider);
+              return DropdownButtonFormField<String?>(
+                // ignore: deprecated_member_use
+                value: unitNames.contains(_stockUnit) ? _stockUnit : null,
+                decoration: const InputDecoration(
+                  labelText: 'Bestandseinheit',
+                  helperText:
+                      'Einheit für Bestandssummierung im Inventar',
+                  prefixIcon: Icon(Icons.straighten),
+                ),
+                items: [
+                  const DropdownMenuItem(
+                      value: null, child: Text('— keine —')),
+                  ...unitNames.map((n) =>
+                      DropdownMenuItem(value: n, child: Text(n))),
+                ],
+                onChanged: (v) => setState(() => _stockUnit = v),
+              );
+            }),
             const SizedBox(height: 12),
             TextFormField(
               controller: _notesCtrl,

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../db/database.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/unit_conversions_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 
 class InventoryScreen extends ConsumerWidget {
@@ -133,7 +134,7 @@ class _ItemCard extends StatelessWidget {
             if (item.ean != null)
               const Icon(Icons.barcode_reader, size: 16, color: Colors.grey),
             const SizedBox(width: 4),
-            _StockBadge(states: states),
+            _StockBadge(item: item, states: states),
             const Icon(Icons.chevron_right),
           ],
         ),
@@ -143,32 +144,66 @@ class _ItemCard extends StatelessWidget {
   }
 }
 
-class _StockBadge extends StatelessWidget {
+class _StockBadge extends ConsumerWidget {
+  final Item item;
   final List<ItemState> states;
-  const _StockBadge({required this.states});
+  const _StockBadge({required this.item, required this.states});
+
+  String _fmt(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (states.isEmpty) return const SizedBox.shrink();
 
-    // Group by unit and sum quantities
-    final Map<String, double> byUnit = {};
-    for (final s in states) {
-      byUnit[s.unit] = (byUnit[s.unit] ?? 0) + s.currentQuantity;
-    }
+    String label;
+    final stockUnit = item.stockUnit;
 
-    final parts = byUnit.entries.map((e) {
-      final q = e.value;
-      final qty = q == q.truncateToDouble()
-          ? q.toInt().toString()
-          : q.toStringAsFixed(1);
-      return '$qty ${e.key}';
-    }).join(' + ');
+    if (stockUnit != null) {
+      // Try to convert all quantities to stockUnit via item conversions
+      final convs = ref
+          .watch(itemConversionsProvider(item.id))
+          .valueOrNull ?? [];
+      final globalConvs = ref
+          .watch(globalConversionsProvider)
+          .valueOrNull ?? [];
+      final allConvs = [...convs, ...globalConvs];
+
+      double total = 0;
+      bool allConverted = true;
+      for (final s in states) {
+        if (s.unit == stockUnit) {
+          total += s.currentQuantity;
+        } else {
+          // Look for conversion s.unit → stockUnit
+          final conv = allConvs.where((c) =>
+              c.fromUnit == s.unit && c.toUnit == stockUnit).firstOrNull;
+          if (conv != null) {
+            total += s.currentQuantity * conv.factor;
+          } else {
+            allConverted = false;
+            total += s.currentQuantity; // fallback: add raw
+          }
+        }
+      }
+      label = allConverted
+          ? '${_fmt(total)} $stockUnit'
+          : '${_fmt(total)} $stockUnit*'; // * = conversion incomplete
+    } else {
+      // No stockUnit: group by unit and sum
+      final Map<String, double> byUnit = {};
+      for (final s in states) {
+        byUnit[s.unit] = (byUnit[s.unit] ?? 0) + s.currentQuantity;
+      }
+      label = byUnit.entries
+          .map((e) => '${_fmt(e.value)} ${e.key}')
+          .join(' + ');
+    }
 
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: Chip(
-        label: Text(parts, style: const TextStyle(fontSize: 11)),
+        label: Text(label, style: const TextStyle(fontSize: 11)),
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         side: BorderSide.none,

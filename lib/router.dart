@@ -8,11 +8,16 @@ import 'screens/items/item_detail_screen.dart';
 import 'screens/items/item_form_screen.dart';
 import 'screens/scanner/barcode_scanner_screen.dart';
 import 'screens/recipes/recipes_screen.dart';
+import 'screens/recipes/recipe_detail_screen.dart';
+import 'screens/recipes/recipe_form_screen.dart';
+import 'screens/recipes/mealie_import_screen.dart';
+import 'screens/recipes/meals_screen.dart';
 import 'screens/tasks/tasks_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/settings/shops_screen.dart';
 import 'screens/settings/unit_conversions_screen.dart';
+import 'screens/settings/units_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'screens/inventory/groups_screen.dart';
 import 'screens/inventory/shopping_list_screen.dart';
@@ -60,6 +65,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'unit-conversions',
             builder: (context, state) => const UnitConversionsScreen(),
+          ),
+          GoRoute(
+            path: 'units',
+            builder: (context, state) => const UnitsScreen(),
           ),
         ],
       ),
@@ -112,6 +121,34 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/recipes',
                 builder: (context, state) => const RecipesScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (context, state) => const RecipeFormScreen(),
+                  ),
+                  GoRoute(
+                    path: 'import',
+                    builder: (context, state) => const MealieImportScreen(),
+                  ),
+                  GoRoute(
+                    path: 'meals',
+                    builder: (context, state) => const MealsScreen(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) => RecipeDetailScreen(
+                      recipeId: state.pathParameters['id']!,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (context, state) => RecipeFormScreen(
+                          recipeId: state.pathParameters['id'],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

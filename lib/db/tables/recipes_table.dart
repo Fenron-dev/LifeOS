@@ -8,12 +8,18 @@ class Recipes extends Table {
   IntColumn get cookTimeMinutes => integer().nullable()();
   IntColumn get servings => integer().withDefault(const Constant(2))();
   TextColumn get videoUrl => text().nullable()(); // YouTube URL or local path
+  TextColumn get sourceUrl => text().nullable()(); // original web URL
+  TextColumn get mealieSlug => text().nullable()(); // Mealie slug for sync
+  TextColumn get imageUrl => text().nullable()(); // cover image
+  TextColumn get tags => text().nullable()(); // JSON array of tag strings
   TextColumn get notes => text().nullable()();
-  // Nutrition per serving (derived from ingredients, cached here)
+  // Nutrition per serving (derived from ingredients or imported)
   RealColumn get caloriesPerServing => real().nullable()();
   RealColumn get proteinPerServing => real().nullable()();
   RealColumn get carbsPerServing => real().nullable()();
   RealColumn get fatPerServing => real().nullable()();
+  RealColumn get fiberPerServing => real().nullable()();
+  RealColumn get sodiumPerServing => real().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

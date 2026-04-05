@@ -33,6 +33,10 @@ class Items extends Table {
   IntColumn get novaGroup => integer().nullable()(); // 1–4
   TextColumn get ingredientsText => text().nullable()();
 
+  /// The unit used for stock aggregation (e.g. 'g', 'Stück').
+  /// If null, quantities are summed per unit without conversion.
+  TextColumn get stockUnit => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

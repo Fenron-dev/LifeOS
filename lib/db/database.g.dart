@@ -248,6 +248,17 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _stockUnitMeta = const VerificationMeta(
+    'stockUnit',
+  );
+  @override
+  late final GeneratedColumn<String> stockUnit = GeneratedColumn<String>(
+    'stock_unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -296,6 +307,7 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     nutriscore,
     novaGroup,
     ingredientsText,
+    stockUnit,
     createdAt,
     updatedAt,
   ];
@@ -482,6 +494,12 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         ),
       );
     }
+    if (data.containsKey('stock_unit')) {
+      context.handle(
+        _stockUnitMeta,
+        stockUnit.isAcceptableOrUnknown(data['stock_unit']!, _stockUnitMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -591,6 +609,10 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}ingredients_text'],
       ),
+      stockUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stock_unit'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -631,6 +653,10 @@ class Item extends DataClass implements Insertable<Item> {
   final String? nutriscore;
   final int? novaGroup;
   final String? ingredientsText;
+
+  /// The unit used for stock aggregation (e.g. 'g', 'Stück').
+  /// If null, quantities are summed per unit without conversion.
+  final String? stockUnit;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Item({
@@ -656,6 +682,7 @@ class Item extends DataClass implements Insertable<Item> {
     this.nutriscore,
     this.novaGroup,
     this.ingredientsText,
+    this.stockUnit,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -716,6 +743,9 @@ class Item extends DataClass implements Insertable<Item> {
     if (!nullToAbsent || ingredientsText != null) {
       map['ingredients_text'] = Variable<String>(ingredientsText);
     }
+    if (!nullToAbsent || stockUnit != null) {
+      map['stock_unit'] = Variable<String>(stockUnit);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -775,6 +805,9 @@ class Item extends DataClass implements Insertable<Item> {
       ingredientsText: ingredientsText == null && nullToAbsent
           ? const Value.absent()
           : Value(ingredientsText),
+      stockUnit: stockUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stockUnit),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -812,6 +845,7 @@ class Item extends DataClass implements Insertable<Item> {
       nutriscore: serializer.fromJson<String?>(json['nutriscore']),
       novaGroup: serializer.fromJson<int?>(json['novaGroup']),
       ingredientsText: serializer.fromJson<String?>(json['ingredientsText']),
+      stockUnit: serializer.fromJson<String?>(json['stockUnit']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -842,6 +876,7 @@ class Item extends DataClass implements Insertable<Item> {
       'nutriscore': serializer.toJson<String?>(nutriscore),
       'novaGroup': serializer.toJson<int?>(novaGroup),
       'ingredientsText': serializer.toJson<String?>(ingredientsText),
+      'stockUnit': serializer.toJson<String?>(stockUnit),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -870,6 +905,7 @@ class Item extends DataClass implements Insertable<Item> {
     Value<String?> nutriscore = const Value.absent(),
     Value<int?> novaGroup = const Value.absent(),
     Value<String?> ingredientsText = const Value.absent(),
+    Value<String?> stockUnit = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Item(
@@ -907,6 +943,7 @@ class Item extends DataClass implements Insertable<Item> {
     ingredientsText: ingredientsText.present
         ? ingredientsText.value
         : this.ingredientsText,
+    stockUnit: stockUnit.present ? stockUnit.value : this.stockUnit,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -966,6 +1003,7 @@ class Item extends DataClass implements Insertable<Item> {
       ingredientsText: data.ingredientsText.present
           ? data.ingredientsText.value
           : this.ingredientsText,
+      stockUnit: data.stockUnit.present ? data.stockUnit.value : this.stockUnit,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -996,6 +1034,7 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('nutriscore: $nutriscore, ')
           ..write('novaGroup: $novaGroup, ')
           ..write('ingredientsText: $ingredientsText, ')
+          ..write('stockUnit: $stockUnit, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1026,6 +1065,7 @@ class Item extends DataClass implements Insertable<Item> {
     nutriscore,
     novaGroup,
     ingredientsText,
+    stockUnit,
     createdAt,
     updatedAt,
   ]);
@@ -1055,6 +1095,7 @@ class Item extends DataClass implements Insertable<Item> {
           other.nutriscore == this.nutriscore &&
           other.novaGroup == this.novaGroup &&
           other.ingredientsText == this.ingredientsText &&
+          other.stockUnit == this.stockUnit &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1082,6 +1123,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<String?> nutriscore;
   final Value<int?> novaGroup;
   final Value<String?> ingredientsText;
+  final Value<String?> stockUnit;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -1108,6 +1150,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutriscore = const Value.absent(),
     this.novaGroup = const Value.absent(),
     this.ingredientsText = const Value.absent(),
+    this.stockUnit = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1135,6 +1178,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutriscore = const Value.absent(),
     this.novaGroup = const Value.absent(),
     this.ingredientsText = const Value.absent(),
+    this.stockUnit = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1164,6 +1208,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<String>? nutriscore,
     Expression<int>? novaGroup,
     Expression<String>? ingredientsText,
+    Expression<String>? stockUnit,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -1193,6 +1238,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (nutriscore != null) 'nutriscore': nutriscore,
       if (novaGroup != null) 'nova_group': novaGroup,
       if (ingredientsText != null) 'ingredients_text': ingredientsText,
+      if (stockUnit != null) 'stock_unit': stockUnit,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1222,6 +1268,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<String?>? nutriscore,
     Value<int?>? novaGroup,
     Value<String?>? ingredientsText,
+    Value<String?>? stockUnit,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -1249,6 +1296,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       nutriscore: nutriscore ?? this.nutriscore,
       novaGroup: novaGroup ?? this.novaGroup,
       ingredientsText: ingredientsText ?? this.ingredientsText,
+      stockUnit: stockUnit ?? this.stockUnit,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -1326,6 +1374,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (ingredientsText.present) {
       map['ingredients_text'] = Variable<String>(ingredientsText.value);
     }
+    if (stockUnit.present) {
+      map['stock_unit'] = Variable<String>(stockUnit.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1363,6 +1414,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('nutriscore: $nutriscore, ')
           ..write('novaGroup: $novaGroup, ')
           ..write('ingredientsText: $ingredientsText, ')
+          ..write('stockUnit: $stockUnit, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -5986,6 +6038,48 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
+    'sourceUrl',
+  );
+  @override
+  late final GeneratedColumn<String> sourceUrl = GeneratedColumn<String>(
+    'source_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mealieSlugMeta = const VerificationMeta(
+    'mealieSlug',
+  );
+  @override
+  late final GeneratedColumn<String> mealieSlug = GeneratedColumn<String>(
+    'mealie_slug',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _imageUrlMeta = const VerificationMeta(
+    'imageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> imageUrl = GeneratedColumn<String>(
+    'image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -6040,6 +6134,28 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _fiberPerServingMeta = const VerificationMeta(
+    'fiberPerServing',
+  );
+  @override
+  late final GeneratedColumn<double> fiberPerServing = GeneratedColumn<double>(
+    'fiber_per_serving',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sodiumPerServingMeta = const VerificationMeta(
+    'sodiumPerServing',
+  );
+  @override
+  late final GeneratedColumn<double> sodiumPerServing = GeneratedColumn<double>(
+    'sodium_per_serving',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -6073,11 +6189,17 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
     cookTimeMinutes,
     servings,
     videoUrl,
+    sourceUrl,
+    mealieSlug,
+    imageUrl,
+    tags,
     notes,
     caloriesPerServing,
     proteinPerServing,
     carbsPerServing,
     fatPerServing,
+    fiberPerServing,
+    sodiumPerServing,
     createdAt,
     updatedAt,
   ];
@@ -6145,6 +6267,30 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
         videoUrl.isAcceptableOrUnknown(data['video_url']!, _videoUrlMeta),
       );
     }
+    if (data.containsKey('source_url')) {
+      context.handle(
+        _sourceUrlMeta,
+        sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
+      );
+    }
+    if (data.containsKey('mealie_slug')) {
+      context.handle(
+        _mealieSlugMeta,
+        mealieSlug.isAcceptableOrUnknown(data['mealie_slug']!, _mealieSlugMeta),
+      );
+    }
+    if (data.containsKey('image_url')) {
+      context.handle(
+        _imageUrlMeta,
+        imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta),
+      );
+    }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
@@ -6184,6 +6330,24 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
         fatPerServing.isAcceptableOrUnknown(
           data['fat_per_serving']!,
           _fatPerServingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fiber_per_serving')) {
+      context.handle(
+        _fiberPerServingMeta,
+        fiberPerServing.isAcceptableOrUnknown(
+          data['fiber_per_serving']!,
+          _fiberPerServingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sodium_per_serving')) {
+      context.handle(
+        _sodiumPerServingMeta,
+        sodiumPerServing.isAcceptableOrUnknown(
+          data['sodium_per_serving']!,
+          _sodiumPerServingMeta,
         ),
       );
     }
@@ -6236,6 +6400,22 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
         DriftSqlType.string,
         data['${effectivePrefix}video_url'],
       ),
+      sourceUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_url'],
+      ),
+      mealieSlug: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mealie_slug'],
+      ),
+      imageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_url'],
+      ),
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -6255,6 +6435,14 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
       fatPerServing: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}fat_per_serving'],
+      ),
+      fiberPerServing: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fiber_per_serving'],
+      ),
+      sodiumPerServing: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}sodium_per_serving'],
       ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -6281,11 +6469,17 @@ class Recipe extends DataClass implements Insertable<Recipe> {
   final int? cookTimeMinutes;
   final int servings;
   final String? videoUrl;
+  final String? sourceUrl;
+  final String? mealieSlug;
+  final String? imageUrl;
+  final String? tags;
   final String? notes;
   final double? caloriesPerServing;
   final double? proteinPerServing;
   final double? carbsPerServing;
   final double? fatPerServing;
+  final double? fiberPerServing;
+  final double? sodiumPerServing;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Recipe({
@@ -6296,11 +6490,17 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     this.cookTimeMinutes,
     required this.servings,
     this.videoUrl,
+    this.sourceUrl,
+    this.mealieSlug,
+    this.imageUrl,
+    this.tags,
     this.notes,
     this.caloriesPerServing,
     this.proteinPerServing,
     this.carbsPerServing,
     this.fatPerServing,
+    this.fiberPerServing,
+    this.sodiumPerServing,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -6322,6 +6522,18 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     if (!nullToAbsent || videoUrl != null) {
       map['video_url'] = Variable<String>(videoUrl);
     }
+    if (!nullToAbsent || sourceUrl != null) {
+      map['source_url'] = Variable<String>(sourceUrl);
+    }
+    if (!nullToAbsent || mealieSlug != null) {
+      map['mealie_slug'] = Variable<String>(mealieSlug);
+    }
+    if (!nullToAbsent || imageUrl != null) {
+      map['image_url'] = Variable<String>(imageUrl);
+    }
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(tags);
+    }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
@@ -6336,6 +6548,12 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     }
     if (!nullToAbsent || fatPerServing != null) {
       map['fat_per_serving'] = Variable<double>(fatPerServing);
+    }
+    if (!nullToAbsent || fiberPerServing != null) {
+      map['fiber_per_serving'] = Variable<double>(fiberPerServing);
+    }
+    if (!nullToAbsent || sodiumPerServing != null) {
+      map['sodium_per_serving'] = Variable<double>(sodiumPerServing);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -6359,6 +6577,16 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       videoUrl: videoUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(videoUrl),
+      sourceUrl: sourceUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceUrl),
+      mealieSlug: mealieSlug == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mealieSlug),
+      imageUrl: imageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUrl),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -6374,6 +6602,12 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       fatPerServing: fatPerServing == null && nullToAbsent
           ? const Value.absent()
           : Value(fatPerServing),
+      fiberPerServing: fiberPerServing == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fiberPerServing),
+      sodiumPerServing: sodiumPerServing == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sodiumPerServing),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -6392,6 +6626,10 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       cookTimeMinutes: serializer.fromJson<int?>(json['cookTimeMinutes']),
       servings: serializer.fromJson<int>(json['servings']),
       videoUrl: serializer.fromJson<String?>(json['videoUrl']),
+      sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
+      mealieSlug: serializer.fromJson<String?>(json['mealieSlug']),
+      imageUrl: serializer.fromJson<String?>(json['imageUrl']),
+      tags: serializer.fromJson<String?>(json['tags']),
       notes: serializer.fromJson<String?>(json['notes']),
       caloriesPerServing: serializer.fromJson<double?>(
         json['caloriesPerServing'],
@@ -6401,6 +6639,8 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       ),
       carbsPerServing: serializer.fromJson<double?>(json['carbsPerServing']),
       fatPerServing: serializer.fromJson<double?>(json['fatPerServing']),
+      fiberPerServing: serializer.fromJson<double?>(json['fiberPerServing']),
+      sodiumPerServing: serializer.fromJson<double?>(json['sodiumPerServing']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -6416,11 +6656,17 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       'cookTimeMinutes': serializer.toJson<int?>(cookTimeMinutes),
       'servings': serializer.toJson<int>(servings),
       'videoUrl': serializer.toJson<String?>(videoUrl),
+      'sourceUrl': serializer.toJson<String?>(sourceUrl),
+      'mealieSlug': serializer.toJson<String?>(mealieSlug),
+      'imageUrl': serializer.toJson<String?>(imageUrl),
+      'tags': serializer.toJson<String?>(tags),
       'notes': serializer.toJson<String?>(notes),
       'caloriesPerServing': serializer.toJson<double?>(caloriesPerServing),
       'proteinPerServing': serializer.toJson<double?>(proteinPerServing),
       'carbsPerServing': serializer.toJson<double?>(carbsPerServing),
       'fatPerServing': serializer.toJson<double?>(fatPerServing),
+      'fiberPerServing': serializer.toJson<double?>(fiberPerServing),
+      'sodiumPerServing': serializer.toJson<double?>(sodiumPerServing),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -6434,11 +6680,17 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     Value<int?> cookTimeMinutes = const Value.absent(),
     int? servings,
     Value<String?> videoUrl = const Value.absent(),
+    Value<String?> sourceUrl = const Value.absent(),
+    Value<String?> mealieSlug = const Value.absent(),
+    Value<String?> imageUrl = const Value.absent(),
+    Value<String?> tags = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<double?> caloriesPerServing = const Value.absent(),
     Value<double?> proteinPerServing = const Value.absent(),
     Value<double?> carbsPerServing = const Value.absent(),
     Value<double?> fatPerServing = const Value.absent(),
+    Value<double?> fiberPerServing = const Value.absent(),
+    Value<double?> sodiumPerServing = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Recipe(
@@ -6453,6 +6705,10 @@ class Recipe extends DataClass implements Insertable<Recipe> {
         : this.cookTimeMinutes,
     servings: servings ?? this.servings,
     videoUrl: videoUrl.present ? videoUrl.value : this.videoUrl,
+    sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
+    mealieSlug: mealieSlug.present ? mealieSlug.value : this.mealieSlug,
+    imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
+    tags: tags.present ? tags.value : this.tags,
     notes: notes.present ? notes.value : this.notes,
     caloriesPerServing: caloriesPerServing.present
         ? caloriesPerServing.value
@@ -6466,6 +6722,12 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     fatPerServing: fatPerServing.present
         ? fatPerServing.value
         : this.fatPerServing,
+    fiberPerServing: fiberPerServing.present
+        ? fiberPerServing.value
+        : this.fiberPerServing,
+    sodiumPerServing: sodiumPerServing.present
+        ? sodiumPerServing.value
+        : this.sodiumPerServing,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -6484,6 +6746,12 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           : this.cookTimeMinutes,
       servings: data.servings.present ? data.servings.value : this.servings,
       videoUrl: data.videoUrl.present ? data.videoUrl.value : this.videoUrl,
+      sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      mealieSlug: data.mealieSlug.present
+          ? data.mealieSlug.value
+          : this.mealieSlug,
+      imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
+      tags: data.tags.present ? data.tags.value : this.tags,
       notes: data.notes.present ? data.notes.value : this.notes,
       caloriesPerServing: data.caloriesPerServing.present
           ? data.caloriesPerServing.value
@@ -6497,6 +6765,12 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       fatPerServing: data.fatPerServing.present
           ? data.fatPerServing.value
           : this.fatPerServing,
+      fiberPerServing: data.fiberPerServing.present
+          ? data.fiberPerServing.value
+          : this.fiberPerServing,
+      sodiumPerServing: data.sodiumPerServing.present
+          ? data.sodiumPerServing.value
+          : this.sodiumPerServing,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -6512,11 +6786,17 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           ..write('cookTimeMinutes: $cookTimeMinutes, ')
           ..write('servings: $servings, ')
           ..write('videoUrl: $videoUrl, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('mealieSlug: $mealieSlug, ')
+          ..write('imageUrl: $imageUrl, ')
+          ..write('tags: $tags, ')
           ..write('notes: $notes, ')
           ..write('caloriesPerServing: $caloriesPerServing, ')
           ..write('proteinPerServing: $proteinPerServing, ')
           ..write('carbsPerServing: $carbsPerServing, ')
           ..write('fatPerServing: $fatPerServing, ')
+          ..write('fiberPerServing: $fiberPerServing, ')
+          ..write('sodiumPerServing: $sodiumPerServing, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -6532,11 +6812,17 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     cookTimeMinutes,
     servings,
     videoUrl,
+    sourceUrl,
+    mealieSlug,
+    imageUrl,
+    tags,
     notes,
     caloriesPerServing,
     proteinPerServing,
     carbsPerServing,
     fatPerServing,
+    fiberPerServing,
+    sodiumPerServing,
     createdAt,
     updatedAt,
   );
@@ -6551,11 +6837,17 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           other.cookTimeMinutes == this.cookTimeMinutes &&
           other.servings == this.servings &&
           other.videoUrl == this.videoUrl &&
+          other.sourceUrl == this.sourceUrl &&
+          other.mealieSlug == this.mealieSlug &&
+          other.imageUrl == this.imageUrl &&
+          other.tags == this.tags &&
           other.notes == this.notes &&
           other.caloriesPerServing == this.caloriesPerServing &&
           other.proteinPerServing == this.proteinPerServing &&
           other.carbsPerServing == this.carbsPerServing &&
           other.fatPerServing == this.fatPerServing &&
+          other.fiberPerServing == this.fiberPerServing &&
+          other.sodiumPerServing == this.sodiumPerServing &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -6568,11 +6860,17 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
   final Value<int?> cookTimeMinutes;
   final Value<int> servings;
   final Value<String?> videoUrl;
+  final Value<String?> sourceUrl;
+  final Value<String?> mealieSlug;
+  final Value<String?> imageUrl;
+  final Value<String?> tags;
   final Value<String?> notes;
   final Value<double?> caloriesPerServing;
   final Value<double?> proteinPerServing;
   final Value<double?> carbsPerServing;
   final Value<double?> fatPerServing;
+  final Value<double?> fiberPerServing;
+  final Value<double?> sodiumPerServing;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -6584,11 +6882,17 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     this.cookTimeMinutes = const Value.absent(),
     this.servings = const Value.absent(),
     this.videoUrl = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.mealieSlug = const Value.absent(),
+    this.imageUrl = const Value.absent(),
+    this.tags = const Value.absent(),
     this.notes = const Value.absent(),
     this.caloriesPerServing = const Value.absent(),
     this.proteinPerServing = const Value.absent(),
     this.carbsPerServing = const Value.absent(),
     this.fatPerServing = const Value.absent(),
+    this.fiberPerServing = const Value.absent(),
+    this.sodiumPerServing = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -6601,11 +6905,17 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     this.cookTimeMinutes = const Value.absent(),
     this.servings = const Value.absent(),
     this.videoUrl = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.mealieSlug = const Value.absent(),
+    this.imageUrl = const Value.absent(),
+    this.tags = const Value.absent(),
     this.notes = const Value.absent(),
     this.caloriesPerServing = const Value.absent(),
     this.proteinPerServing = const Value.absent(),
     this.carbsPerServing = const Value.absent(),
     this.fatPerServing = const Value.absent(),
+    this.fiberPerServing = const Value.absent(),
+    this.sodiumPerServing = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -6619,11 +6929,17 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     Expression<int>? cookTimeMinutes,
     Expression<int>? servings,
     Expression<String>? videoUrl,
+    Expression<String>? sourceUrl,
+    Expression<String>? mealieSlug,
+    Expression<String>? imageUrl,
+    Expression<String>? tags,
     Expression<String>? notes,
     Expression<double>? caloriesPerServing,
     Expression<double>? proteinPerServing,
     Expression<double>? carbsPerServing,
     Expression<double>? fatPerServing,
+    Expression<double>? fiberPerServing,
+    Expression<double>? sodiumPerServing,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -6636,12 +6952,18 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
       if (cookTimeMinutes != null) 'cook_time_minutes': cookTimeMinutes,
       if (servings != null) 'servings': servings,
       if (videoUrl != null) 'video_url': videoUrl,
+      if (sourceUrl != null) 'source_url': sourceUrl,
+      if (mealieSlug != null) 'mealie_slug': mealieSlug,
+      if (imageUrl != null) 'image_url': imageUrl,
+      if (tags != null) 'tags': tags,
       if (notes != null) 'notes': notes,
       if (caloriesPerServing != null)
         'calories_per_serving': caloriesPerServing,
       if (proteinPerServing != null) 'protein_per_serving': proteinPerServing,
       if (carbsPerServing != null) 'carbs_per_serving': carbsPerServing,
       if (fatPerServing != null) 'fat_per_serving': fatPerServing,
+      if (fiberPerServing != null) 'fiber_per_serving': fiberPerServing,
+      if (sodiumPerServing != null) 'sodium_per_serving': sodiumPerServing,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -6656,11 +6978,17 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     Value<int?>? cookTimeMinutes,
     Value<int>? servings,
     Value<String?>? videoUrl,
+    Value<String?>? sourceUrl,
+    Value<String?>? mealieSlug,
+    Value<String?>? imageUrl,
+    Value<String?>? tags,
     Value<String?>? notes,
     Value<double?>? caloriesPerServing,
     Value<double?>? proteinPerServing,
     Value<double?>? carbsPerServing,
     Value<double?>? fatPerServing,
+    Value<double?>? fiberPerServing,
+    Value<double?>? sodiumPerServing,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -6673,11 +7001,17 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
       cookTimeMinutes: cookTimeMinutes ?? this.cookTimeMinutes,
       servings: servings ?? this.servings,
       videoUrl: videoUrl ?? this.videoUrl,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      mealieSlug: mealieSlug ?? this.mealieSlug,
+      imageUrl: imageUrl ?? this.imageUrl,
+      tags: tags ?? this.tags,
       notes: notes ?? this.notes,
       caloriesPerServing: caloriesPerServing ?? this.caloriesPerServing,
       proteinPerServing: proteinPerServing ?? this.proteinPerServing,
       carbsPerServing: carbsPerServing ?? this.carbsPerServing,
       fatPerServing: fatPerServing ?? this.fatPerServing,
+      fiberPerServing: fiberPerServing ?? this.fiberPerServing,
+      sodiumPerServing: sodiumPerServing ?? this.sodiumPerServing,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -6708,6 +7042,18 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     if (videoUrl.present) {
       map['video_url'] = Variable<String>(videoUrl.value);
     }
+    if (sourceUrl.present) {
+      map['source_url'] = Variable<String>(sourceUrl.value);
+    }
+    if (mealieSlug.present) {
+      map['mealie_slug'] = Variable<String>(mealieSlug.value);
+    }
+    if (imageUrl.present) {
+      map['image_url'] = Variable<String>(imageUrl.value);
+    }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -6722,6 +7068,12 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     }
     if (fatPerServing.present) {
       map['fat_per_serving'] = Variable<double>(fatPerServing.value);
+    }
+    if (fiberPerServing.present) {
+      map['fiber_per_serving'] = Variable<double>(fiberPerServing.value);
+    }
+    if (sodiumPerServing.present) {
+      map['sodium_per_serving'] = Variable<double>(sodiumPerServing.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -6745,11 +7097,17 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
           ..write('cookTimeMinutes: $cookTimeMinutes, ')
           ..write('servings: $servings, ')
           ..write('videoUrl: $videoUrl, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('mealieSlug: $mealieSlug, ')
+          ..write('imageUrl: $imageUrl, ')
+          ..write('tags: $tags, ')
           ..write('notes: $notes, ')
           ..write('caloriesPerServing: $caloriesPerServing, ')
           ..write('proteinPerServing: $proteinPerServing, ')
           ..write('carbsPerServing: $carbsPerServing, ')
           ..write('fatPerServing: $fatPerServing, ')
+          ..write('fiberPerServing: $fiberPerServing, ')
+          ..write('sodiumPerServing: $sodiumPerServing, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -10651,6 +11009,416 @@ class UnitConversionsCompanion extends UpdateCompanion<UnitConversion> {
   }
 }
 
+class $UnitsTable extends Units with TableInfo<$UnitsTable, Unit> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UnitsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _abbreviationMeta = const VerificationMeta(
+    'abbreviation',
+  );
+  @override
+  late final GeneratedColumn<String> abbreviation = GeneratedColumn<String>(
+    'abbreviation',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
+    'isDefault',
+  );
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+    'is_default',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_default" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    abbreviation,
+    isDefault,
+    sortOrder,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'units';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Unit> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('abbreviation')) {
+      context.handle(
+        _abbreviationMeta,
+        abbreviation.isAcceptableOrUnknown(
+          data['abbreviation']!,
+          _abbreviationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_default')) {
+      context.handle(
+        _isDefaultMeta,
+        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Unit map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Unit(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      abbreviation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}abbreviation'],
+      ),
+      isDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_default'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $UnitsTable createAlias(String alias) {
+    return $UnitsTable(attachedDatabase, alias);
+  }
+}
+
+class Unit extends DataClass implements Insertable<Unit> {
+  final String id;
+  final String name;
+  final String? abbreviation;
+  final bool isDefault;
+  final int sortOrder;
+  final DateTime createdAt;
+  const Unit({
+    required this.id,
+    required this.name,
+    this.abbreviation,
+    required this.isDefault,
+    required this.sortOrder,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || abbreviation != null) {
+      map['abbreviation'] = Variable<String>(abbreviation);
+    }
+    map['is_default'] = Variable<bool>(isDefault);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  UnitsCompanion toCompanion(bool nullToAbsent) {
+    return UnitsCompanion(
+      id: Value(id),
+      name: Value(name),
+      abbreviation: abbreviation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(abbreviation),
+      isDefault: Value(isDefault),
+      sortOrder: Value(sortOrder),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Unit.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Unit(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      abbreviation: serializer.fromJson<String?>(json['abbreviation']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'abbreviation': serializer.toJson<String?>(abbreviation),
+      'isDefault': serializer.toJson<bool>(isDefault),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Unit copyWith({
+    String? id,
+    String? name,
+    Value<String?> abbreviation = const Value.absent(),
+    bool? isDefault,
+    int? sortOrder,
+    DateTime? createdAt,
+  }) => Unit(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    abbreviation: abbreviation.present ? abbreviation.value : this.abbreviation,
+    isDefault: isDefault ?? this.isDefault,
+    sortOrder: sortOrder ?? this.sortOrder,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Unit copyWithCompanion(UnitsCompanion data) {
+    return Unit(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      abbreviation: data.abbreviation.present
+          ? data.abbreviation.value
+          : this.abbreviation,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Unit(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('abbreviation: $abbreviation, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, abbreviation, isDefault, sortOrder, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Unit &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.abbreviation == this.abbreviation &&
+          other.isDefault == this.isDefault &&
+          other.sortOrder == this.sortOrder &&
+          other.createdAt == this.createdAt);
+}
+
+class UnitsCompanion extends UpdateCompanion<Unit> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> abbreviation;
+  final Value<bool> isDefault;
+  final Value<int> sortOrder;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const UnitsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.abbreviation = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UnitsCompanion.insert({
+    required String id,
+    required String name,
+    this.abbreviation = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name);
+  static Insertable<Unit> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? abbreviation,
+    Expression<bool>? isDefault,
+    Expression<int>? sortOrder,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (abbreviation != null) 'abbreviation': abbreviation,
+      if (isDefault != null) 'is_default': isDefault,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UnitsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? abbreviation,
+    Value<bool>? isDefault,
+    Value<int>? sortOrder,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return UnitsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      abbreviation: abbreviation ?? this.abbreviation,
+      isDefault: isDefault ?? this.isDefault,
+      sortOrder: sortOrder ?? this.sortOrder,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (abbreviation.present) {
+      map['abbreviation'] = Variable<String>(abbreviation.value);
+    }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UnitsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('abbreviation: $abbreviation, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $AutomationRulesTable extends AutomationRules
     with TableInfo<$AutomationRulesTable, AutomationRule> {
   @override
@@ -11463,6 +12231,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $UnitConversionsTable unitConversions = $UnitConversionsTable(
     this,
   );
+  late final $UnitsTable units = $UnitsTable(this);
   late final $AutomationRulesTable automationRules = $AutomationRulesTable(
     this,
   );
@@ -11491,6 +12260,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     wishListEntries,
     shops,
     unitConversions,
+    units,
     automationRules,
     appSettings,
   ];
@@ -11520,6 +12290,7 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String?> nutriscore,
       Value<int?> novaGroup,
       Value<String?> ingredientsText,
+      Value<String?> stockUnit,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -11548,6 +12319,7 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String?> nutriscore,
       Value<int?> novaGroup,
       Value<String?> ingredientsText,
+      Value<String?> stockUnit,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -11749,6 +12521,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get ingredientsText => $composableBuilder(
     column: $table.ingredientsText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stockUnit => $composableBuilder(
+    column: $table.stockUnit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11982,6 +12759,11 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get stockUnit => $composableBuilder(
+    column: $table.stockUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -12099,6 +12881,9 @@ class $$ItemsTableAnnotationComposer
     column: $table.ingredientsText,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get stockUnit =>
+      $composableBuilder(column: $table.stockUnit, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -12262,6 +13047,7 @@ class $$ItemsTableTableManager
                 Value<String?> nutriscore = const Value.absent(),
                 Value<int?> novaGroup = const Value.absent(),
                 Value<String?> ingredientsText = const Value.absent(),
+                Value<String?> stockUnit = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -12288,6 +13074,7 @@ class $$ItemsTableTableManager
                 nutriscore: nutriscore,
                 novaGroup: novaGroup,
                 ingredientsText: ingredientsText,
+                stockUnit: stockUnit,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -12316,6 +13103,7 @@ class $$ItemsTableTableManager
                 Value<String?> nutriscore = const Value.absent(),
                 Value<int?> novaGroup = const Value.absent(),
                 Value<String?> ingredientsText = const Value.absent(),
+                Value<String?> stockUnit = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -12342,6 +13130,7 @@ class $$ItemsTableTableManager
                 nutriscore: nutriscore,
                 novaGroup: novaGroup,
                 ingredientsText: ingredientsText,
+                stockUnit: stockUnit,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -15701,11 +16490,17 @@ typedef $$RecipesTableCreateCompanionBuilder =
       Value<int?> cookTimeMinutes,
       Value<int> servings,
       Value<String?> videoUrl,
+      Value<String?> sourceUrl,
+      Value<String?> mealieSlug,
+      Value<String?> imageUrl,
+      Value<String?> tags,
       Value<String?> notes,
       Value<double?> caloriesPerServing,
       Value<double?> proteinPerServing,
       Value<double?> carbsPerServing,
       Value<double?> fatPerServing,
+      Value<double?> fiberPerServing,
+      Value<double?> sodiumPerServing,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -15719,11 +16514,17 @@ typedef $$RecipesTableUpdateCompanionBuilder =
       Value<int?> cookTimeMinutes,
       Value<int> servings,
       Value<String?> videoUrl,
+      Value<String?> sourceUrl,
+      Value<String?> mealieSlug,
+      Value<String?> imageUrl,
+      Value<String?> tags,
       Value<String?> notes,
       Value<double?> caloriesPerServing,
       Value<double?> proteinPerServing,
       Value<double?> carbsPerServing,
       Value<double?> fatPerServing,
+      Value<double?> fiberPerServing,
+      Value<double?> sodiumPerServing,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -15820,6 +16621,26 @@ class $$RecipesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mealieSlug => $composableBuilder(
+    column: $table.mealieSlug,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnFilters(column),
@@ -15842,6 +16663,16 @@ class $$RecipesTableFilterComposer
 
   ColumnFilters<double> get fatPerServing => $composableBuilder(
     column: $table.fatPerServing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fiberPerServing => $composableBuilder(
+    column: $table.fiberPerServing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get sodiumPerServing => $composableBuilder(
+    column: $table.sodiumPerServing,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15950,6 +16781,26 @@ class $$RecipesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mealieSlug => $composableBuilder(
+    column: $table.mealieSlug,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -15972,6 +16823,16 @@ class $$RecipesTableOrderingComposer
 
   ColumnOrderings<double> get fatPerServing => $composableBuilder(
     column: $table.fatPerServing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fiberPerServing => $composableBuilder(
+    column: $table.fiberPerServing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get sodiumPerServing => $composableBuilder(
+    column: $table.sodiumPerServing,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -16022,6 +16883,20 @@ class $$RecipesTableAnnotationComposer
   GeneratedColumn<String> get videoUrl =>
       $composableBuilder(column: $table.videoUrl, builder: (column) => column);
 
+  GeneratedColumn<String> get sourceUrl =>
+      $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get mealieSlug => $composableBuilder(
+    column: $table.mealieSlug,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get imageUrl =>
+      $composableBuilder(column: $table.imageUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
+
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
@@ -16042,6 +16917,16 @@ class $$RecipesTableAnnotationComposer
 
   GeneratedColumn<double> get fatPerServing => $composableBuilder(
     column: $table.fatPerServing,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get fiberPerServing => $composableBuilder(
+    column: $table.fiberPerServing,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get sodiumPerServing => $composableBuilder(
+    column: $table.sodiumPerServing,
     builder: (column) => column,
   );
 
@@ -16141,11 +17026,17 @@ class $$RecipesTableTableManager
                 Value<int?> cookTimeMinutes = const Value.absent(),
                 Value<int> servings = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
+                Value<String?> sourceUrl = const Value.absent(),
+                Value<String?> mealieSlug = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<double?> caloriesPerServing = const Value.absent(),
                 Value<double?> proteinPerServing = const Value.absent(),
                 Value<double?> carbsPerServing = const Value.absent(),
                 Value<double?> fatPerServing = const Value.absent(),
+                Value<double?> fiberPerServing = const Value.absent(),
+                Value<double?> sodiumPerServing = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -16157,11 +17048,17 @@ class $$RecipesTableTableManager
                 cookTimeMinutes: cookTimeMinutes,
                 servings: servings,
                 videoUrl: videoUrl,
+                sourceUrl: sourceUrl,
+                mealieSlug: mealieSlug,
+                imageUrl: imageUrl,
+                tags: tags,
                 notes: notes,
                 caloriesPerServing: caloriesPerServing,
                 proteinPerServing: proteinPerServing,
                 carbsPerServing: carbsPerServing,
                 fatPerServing: fatPerServing,
+                fiberPerServing: fiberPerServing,
+                sodiumPerServing: sodiumPerServing,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -16175,11 +17072,17 @@ class $$RecipesTableTableManager
                 Value<int?> cookTimeMinutes = const Value.absent(),
                 Value<int> servings = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
+                Value<String?> sourceUrl = const Value.absent(),
+                Value<String?> mealieSlug = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<double?> caloriesPerServing = const Value.absent(),
                 Value<double?> proteinPerServing = const Value.absent(),
                 Value<double?> carbsPerServing = const Value.absent(),
                 Value<double?> fatPerServing = const Value.absent(),
+                Value<double?> fiberPerServing = const Value.absent(),
+                Value<double?> sodiumPerServing = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -16191,11 +17094,17 @@ class $$RecipesTableTableManager
                 cookTimeMinutes: cookTimeMinutes,
                 servings: servings,
                 videoUrl: videoUrl,
+                sourceUrl: sourceUrl,
+                mealieSlug: mealieSlug,
+                imageUrl: imageUrl,
+                tags: tags,
                 notes: notes,
                 caloriesPerServing: caloriesPerServing,
                 proteinPerServing: proteinPerServing,
                 carbsPerServing: carbsPerServing,
                 fatPerServing: fatPerServing,
+                fiberPerServing: fiberPerServing,
+                sodiumPerServing: sodiumPerServing,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -18795,6 +19704,220 @@ typedef $$UnitConversionsTableProcessedTableManager =
       UnitConversion,
       PrefetchHooks Function()
     >;
+typedef $$UnitsTableCreateCompanionBuilder =
+    UnitsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> abbreviation,
+      Value<bool> isDefault,
+      Value<int> sortOrder,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$UnitsTableUpdateCompanionBuilder =
+    UnitsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> abbreviation,
+      Value<bool> isDefault,
+      Value<int> sortOrder,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$UnitsTableFilterComposer extends Composer<_$AppDatabase, $UnitsTable> {
+  $$UnitsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get abbreviation => $composableBuilder(
+    column: $table.abbreviation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UnitsTableOrderingComposer
+    extends Composer<_$AppDatabase, $UnitsTable> {
+  $$UnitsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get abbreviation => $composableBuilder(
+    column: $table.abbreviation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UnitsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UnitsTable> {
+  $$UnitsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get abbreviation => $composableBuilder(
+    column: $table.abbreviation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$UnitsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UnitsTable,
+          Unit,
+          $$UnitsTableFilterComposer,
+          $$UnitsTableOrderingComposer,
+          $$UnitsTableAnnotationComposer,
+          $$UnitsTableCreateCompanionBuilder,
+          $$UnitsTableUpdateCompanionBuilder,
+          (Unit, BaseReferences<_$AppDatabase, $UnitsTable, Unit>),
+          Unit,
+          PrefetchHooks Function()
+        > {
+  $$UnitsTableTableManager(_$AppDatabase db, $UnitsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UnitsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UnitsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UnitsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> abbreviation = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UnitsCompanion(
+                id: id,
+                name: name,
+                abbreviation: abbreviation,
+                isDefault: isDefault,
+                sortOrder: sortOrder,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> abbreviation = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UnitsCompanion.insert(
+                id: id,
+                name: name,
+                abbreviation: abbreviation,
+                isDefault: isDefault,
+                sortOrder: sortOrder,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UnitsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UnitsTable,
+      Unit,
+      $$UnitsTableFilterComposer,
+      $$UnitsTableOrderingComposer,
+      $$UnitsTableAnnotationComposer,
+      $$UnitsTableCreateCompanionBuilder,
+      $$UnitsTableUpdateCompanionBuilder,
+      (Unit, BaseReferences<_$AppDatabase, $UnitsTable, Unit>),
+      Unit,
+      PrefetchHooks Function()
+    >;
 typedef $$AutomationRulesTableCreateCompanionBuilder =
     AutomationRulesCompanion Function({
       required String id,
@@ -19269,6 +20392,8 @@ class $AppDatabaseManager {
       $$ShopsTableTableManager(_db, _db.shops);
   $$UnitConversionsTableTableManager get unitConversions =>
       $$UnitConversionsTableTableManager(_db, _db.unitConversions);
+  $$UnitsTableTableManager get units =>
+      $$UnitsTableTableManager(_db, _db.units);
   $$AutomationRulesTableTableManager get automationRules =>
       $$AutomationRulesTableTableManager(_db, _db.automationRules);
   $$AppSettingsTableTableManager get appSettings =>

@@ -7,6 +7,7 @@ import 'tables/items_table.dart';
 import 'tables/events_table.dart';
 import 'tables/locations_table.dart';
 import 'tables/shops_table.dart';
+import 'tables/units_table.dart';
 import 'tables/tags_table.dart';
 import 'tables/recipes_table.dart';
 import 'tables/tasks_table.dart';
@@ -38,9 +39,10 @@ part 'database.g.dart';
   // Tasks & wish list
   Tasks,
   WishListEntries,
-  // Shops & unit conversions
+  // Shops, unit conversions & units
   Shops,
   UnitConversions,
+  Units,
   // Automation & settings
   AutomationRules,
   AppSettings,
@@ -49,7 +51,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,6 +74,18 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             await m.createTable(shops);
             await m.createTable(unitConversions);
+          }
+          if (from < 4) {
+            await m.createTable(units);
+            await m.addColumn(items, items.stockUnit);
+            await m.addColumn(recipes, recipes.sourceUrl);
+            await m.addColumn(recipes, recipes.mealieSlug);
+            await m.addColumn(recipes, recipes.imageUrl);
+            await m.addColumn(recipes, recipes.tags);
+            await m.addColumn(recipes, recipes.fiberPerServing);
+            await m.addColumn(recipes, recipes.sodiumPerServing);
+            // Seed default units
+            await _seedDefaultUnits();
           }
         },
         beforeOpen: (details) async {
@@ -262,6 +276,130 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteTask(String id) =>
       (delete(tasks)..where((t) => t.id.equals(id))).go();
+
+  // ── Default unit seeding ──────────────────────────────────────────────────
+
+  static const _defaultUnits = [
+    ('g', 'g'), ('kg', 'kg'), ('mg', 'mg'),
+    ('ml', 'ml'), ('l', 'l'),
+    ('Stück', 'Stk.'), ('Packung', 'Pkg.'), ('Dose', 'Dose'),
+    ('Flasche', 'Fl.'), ('Tüte', 'Tüte'), ('Glas', 'Glas'),
+    ('EL', 'EL'), ('TL', 'TL'), ('Tasse', 'Tasse'),
+    ('Scheibe', 'Scheibe'), ('Portion', 'Port.'), ('Prise', 'Prise'),
+  ];
+
+  Future<void> _seedDefaultUnits() async {
+    for (var i = 0; i < _defaultUnits.length; i++) {
+      final (name, abbr) = _defaultUnits[i];
+      await into(units).insertOnConflictUpdate(UnitsCompanion.insert(
+        id: 'default_$i',
+        name: name,
+        abbreviation: Value(abbr),
+        isDefault: const Value(true),
+        sortOrder: Value(i),
+      ));
+    }
+  }
+
+  // ── Units ──────────────────────────────────────────────────────────────────
+
+  Stream<List<Unit>> watchAllUnits() =>
+      (select(units)..orderBy([(u) => OrderingTerm.asc(u.sortOrder)])).watch();
+
+  Future<List<Unit>> allUnitsList() =>
+      (select(units)..orderBy([(u) => OrderingTerm.asc(u.sortOrder)])).get();
+
+  Future<void> insertUnit(UnitsCompanion entry) =>
+      into(units).insertOnConflictUpdate(entry);
+
+  Future<void> updateUnit(UnitsCompanion entry) =>
+      (update(units)..where((u) => u.id.equals(entry.id.value))).write(entry);
+
+  Future<void> deleteUnit(String id) =>
+      (delete(units)..where((u) => u.id.equals(id))).go();
+
+  // ── Recipes ────────────────────────────────────────────────────────────────
+
+  Stream<List<Recipe>> watchAllRecipes() =>
+      (select(recipes)..orderBy([(r) => OrderingTerm.asc(r.name)])).watch();
+
+  Future<Recipe?> recipeById(String id) =>
+      (select(recipes)..where((r) => r.id.equals(id))).getSingleOrNull();
+
+  Future<Recipe?> recipeByMealieSlug(String slug) =>
+      (select(recipes)..where((r) => r.mealieSlug.equals(slug)))
+          .getSingleOrNull();
+
+  Stream<List<Recipe>> searchRecipes(String query) {
+    final like = '%${query.toLowerCase()}%';
+    return (select(recipes)..where((r) => r.name.lower().like(like))).watch();
+  }
+
+  Future<void> insertRecipe(RecipesCompanion entry) =>
+      into(recipes).insert(entry);
+
+  Future<void> updateRecipe(RecipesCompanion entry) =>
+      (update(recipes)..where((r) => r.id.equals(entry.id.value))).write(entry);
+
+  Future<void> deleteRecipe(String id) =>
+      (delete(recipes)..where((r) => r.id.equals(id))).go();
+
+  // Recipe ingredients
+  Future<List<RecipeIngredient>> ingredientsForRecipe(String recipeId) =>
+      (select(recipeIngredients)
+            ..where((i) => i.recipeId.equals(recipeId))
+            ..orderBy([(i) => OrderingTerm.asc(i.sortOrder)]))
+          .get();
+
+  Future<void> insertRecipeIngredient(RecipeIngredientsCompanion entry) =>
+      into(recipeIngredients).insert(entry);
+
+  Future<void> deleteIngredientsForRecipe(String recipeId) =>
+      (delete(recipeIngredients)
+            ..where((i) => i.recipeId.equals(recipeId)))
+          .go();
+
+  // Recipe steps
+  Future<List<RecipeStep>> stepsForRecipe(String recipeId) =>
+      (select(recipeSteps)
+            ..where((s) => s.recipeId.equals(recipeId))
+            ..orderBy([(s) => OrderingTerm.asc(s.stepNumber)]))
+          .get();
+
+  Future<void> insertRecipeStep(RecipeStepsCompanion entry) =>
+      into(recipeSteps).insert(entry);
+
+  Future<void> deleteStepsForRecipe(String recipeId) =>
+      (delete(recipeSteps)..where((s) => s.recipeId.equals(recipeId))).go();
+
+  // Standard meals
+  Stream<List<StandardMeal>> watchAllMeals() =>
+      (select(standardMeals)..orderBy([(m) => OrderingTerm.asc(m.name)]))
+          .watch();
+
+  Future<void> insertMeal(StandardMealsCompanion entry) =>
+      into(standardMeals).insert(entry);
+
+  Future<void> updateMeal(StandardMealsCompanion entry) =>
+      (update(standardMeals)..where((m) => m.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteMeal(String id) =>
+      (delete(standardMeals)..where((m) => m.id.equals(id))).go();
+
+  Future<List<StandardMealIngredient>> ingredientsForMeal(String mealId) =>
+      (select(standardMealIngredients)
+            ..where((i) => i.mealId.equals(mealId))
+            ..orderBy([(i) => OrderingTerm.asc(i.sortOrder)]))
+          .get();
+
+  Future<void> insertMealIngredient(StandardMealIngredientsCompanion entry) =>
+      into(standardMealIngredients).insert(entry);
+
+  Future<void> deleteMealIngredients(String mealId) =>
+      (delete(standardMealIngredients)
+            ..where((i) => i.mealId.equals(mealId)))
+          .go();
 
   // ── Item States (all) ─────────────────────────────────────────────────────
 

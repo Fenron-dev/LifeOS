@@ -47,6 +47,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/settings/shops'),
           ),
           ListTile(
+            leading: const Icon(Icons.straighten),
+            title: const Text('Einheiten'),
+            subtitle: const Text('Namen anpassen, eigene hinzufügen'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/units'),
+          ),
+          ListTile(
             leading: const Icon(Icons.swap_horiz),
             title: const Text('Einheiten-Umrechnung'),
             subtitle: const Text('Globale Regeln: 1 kg = 1000 g…'),
