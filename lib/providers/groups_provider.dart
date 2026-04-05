@@ -50,11 +50,14 @@ final shoppingNeedsProvider = FutureProvider<List<ShoppingNeed>>((ref) async {
 
     final groupConvs = await db.watchConversionsForGroup(group.id).first;
     // group overrides global
-    final allConvs = [...groupConvs, ...globalConvs];
+    final baseConvs = [...groupConvs, ...globalConvs];
     final targetUnit = group.minStockUnit;
 
     double total = 0;
     for (final member in members) {
+      final itemConvs = await db.watchConversionsForItem(member.itemId).first;
+      // item-level overrides group/global
+      final allConvs = [...itemConvs, ...baseConvs];
       final states = await db.statesForItem(member.itemId);
       for (final s in states) {
         if (targetUnit == null || s.unit == targetUnit) {

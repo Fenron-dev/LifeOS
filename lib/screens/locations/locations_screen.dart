@@ -212,11 +212,14 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
     // Exclude self from parent options
     final parentOptions =
         locations.where((l) => l.id != widget.location?.id).toList();
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
 
     return AlertDialog(
       title: Text(
           widget.location == null ? 'Lagerort anlegen' : 'Lagerort bearbeiten'),
-      content: Column(
+      content: SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: bottom),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
@@ -266,6 +269,7 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
             decoration: const InputDecoration(labelText: 'Notiz'),
           ),
         ],
+        ),
       ),
       actions: [
         TextButton(

@@ -532,22 +532,23 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
             // Stock unit dropdown
             Consumer(builder: (context, ref, _) {
               final unitNames = ref.watch(unitNamesProvider);
-              return DropdownButtonFormField<String?>(
-                // ignore: deprecated_member_use
-                value: unitNames.contains(_stockUnit) ? _stockUnit : null,
+              final currentValue = unitNames.contains(_stockUnit) ? _stockUnit : null;
+              return InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Bestandseinheit',
-                  helperText:
-                      'Einheit für Bestandssummierung im Inventar',
+                  helperText: 'Einheit für Bestandssummierung im Inventar',
                   prefixIcon: Icon(Icons.straighten),
                 ),
-                items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('— keine —')),
-                  ...unitNames.map((n) =>
-                      DropdownMenuItem(value: n, child: Text(n))),
-                ],
-                onChanged: (v) => setState(() => _stockUnit = v),
+                child: DropdownButton<String?>(
+                  value: currentValue,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('— keine —')),
+                    ...unitNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                  ],
+                  onChanged: (v) => setState(() => _stockUnit = v),
+                ),
               );
             }),
             const SizedBox(height: 12),

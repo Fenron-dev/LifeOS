@@ -275,7 +275,7 @@ class _MealFormState extends ConsumerState<_MealForm> {
                               child: DropdownButton<String>(
                                 value: units.contains(row.unit)
                                     ? row.unit
-                                    : units.first,
+                                    : (units.isNotEmpty ? units.first : null),
                                 isExpanded: true,
                                 underline: const SizedBox.shrink(),
                                 isDense: true,

@@ -128,15 +128,18 @@ class _ItemCard extends StatelessWidget {
         leading: _ProductTypeIcon(type: item.productType),
         title: Text(item.name),
         subtitle: item.brand != null ? Text(item.brand!) : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (item.ean != null)
-              const Icon(Icons.barcode_reader, size: 16, color: Colors.grey),
-            const SizedBox(width: 4),
-            _StockBadge(item: item, states: states),
-            const Icon(Icons.chevron_right),
-          ],
+        trailing: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (item.ean != null)
+                const Icon(Icons.barcode_reader, size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              Flexible(child: _StockBadge(item: item, states: states)),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
         ),
         onTap: () => context.push('/inventory/item/${item.id}'),
       ),

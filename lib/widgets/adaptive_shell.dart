@@ -132,19 +132,42 @@ class _MobileShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider).valueOrNull;
     final actions = settings?.quickActions ?? AppSettingsData.defaultQuickActions;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: onTap,
-        destinations: _destinations
-            .map((d) => NavigationDestination(
-                  icon: Icon(d.icon),
-                  selectedIcon: Icon(d.selectedIcon),
-                  label: d.label,
-                ))
-            .toList(),
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 6,
+        child: Row(
+          children: [
+            // Left: Inventar + Rezepte
+            _BottomNavItem(
+              icon: currentIndex == 0 ? _destinations[0].selectedIcon : _destinations[0].icon,
+              label: _destinations[0].label,
+              selected: currentIndex == 0,
+              onTap: () => onTap(0),
+              colorScheme: colorScheme,
+            ),
+            _BottomNavItem(
+              icon: currentIndex == 1 ? _destinations[1].selectedIcon : _destinations[1].icon,
+              label: _destinations[1].label,
+              selected: currentIndex == 1,
+              onTap: () => onTap(1),
+              colorScheme: colorScheme,
+            ),
+            // Center notch space
+            const Spacer(),
+            // Right: Aufgaben
+            _BottomNavItem(
+              icon: currentIndex == 2 ? _destinations[2].selectedIcon : _destinations[2].icon,
+              label: _destinations[2].label,
+              selected: currentIndex == 2,
+              onTap: () => onTap(2),
+              colorScheme: colorScheme,
+            ),
+          ],
+        ),
       ),
       floatingActionButton: actions.isEmpty
           ? null
@@ -163,6 +186,52 @@ class _MobileShell extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => _QuickActionsSheet(actions: actions),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bottom nav item for BottomAppBar
+// ---------------------------------------------------------------------------
+
+class _BottomNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+
+  const _BottomNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: color,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -231,6 +300,8 @@ class _QuickActionsSheet extends ConsumerWidget {
         context.push('/wishlist');
       case QuickAction.addRecipe:
         context.push('/recipes/new');
+      case QuickAction.scanBarcode:
+        context.push('/scan');
     }
   }
 }

@@ -9,6 +9,7 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/events_provider.dart';
 import '../../providers/locations_provider.dart';
 import '../../providers/shops_provider.dart';
+import '../../providers/vault_provider.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
   final String itemId;
@@ -675,7 +676,7 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   final _qtyCtrl = TextEditingController(text: '1');
   final _priceCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  String _unit = 'Stück';
+  late String _unit;
   String? _locationId;
   String? _shopName;
   DateTime? _expiryDate;
@@ -684,6 +685,24 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   static const _units = [
     'Stück', 'g', 'kg', 'ml', 'l', 'Packung', 'Dose', 'Flasche', 'Tüte',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-select item's stockUnit; fall back to 'Stück'
+    _unit = widget.item.stockUnit ?? 'Stück';
+    // Pre-select most recent location for this item
+    _initLocation();
+  }
+
+  Future<void> _initLocation() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    final entries = await db.watchInventoryForItem(widget.item.id).first;
+    if (entries.isNotEmpty && mounted) {
+      setState(() => _locationId = entries.first.locationId);
+    }
+  }
 
   @override
   void dispose() {
@@ -724,7 +743,8 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
       ),
       child: Form(
         key: _formKey,
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -892,6 +912,7 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
                   : const Text('Einlagern'),
             ),
           ],
+          ),
         ),
       ),
     );

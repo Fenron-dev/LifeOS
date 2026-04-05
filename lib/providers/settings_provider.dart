@@ -15,6 +15,7 @@ enum QuickAction {
   addTask,
   addWishlist,
   addRecipe,
+  scanBarcode,
 }
 
 extension QuickActionX on QuickAction {
@@ -25,6 +26,7 @@ extension QuickActionX on QuickAction {
         QuickAction.addTask => 'Aufgabe',
         QuickAction.addWishlist => 'Wunschliste',
         QuickAction.addRecipe => 'Rezept',
+        QuickAction.scanBarcode => 'Barcode scannen',
       };
   IconData get icon => switch (this) {
         QuickAction.addInventory => Icons.add_shopping_cart,
@@ -32,6 +34,7 @@ extension QuickActionX on QuickAction {
         QuickAction.addTask => Icons.add_task,
         QuickAction.addWishlist => Icons.favorite_border,
         QuickAction.addRecipe => Icons.menu_book_outlined,
+        QuickAction.scanBarcode => Icons.qr_code_scanner,
       };
 }
 
