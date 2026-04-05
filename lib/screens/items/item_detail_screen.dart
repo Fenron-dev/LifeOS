@@ -9,6 +9,8 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/events_provider.dart';
 import '../../providers/locations_provider.dart';
 import '../../providers/shops_provider.dart';
+import '../../providers/unit_conversions_provider.dart';
+import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
@@ -214,27 +216,65 @@ class _ProductTypeChip extends StatelessWidget {
 
 // ── Nutrition card ──────────────────────────────────────────────────────────
 
-class _NutritionCard extends StatelessWidget {
+class _NutritionCard extends ConsumerStatefulWidget {
   final Item item;
   const _NutritionCard({required this.item});
+
+  @override
+  ConsumerState<_NutritionCard> createState() => _NutritionCardState();
+}
+
+class _NutritionCardState extends ConsumerState<_NutritionCard> {
+  // null = per 100g; otherwise the unit name from a conversion
+  String? _servingUnit;
 
   String _fmt(double v) =>
       v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final theme = Theme.of(context);
+
+    // Build list of (label, gramsPerServing) from item conversions where toUnit='g'
+    final itemConvs =
+        ref.watch(itemConversionsProvider(item.id)).valueOrNull ?? [];
+    final globalConvs = ref.watch(globalConversionsProvider).valueOrNull ?? [];
+    final allConvs = [...itemConvs, ...globalConvs];
+    final servings = <(String, double)>[
+      ('100 g', 100.0),
+      if (item.servingSizeG != null)
+        ('Portion (${_fmt(item.servingSizeG!)} g)', item.servingSizeG!),
+      ...allConvs
+          .where((c) => c.toUnit == 'g' && c.scopeId != null)
+          .map((c) => ('1 ${c.fromUnit}', c.factor)),
+    ];
+    // Deduplicate by label
+    final seen = <String>{};
+    final uniqueServings =
+        servings.where((s) => seen.add(s.$1)).toList();
+
+    final currentLabel = _servingUnit ?? '100 g';
+    final gramsPerServing =
+        uniqueServings.firstWhere((s) => s.$1 == currentLabel,
+            orElse: () => ('100 g', 100.0)).$2;
+    final scale = gramsPerServing / 100.0;
+
+    String nutrVal(double? per100g, String unit) {
+      if (per100g == null) return '';
+      return '${_fmt(per100g * scale)} $unit';
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row with Nutri-Score / NOVA badges
+            // Header: title + badges
             Row(
               children: [
-                Text('Nährwerte pro 100g',
-                    style: theme.textTheme.titleSmall),
+                Text('Nährwerte', style: theme.textTheme.titleSmall),
                 const Spacer(),
                 if (item.nutriscore != null)
                   _NutriscoreBadge(score: item.nutriscore!),
@@ -244,56 +284,61 @@ class _NutritionCard extends StatelessWidget {
                 ],
               ],
             ),
-            const SizedBox(height: 12),
-            // Macro table
-            if (item.caloriesPer100g != null)
-              _NutrRow(
-                label: 'Energie',
-                value: '${_fmt(item.caloriesPer100g!)} kcal',
-                bold: true,
-              ),
-            if (item.proteinPer100g != null)
-              _NutrRow(
-                  label: 'Eiweiß', value: '${_fmt(item.proteinPer100g!)} g'),
-            if (item.carbsPer100g != null)
-              _NutrRow(
-                  label: 'Kohlenhydrate',
-                  value: '${_fmt(item.carbsPer100g!)} g'),
-            if (item.sugarsPer100g != null)
-              _NutrRow(
-                  label: '  davon Zucker',
-                  value: '${_fmt(item.sugarsPer100g!)} g',
-                  indent: true),
-            if (item.fatPer100g != null)
-              _NutrRow(label: 'Fett', value: '${_fmt(item.fatPer100g!)} g'),
-            if (item.saturatedFatPer100g != null)
-              _NutrRow(
-                  label: '  davon gesättigte Fettsäuren',
-                  value: '${_fmt(item.saturatedFatPer100g!)} g',
-                  indent: true),
-            if (item.fiberPer100g != null)
-              _NutrRow(
-                  label: 'Ballaststoffe',
-                  value: '${_fmt(item.fiberPer100g!)} g'),
-            if (item.saltPer100g != null)
-              _NutrRow(
-                  label: 'Salz', value: '${_fmt(item.saltPer100g!)} g'),
-            if (item.servingSizeG != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Portionsgröße: ${_fmt(item.servingSizeG!)} g',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+            // Serving picker
+            if (uniqueServings.length > 1) ...[
+              const SizedBox(height: 8),
+              InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Portion',
+                  isDense: true,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
+                child: DropdownButton<String>(
+                  value: currentLabel,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  isDense: true,
+                  items: uniqueServings
+                      .map((s) =>
+                          DropdownMenuItem(value: s.$1, child: Text(s.$1)))
+                      .toList(),
+                  onChanged: (v) =>
+                      setState(() => _servingUnit = v),
+                ),
               ),
             ],
+            const SizedBox(height: 12),
+            // Macro table (scaled)
+            if (item.caloriesPer100g != null)
+              _NutrRow(label: 'Energie',
+                  value: nutrVal(item.caloriesPer100g, 'kcal'), bold: true),
+            if (item.proteinPer100g != null)
+              _NutrRow(label: 'Eiweiß',
+                  value: nutrVal(item.proteinPer100g, 'g')),
+            if (item.carbsPer100g != null)
+              _NutrRow(label: 'Kohlenhydrate',
+                  value: nutrVal(item.carbsPer100g, 'g')),
+            if (item.sugarsPer100g != null)
+              _NutrRow(label: '  davon Zucker',
+                  value: nutrVal(item.sugarsPer100g, 'g'), indent: true),
+            if (item.fatPer100g != null)
+              _NutrRow(label: 'Fett', value: nutrVal(item.fatPer100g, 'g')),
+            if (item.saturatedFatPer100g != null)
+              _NutrRow(label: '  davon gesättigte Fettsäuren',
+                  value: nutrVal(item.saturatedFatPer100g, 'g'), indent: true),
+            if (item.fiberPer100g != null)
+              _NutrRow(label: 'Ballaststoffe',
+                  value: nutrVal(item.fiberPer100g, 'g')),
+            if (item.saltPer100g != null)
+              _NutrRow(label: 'Salz', value: nutrVal(item.saltPer100g, 'g')),
             if (item.ingredientsText != null) ...[
               const Divider(height: 20),
-              Text('Zutaten', style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.outline,
-              )),
+              Text('Zutaten',
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: theme.colorScheme.outline)),
               const SizedBox(height: 4),
-              Text(item.ingredientsText!,
-                  style: theme.textTheme.bodySmall),
+              Text(item.ingredientsText!, style: theme.textTheme.bodySmall),
             ],
           ],
         ),
@@ -682,10 +727,6 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   DateTime? _expiryDate;
   bool _saving = false;
 
-  static const _units = [
-    'Stück', 'g', 'kg', 'ml', 'l', 'Packung', 'Dose', 'Flasche', 'Tüte',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -772,15 +813,26 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 3,
-                  child: DropdownButtonFormField<String>(
-                    // ignore: deprecated_member_use
-                    value: _unit,
-                    decoration: const InputDecoration(labelText: 'Einheit'),
-                    items: _units
-                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _unit = v!),
-                  ),
+                  child: Consumer(builder: (context, ref, _) {
+                    final unitNames = ref.watch(unitNamesProvider);
+                    // Ensure current unit is in list
+                    if (!unitNames.contains(_unit) && unitNames.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => setState(() => _unit = unitNames.first));
+                    }
+                    return InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Einheit'),
+                      child: DropdownButton<String>(
+                        value: unitNames.contains(_unit) ? _unit : null,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: unitNames
+                            .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _unit = v ?? _unit),
+                      ),
+                    );
+                  }),
                 ),
               ],
             ),

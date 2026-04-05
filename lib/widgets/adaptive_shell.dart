@@ -71,6 +71,12 @@ final _destinations = [
     selectedIcon: Icons.task,
     route: '/tasks',
   ),
+  const _NavDest(
+    label: 'Statistik',
+    icon: Icons.bar_chart_outlined,
+    selectedIcon: Icons.bar_chart,
+    route: '/stats',
+  ),
 ];
 
 class AdaptiveShell extends StatelessWidget {
@@ -158,12 +164,19 @@ class _MobileShell extends ConsumerWidget {
             ),
             // Center notch space
             const Spacer(),
-            // Right: Aufgaben
+            // Right: Aufgaben + Statistik
             _BottomNavItem(
               icon: currentIndex == 2 ? _destinations[2].selectedIcon : _destinations[2].icon,
               label: _destinations[2].label,
               selected: currentIndex == 2,
               onTap: () => onTap(2),
+              colorScheme: colorScheme,
+            ),
+            _BottomNavItem(
+              icon: currentIndex == 3 ? _destinations[3].selectedIcon : _destinations[3].icon,
+              label: _destinations[3].label,
+              selected: currentIndex == 3,
+              onTap: () => onTap(3),
               colorScheme: colorScheme,
             ),
           ],

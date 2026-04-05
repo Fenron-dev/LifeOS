@@ -189,6 +189,13 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       );
       return;
     }
+    // Skip products with no importable data
+    if (!OFFField.values.any(product.hasField)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Produkt in OpenFoodFacts ohne verwertbare Daten')),
+      );
+      return;
+    }
 
     // Show selection dialog
     final selected = await showOffImportDialog(context, product);
@@ -209,9 +216,18 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     if (!mounted) return;
     setState(() => _loadingNameSearch = false);
 
-    if (results.isEmpty) {
+    // Filter out entries without a real name
+    final usableResults = results
+        .where((p) =>
+            p.name != null &&
+            p.name!.isNotEmpty &&
+            p.name!.toLowerCase() != 'unknown' &&
+            OFFField.values.any(p.hasField))
+        .toList();
+
+    if (usableResults.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Keine Treffer in OpenFoodFacts')),
+        const SnackBar(content: Text('Keine verwertbaren Treffer in OpenFoodFacts')),
       );
       return;
     }
@@ -221,7 +237,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       context: context,
       builder: (ctx) => SimpleDialog(
         title: const Text('Produkt auswählen'),
-        children: results.map((p) {
+        children: usableResults.map((p) {
           return SimpleDialogOption(
             onPressed: () => Navigator.of(ctx).pop(p),
             child: Column(

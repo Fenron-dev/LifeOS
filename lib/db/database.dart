@@ -12,6 +12,7 @@ import 'tables/tags_table.dart';
 import 'tables/recipes_table.dart';
 import 'tables/tasks_table.dart';
 import 'tables/automation_table.dart';
+import 'tables/stats_table.dart';
 
 part 'database.g.dart';
 
@@ -46,16 +47,22 @@ part 'database.g.dart';
   // Automation & settings
   AutomationRules,
   AppSettings,
+  // Stats
+  BodyWeightLogs,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
+        onCreate: (m) async {
+          await m.createAll();
+          await _seedDefaultUnits();
+          await _seedDefaultConversions();
+        },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.addColumn(items, items.caloriesPer100g);
@@ -77,6 +84,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.addColumn(locations, locations.locationType);
+          }
+          if (from < 6) {
+            await m.createTable(bodyWeightLogs);
+            await _seedDefaultConversions();
           }
           if (from < 4) {
             await m.createTable(units);
@@ -291,6 +302,42 @@ class AppDatabase extends _$AppDatabase {
     ('Scheibe', 'Scheibe'), ('Portion', 'Port.'), ('Prise', 'Prise'),
   ];
 
+  /// Standard unit conversions seeded once on DB creation / v6 migration.
+  /// Only inserts; existing rows are left unchanged (insertOnConflictUpdate
+  /// would overwrite user-defined values with the same id).
+  static const _defaultConversions = [
+    // Weight
+    ('def_g_kg',  'g',  'kg', 0.001),
+    ('def_kg_g',  'kg', 'g',  1000.0),
+    ('def_mg_g',  'mg', 'g',  0.001),
+    ('def_g_mg',  'g',  'mg', 1000.0),
+    ('def_kg_mg', 'kg', 'mg', 1000000.0),
+    // Volume
+    ('def_ml_l',  'ml', 'l',  0.001),
+    ('def_l_ml',  'l',  'ml', 1000.0),
+    // Cooking measures (approximate)
+    ('def_el_ml', 'EL', 'ml', 15.0),
+    ('def_tl_ml', 'TL', 'ml', 5.0),
+    ('def_ml_el', 'ml', 'EL', 0.0667),
+    ('def_ml_tl', 'ml', 'TL', 0.2),
+  ];
+
+  Future<void> _seedDefaultConversions() async {
+    for (final (id, from, to, factor) in _defaultConversions) {
+      // Skip if already exists — don't overwrite user changes
+      final existing = await (select(unitConversions)
+            ..where((c) => c.id.equals(id)))
+          .getSingleOrNull();
+      if (existing != null) continue;
+      await into(unitConversions).insert(UnitConversionsCompanion.insert(
+        id: id,
+        fromUnit: from,
+        toUnit: to,
+        factor: factor,
+      ));
+    }
+  }
+
   Future<void> _seedDefaultUnits() async {
     for (var i = 0; i < _defaultUnits.length; i++) {
       final (name, abbr) = _defaultUnits[i];
@@ -459,4 +506,18 @@ class AppDatabase extends _$AppDatabase {
       AppSettingsCompanion.insert(key: key, value: value),
     );
   }
+
+  // ── Body Weight Logs ───────────────────────────────────────────────────────
+
+  Stream<List<BodyWeightLog>> watchWeightLogs({int limit = 90}) =>
+      (select(bodyWeightLogs)
+            ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)])
+            ..limit(limit))
+          .watch();
+
+  Future<void> insertWeightLog(BodyWeightLogsCompanion entry) =>
+      into(bodyWeightLogs).insert(entry);
+
+  Future<void> deleteWeightLog(String id) =>
+      (delete(bodyWeightLogs)..where((l) => l.id.equals(id))).go();
 }

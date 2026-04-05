@@ -169,6 +169,10 @@ class OpenFoodFactsService {
       return products
           .map((p) => _parseProduct(p as Map<String, dynamic>))
           .whereType<OFFProduct>()
+          .where((p) =>
+              p.name != null &&
+              p.name!.isNotEmpty &&
+              p.name!.toLowerCase() != 'unknown')
           .toList();
     } catch (_) {
       return [];

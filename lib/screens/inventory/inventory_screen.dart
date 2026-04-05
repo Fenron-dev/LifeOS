@@ -6,6 +6,7 @@ import '../../db/database.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 
 class InventoryScreen extends ConsumerWidget {
@@ -15,6 +16,10 @@ class InventoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(filteredItemsProvider);
     final query = ref.watch(itemSearchQueryProvider);
+    final quickActions = ref.watch(settingsProvider).valueOrNull?.quickActions
+        ?? AppSettingsData.defaultQuickActions;
+    final hasScanAction = quickActions.contains(QuickAction.scanBarcode);
+    final hasAddAction = quickActions.contains(QuickAction.addInventory);
 
     return Scaffold(
       appBar: AppBar(
@@ -57,24 +62,24 @@ class InventoryScreen extends ConsumerWidget {
             ? _EmptyState(hasQuery: query.isNotEmpty)
             : _ItemsList(items: items),
       ),
-      floatingActionButton: Column(
+      floatingActionButton: (hasScanAction && hasAddAction) ? null : Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Barcode scan FAB
-          FloatingActionButton.small(
-            heroTag: 'scan',
-            onPressed: () => _scanBarcode(context, ref),
-            tooltip: 'Barcode scannen',
-            child: const Icon(Icons.qr_code_scanner),
-          ),
-          const SizedBox(height: 8),
-          // Add item FAB
-          FloatingActionButton(
-            heroTag: 'add',
-            onPressed: () => context.push('/inventory/item/new'),
-            tooltip: 'Artikel hinzufügen',
-            child: const Icon(Icons.add),
-          ),
+          if (!hasScanAction)
+            FloatingActionButton.small(
+              heroTag: 'scan',
+              onPressed: () => _scanBarcode(context, ref),
+              tooltip: 'Barcode scannen',
+              child: const Icon(Icons.qr_code_scanner),
+            ),
+          if (!hasScanAction && !hasAddAction) const SizedBox(height: 8),
+          if (!hasAddAction)
+            FloatingActionButton(
+              heroTag: 'add',
+              onPressed: () => context.push('/inventory/item/new'),
+              tooltip: 'Artikel hinzufügen',
+              child: const Icon(Icons.add),
+            ),
         ],
       ),
     );
@@ -122,25 +127,42 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: _ProductTypeIcon(type: item.productType),
-        title: Text(item.name),
-        subtitle: item.brand != null ? Text(item.brand!) : null,
-        trailing: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 140),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (item.ean != null)
-                const Icon(Icons.barcode_reader, size: 16, color: Colors.grey),
-              const SizedBox(width: 4),
-              Flexible(child: _StockBadge(item: item, states: states)),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
+        title: Text(
+          item.name,
+          style: theme.textTheme.titleSmall,
+          overflow: TextOverflow.ellipsis,
         ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (item.brand != null)
+              Text(
+                item.brand!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            Row(
+              children: [
+                if (item.ean != null) ...[
+                  Icon(Icons.barcode_reader, size: 12,
+                      color: theme.colorScheme.outline),
+                  const SizedBox(width: 4),
+                ],
+                _StockBadge(item: item, states: states),
+              ],
+            ),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        isThreeLine: item.brand != null,
         onTap: () => context.push('/inventory/item/${item.id}'),
       ),
     );
