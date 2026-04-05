@@ -18,6 +18,21 @@ class Items extends Table {
   TextColumn get containerItemId => text().nullable()(); // FK → Items
 
   TextColumn get notes => text().nullable()();
+
+  // Nutrition per 100g (from OpenFoodFacts or manual entry)
+  RealColumn get caloriesPer100g => real().nullable()();
+  RealColumn get proteinPer100g => real().nullable()();
+  RealColumn get carbsPer100g => real().nullable()();
+  RealColumn get fatPer100g => real().nullable()();
+  RealColumn get fiberPer100g => real().nullable()();
+  RealColumn get sugarsPer100g => real().nullable()();
+  RealColumn get saturatedFatPer100g => real().nullable()();
+  RealColumn get saltPer100g => real().nullable()();
+  RealColumn get servingSizeG => real().nullable()();
+  TextColumn get nutriscore => text().nullable()(); // a | b | c | d | e
+  IntColumn get novaGroup => integer().nullable()(); // 1–4
+  TextColumn get ingredientsText => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

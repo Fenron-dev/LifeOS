@@ -1,38 +1,97 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+/// All importable fields from OpenFoodFacts.
+enum OFFField {
+  name,
+  brand,
+  calories,
+  protein,
+  carbs,
+  fat,
+  fiber,
+  sugars,
+  saturatedFat,
+  salt,
+  servingSize,
+  nutriscore,
+  novaGroup,
+  ingredientsText,
+}
+
 /// Product data fetched from OpenFoodFacts.
 class OFFProduct {
   final String ean;
-  final String name;
+  final String? name;
   final String? brand;
   final String? imageUrl;
+  // Nutrition per 100g
   final double? calories;
   final double? protein;
   final double? carbs;
   final double? fat;
+  final double? fiber;
+  final double? sugars;
+  final double? saturatedFat;
+  final double? salt;
+  final double? servingSizeG;
+  final String? nutriscore; // a/b/c/d/e
+  final int? novaGroup;    // 1–4
+  final String? ingredientsText;
 
   const OFFProduct({
     required this.ean,
-    required this.name,
+    this.name,
     this.brand,
     this.imageUrl,
     this.calories,
     this.protein,
     this.carbs,
     this.fat,
+    this.fiber,
+    this.sugars,
+    this.saturatedFat,
+    this.salt,
+    this.servingSizeG,
+    this.nutriscore,
+    this.novaGroup,
+    this.ingredientsText,
   });
+
+  /// Returns true if [field] has a non-null value.
+  bool hasField(OFFField field) {
+    return switch (field) {
+      OFFField.name => name != null && name!.isNotEmpty,
+      OFFField.brand => brand != null && brand!.isNotEmpty,
+      OFFField.calories => calories != null,
+      OFFField.protein => protein != null,
+      OFFField.carbs => carbs != null,
+      OFFField.fat => fat != null,
+      OFFField.fiber => fiber != null,
+      OFFField.sugars => sugars != null,
+      OFFField.saturatedFat => saturatedFat != null,
+      OFFField.salt => salt != null,
+      OFFField.servingSize => servingSizeG != null,
+      OFFField.nutriscore => nutriscore != null,
+      OFFField.novaGroup => novaGroup != null,
+      OFFField.ingredientsText =>
+        ingredientsText != null && ingredientsText!.isNotEmpty,
+    };
+  }
 }
 
 class OpenFoodFactsService {
   static const _baseUrl = 'https://world.openfoodfacts.org/api/v2/product';
   static const _userAgent = 'LifeOS/1.0 (github.com/fenron/lifeos)';
 
+  static const _fields =
+      'product_name,brands,image_url,nutriments,nutriscore_grade,'
+      'nova_group,ingredients_text,serving_size';
+
   /// Looks up a product by EAN barcode. Returns null if not found.
   static Future<OFFProduct?> lookup(String ean) async {
     try {
-      final uri = Uri.parse('$_baseUrl/$ean.json'
-          '?fields=product_name,brands,image_url,nutriments');
+      final uri = Uri.parse('$_baseUrl/$ean.json?fields=$_fields');
       final response = await http
           .get(uri, headers: {'User-Agent': _userAgent})
           .timeout(const Duration(seconds: 8));
@@ -46,17 +105,34 @@ class OpenFoodFactsService {
       final nutriments =
           product['nutriments'] as Map<String, dynamic>? ?? {};
 
+      final name = (product['product_name'] as String? ?? '').trim();
+      final brand = (product['brands'] as String? ?? '').trim();
+
+      // Parse serving size (e.g. "30 g" → 30.0)
+      final servingRaw = product['serving_size'] as String?;
+      final servingSizeG = _parseServingSize(servingRaw);
+
       return OFFProduct(
         ean: ean,
-        name: (product['product_name'] as String? ?? '').trim(),
-        brand: (product['brands'] as String? ?? '').trim().isNotEmpty
-            ? (product['brands'] as String).trim()
-            : null,
+        name: name.isNotEmpty ? name : null,
+        brand: brand.isNotEmpty ? brand : null,
         imageUrl: product['image_url'] as String?,
         calories: _toDouble(nutriments['energy-kcal_100g']),
         protein: _toDouble(nutriments['proteins_100g']),
         carbs: _toDouble(nutriments['carbohydrates_100g']),
         fat: _toDouble(nutriments['fat_100g']),
+        fiber: _toDouble(nutriments['fiber_100g']),
+        sugars: _toDouble(nutriments['sugars_100g']),
+        saturatedFat: _toDouble(nutriments['saturated-fat_100g']),
+        salt: _toDouble(nutriments['salt_100g']),
+        servingSizeG: servingSizeG,
+        nutriscore:
+            (product['nutriscore_grade'] as String?)?.toLowerCase().trim(),
+        novaGroup: _toInt(product['nova_group']),
+        ingredientsText:
+            (product['ingredients_text'] as String?)?.trim().isNotEmpty == true
+                ? (product['ingredients_text'] as String).trim()
+                : null,
       );
     } catch (_) {
       return null;
@@ -68,5 +144,21 @@ class OpenFoodFactsService {
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value);
     return null;
+  }
+
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  /// Parses "30 g", "30g", "30ml" → grams as double (ml≈g for water-like).
+  static double? _parseServingSize(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final match = RegExp(r'(\d+(?:[.,]\d+)?)').firstMatch(raw);
+    if (match == null) return null;
+    return double.tryParse(match.group(1)!.replaceAll(',', '.'));
   }
 }

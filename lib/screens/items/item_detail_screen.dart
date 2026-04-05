@@ -72,6 +72,10 @@ class _ItemDetailBody extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _ItemInfoCard(item: item),
+          if (_hasNutrition(item)) ...[
+            const SizedBox(height: 12),
+            _NutritionCard(item: item),
+          ],
           const SizedBox(height: 12),
           _StockSection(
             item: item,
@@ -123,6 +127,19 @@ void _showAddStockDialog(BuildContext context, WidgetRef ref, Item item) {
     builder: (_) => AddStockSheet(item: item),
   );
 }
+
+bool _hasNutrition(Item item) =>
+    item.caloriesPer100g != null ||
+    item.proteinPer100g != null ||
+    item.carbsPer100g != null ||
+    item.fatPer100g != null ||
+    item.fiberPer100g != null ||
+    item.sugarsPer100g != null ||
+    item.saturatedFatPer100g != null ||
+    item.saltPer100g != null ||
+    item.nutriscore != null ||
+    item.novaGroup != null ||
+    item.ingredientsText != null;
 
 // ── Item info card ──────────────────────────────────────────────────────────
 
@@ -183,6 +200,191 @@ class _ProductTypeChip extends StatelessWidget {
       avatar: Icon(icon, size: 16, color: color),
       label: Text(label),
       visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+// ── Nutrition card ──────────────────────────────────────────────────────────
+
+class _NutritionCard extends StatelessWidget {
+  final Item item;
+  const _NutritionCard({required this.item});
+
+  String _fmt(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row with Nutri-Score / NOVA badges
+            Row(
+              children: [
+                Text('Nährwerte pro 100g',
+                    style: theme.textTheme.titleSmall),
+                const Spacer(),
+                if (item.nutriscore != null)
+                  _NutriscoreBadge(score: item.nutriscore!),
+                if (item.novaGroup != null) ...[
+                  const SizedBox(width: 6),
+                  _NovaBadge(group: item.novaGroup!),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Macro table
+            if (item.caloriesPer100g != null)
+              _NutrRow(
+                label: 'Energie',
+                value: '${_fmt(item.caloriesPer100g!)} kcal',
+                bold: true,
+              ),
+            if (item.proteinPer100g != null)
+              _NutrRow(
+                  label: 'Eiweiß', value: '${_fmt(item.proteinPer100g!)} g'),
+            if (item.carbsPer100g != null)
+              _NutrRow(
+                  label: 'Kohlenhydrate',
+                  value: '${_fmt(item.carbsPer100g!)} g'),
+            if (item.sugarsPer100g != null)
+              _NutrRow(
+                  label: '  davon Zucker',
+                  value: '${_fmt(item.sugarsPer100g!)} g',
+                  indent: true),
+            if (item.fatPer100g != null)
+              _NutrRow(label: 'Fett', value: '${_fmt(item.fatPer100g!)} g'),
+            if (item.saturatedFatPer100g != null)
+              _NutrRow(
+                  label: '  davon gesättigte Fettsäuren',
+                  value: '${_fmt(item.saturatedFatPer100g!)} g',
+                  indent: true),
+            if (item.fiberPer100g != null)
+              _NutrRow(
+                  label: 'Ballaststoffe',
+                  value: '${_fmt(item.fiberPer100g!)} g'),
+            if (item.saltPer100g != null)
+              _NutrRow(
+                  label: 'Salz', value: '${_fmt(item.saltPer100g!)} g'),
+            if (item.servingSizeG != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Portionsgröße: ${_fmt(item.servingSizeG!)} g',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline),
+              ),
+            ],
+            if (item.ingredientsText != null) ...[
+              const Divider(height: 20),
+              Text('Zutaten', style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.outline,
+              )),
+              const SizedBox(height: 4),
+              Text(item.ingredientsText!,
+                  style: theme.textTheme.bodySmall),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NutrRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool bold;
+  final bool indent;
+  const _NutrRow(
+      {required this.label,
+      required this.value,
+      this.bold = false,
+      this.indent = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = indent
+        ? Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)
+        : bold
+            ? Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(fontWeight: FontWeight.bold)
+            : Theme.of(context).textTheme.bodyMedium;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          Text(value, style: style),
+        ],
+      ),
+    );
+  }
+}
+
+class _NutriscoreBadge extends StatelessWidget {
+  final String score;
+  const _NutriscoreBadge({required this.score});
+
+  static const _colors = {
+    'a': Color(0xFF1A7F37),
+    'b': Color(0xFF6FBE44),
+    'c': Color(0xFFF5C400),
+    'd': Color(0xFFEE8100),
+    'e': Color(0xFFE63312),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _colors[score.toLowerCase()] ?? Colors.grey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'Nutri-Score ${score.toUpperCase()}',
+        style: const TextStyle(
+            color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+class _NovaBadge extends StatelessWidget {
+  final int group;
+  const _NovaBadge({required this.group});
+
+  static const _colors = {
+    1: Color(0xFF1A7F37),
+    2: Color(0xFFF5C400),
+    3: Color(0xFFEE8100),
+    4: Color(0xFFE63312),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _colors[group] ?? Colors.grey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'NOVA $group',
+        style: const TextStyle(
+            color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

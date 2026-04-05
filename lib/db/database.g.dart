@@ -116,6 +116,138 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _caloriesPer100gMeta = const VerificationMeta(
+    'caloriesPer100g',
+  );
+  @override
+  late final GeneratedColumn<double> caloriesPer100g = GeneratedColumn<double>(
+    'calories_per100g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _proteinPer100gMeta = const VerificationMeta(
+    'proteinPer100g',
+  );
+  @override
+  late final GeneratedColumn<double> proteinPer100g = GeneratedColumn<double>(
+    'protein_per100g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _carbsPer100gMeta = const VerificationMeta(
+    'carbsPer100g',
+  );
+  @override
+  late final GeneratedColumn<double> carbsPer100g = GeneratedColumn<double>(
+    'carbs_per100g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fatPer100gMeta = const VerificationMeta(
+    'fatPer100g',
+  );
+  @override
+  late final GeneratedColumn<double> fatPer100g = GeneratedColumn<double>(
+    'fat_per100g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fiberPer100gMeta = const VerificationMeta(
+    'fiberPer100g',
+  );
+  @override
+  late final GeneratedColumn<double> fiberPer100g = GeneratedColumn<double>(
+    'fiber_per100g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sugarsPer100gMeta = const VerificationMeta(
+    'sugarsPer100g',
+  );
+  @override
+  late final GeneratedColumn<double> sugarsPer100g = GeneratedColumn<double>(
+    'sugars_per100g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _saturatedFatPer100gMeta =
+      const VerificationMeta('saturatedFatPer100g');
+  @override
+  late final GeneratedColumn<double> saturatedFatPer100g =
+      GeneratedColumn<double>(
+        'saturated_fat_per100g',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _saltPer100gMeta = const VerificationMeta(
+    'saltPer100g',
+  );
+  @override
+  late final GeneratedColumn<double> saltPer100g = GeneratedColumn<double>(
+    'salt_per100g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _servingSizeGMeta = const VerificationMeta(
+    'servingSizeG',
+  );
+  @override
+  late final GeneratedColumn<double> servingSizeG = GeneratedColumn<double>(
+    'serving_size_g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nutriscoreMeta = const VerificationMeta(
+    'nutriscore',
+  );
+  @override
+  late final GeneratedColumn<String> nutriscore = GeneratedColumn<String>(
+    'nutriscore',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _novaGroupMeta = const VerificationMeta(
+    'novaGroup',
+  );
+  @override
+  late final GeneratedColumn<int> novaGroup = GeneratedColumn<int>(
+    'nova_group',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ingredientsTextMeta = const VerificationMeta(
+    'ingredientsText',
+  );
+  @override
+  late final GeneratedColumn<String> ingredientsText = GeneratedColumn<String>(
+    'ingredients_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -152,6 +284,18 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     openedFlag,
     containerItemId,
     notes,
+    caloriesPer100g,
+    proteinPer100g,
+    carbsPer100g,
+    fatPer100g,
+    fiberPer100g,
+    sugarsPer100g,
+    saturatedFatPer100g,
+    saltPer100g,
+    servingSizeG,
+    nutriscore,
+    novaGroup,
+    ingredientsText,
     createdAt,
     updatedAt,
   ];
@@ -239,6 +383,105 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('calories_per100g')) {
+      context.handle(
+        _caloriesPer100gMeta,
+        caloriesPer100g.isAcceptableOrUnknown(
+          data['calories_per100g']!,
+          _caloriesPer100gMeta,
+        ),
+      );
+    }
+    if (data.containsKey('protein_per100g')) {
+      context.handle(
+        _proteinPer100gMeta,
+        proteinPer100g.isAcceptableOrUnknown(
+          data['protein_per100g']!,
+          _proteinPer100gMeta,
+        ),
+      );
+    }
+    if (data.containsKey('carbs_per100g')) {
+      context.handle(
+        _carbsPer100gMeta,
+        carbsPer100g.isAcceptableOrUnknown(
+          data['carbs_per100g']!,
+          _carbsPer100gMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fat_per100g')) {
+      context.handle(
+        _fatPer100gMeta,
+        fatPer100g.isAcceptableOrUnknown(data['fat_per100g']!, _fatPer100gMeta),
+      );
+    }
+    if (data.containsKey('fiber_per100g')) {
+      context.handle(
+        _fiberPer100gMeta,
+        fiberPer100g.isAcceptableOrUnknown(
+          data['fiber_per100g']!,
+          _fiberPer100gMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sugars_per100g')) {
+      context.handle(
+        _sugarsPer100gMeta,
+        sugarsPer100g.isAcceptableOrUnknown(
+          data['sugars_per100g']!,
+          _sugarsPer100gMeta,
+        ),
+      );
+    }
+    if (data.containsKey('saturated_fat_per100g')) {
+      context.handle(
+        _saturatedFatPer100gMeta,
+        saturatedFatPer100g.isAcceptableOrUnknown(
+          data['saturated_fat_per100g']!,
+          _saturatedFatPer100gMeta,
+        ),
+      );
+    }
+    if (data.containsKey('salt_per100g')) {
+      context.handle(
+        _saltPer100gMeta,
+        saltPer100g.isAcceptableOrUnknown(
+          data['salt_per100g']!,
+          _saltPer100gMeta,
+        ),
+      );
+    }
+    if (data.containsKey('serving_size_g')) {
+      context.handle(
+        _servingSizeGMeta,
+        servingSizeG.isAcceptableOrUnknown(
+          data['serving_size_g']!,
+          _servingSizeGMeta,
+        ),
+      );
+    }
+    if (data.containsKey('nutriscore')) {
+      context.handle(
+        _nutriscoreMeta,
+        nutriscore.isAcceptableOrUnknown(data['nutriscore']!, _nutriscoreMeta),
+      );
+    }
+    if (data.containsKey('nova_group')) {
+      context.handle(
+        _novaGroupMeta,
+        novaGroup.isAcceptableOrUnknown(data['nova_group']!, _novaGroupMeta),
+      );
+    }
+    if (data.containsKey('ingredients_text')) {
+      context.handle(
+        _ingredientsTextMeta,
+        ingredientsText.isAcceptableOrUnknown(
+          data['ingredients_text']!,
+          _ingredientsTextMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -300,6 +543,54 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      caloriesPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}calories_per100g'],
+      ),
+      proteinPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}protein_per100g'],
+      ),
+      carbsPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}carbs_per100g'],
+      ),
+      fatPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fat_per100g'],
+      ),
+      fiberPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fiber_per100g'],
+      ),
+      sugarsPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}sugars_per100g'],
+      ),
+      saturatedFatPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}saturated_fat_per100g'],
+      ),
+      saltPer100g: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}salt_per100g'],
+      ),
+      servingSizeG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}serving_size_g'],
+      ),
+      nutriscore: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nutriscore'],
+      ),
+      novaGroup: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}nova_group'],
+      ),
+      ingredientsText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ingredients_text'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -328,6 +619,18 @@ class Item extends DataClass implements Insertable<Item> {
   final bool openedFlag;
   final String? containerItemId;
   final String? notes;
+  final double? caloriesPer100g;
+  final double? proteinPer100g;
+  final double? carbsPer100g;
+  final double? fatPer100g;
+  final double? fiberPer100g;
+  final double? sugarsPer100g;
+  final double? saturatedFatPer100g;
+  final double? saltPer100g;
+  final double? servingSizeG;
+  final String? nutriscore;
+  final int? novaGroup;
+  final String? ingredientsText;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Item({
@@ -341,6 +644,18 @@ class Item extends DataClass implements Insertable<Item> {
     required this.openedFlag,
     this.containerItemId,
     this.notes,
+    this.caloriesPer100g,
+    this.proteinPer100g,
+    this.carbsPer100g,
+    this.fatPer100g,
+    this.fiberPer100g,
+    this.sugarsPer100g,
+    this.saturatedFatPer100g,
+    this.saltPer100g,
+    this.servingSizeG,
+    this.nutriscore,
+    this.novaGroup,
+    this.ingredientsText,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -365,6 +680,42 @@ class Item extends DataClass implements Insertable<Item> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    if (!nullToAbsent || caloriesPer100g != null) {
+      map['calories_per100g'] = Variable<double>(caloriesPer100g);
+    }
+    if (!nullToAbsent || proteinPer100g != null) {
+      map['protein_per100g'] = Variable<double>(proteinPer100g);
+    }
+    if (!nullToAbsent || carbsPer100g != null) {
+      map['carbs_per100g'] = Variable<double>(carbsPer100g);
+    }
+    if (!nullToAbsent || fatPer100g != null) {
+      map['fat_per100g'] = Variable<double>(fatPer100g);
+    }
+    if (!nullToAbsent || fiberPer100g != null) {
+      map['fiber_per100g'] = Variable<double>(fiberPer100g);
+    }
+    if (!nullToAbsent || sugarsPer100g != null) {
+      map['sugars_per100g'] = Variable<double>(sugarsPer100g);
+    }
+    if (!nullToAbsent || saturatedFatPer100g != null) {
+      map['saturated_fat_per100g'] = Variable<double>(saturatedFatPer100g);
+    }
+    if (!nullToAbsent || saltPer100g != null) {
+      map['salt_per100g'] = Variable<double>(saltPer100g);
+    }
+    if (!nullToAbsent || servingSizeG != null) {
+      map['serving_size_g'] = Variable<double>(servingSizeG);
+    }
+    if (!nullToAbsent || nutriscore != null) {
+      map['nutriscore'] = Variable<String>(nutriscore);
+    }
+    if (!nullToAbsent || novaGroup != null) {
+      map['nova_group'] = Variable<int>(novaGroup);
+    }
+    if (!nullToAbsent || ingredientsText != null) {
+      map['ingredients_text'] = Variable<String>(ingredientsText);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -388,6 +739,42 @@ class Item extends DataClass implements Insertable<Item> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      caloriesPer100g: caloriesPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(caloriesPer100g),
+      proteinPer100g: proteinPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(proteinPer100g),
+      carbsPer100g: carbsPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(carbsPer100g),
+      fatPer100g: fatPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fatPer100g),
+      fiberPer100g: fiberPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fiberPer100g),
+      sugarsPer100g: sugarsPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sugarsPer100g),
+      saturatedFatPer100g: saturatedFatPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(saturatedFatPer100g),
+      saltPer100g: saltPer100g == null && nullToAbsent
+          ? const Value.absent()
+          : Value(saltPer100g),
+      servingSizeG: servingSizeG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(servingSizeG),
+      nutriscore: nutriscore == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nutriscore),
+      novaGroup: novaGroup == null && nullToAbsent
+          ? const Value.absent()
+          : Value(novaGroup),
+      ingredientsText: ingredientsText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ingredientsText),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -411,6 +798,20 @@ class Item extends DataClass implements Insertable<Item> {
       openedFlag: serializer.fromJson<bool>(json['openedFlag']),
       containerItemId: serializer.fromJson<String?>(json['containerItemId']),
       notes: serializer.fromJson<String?>(json['notes']),
+      caloriesPer100g: serializer.fromJson<double?>(json['caloriesPer100g']),
+      proteinPer100g: serializer.fromJson<double?>(json['proteinPer100g']),
+      carbsPer100g: serializer.fromJson<double?>(json['carbsPer100g']),
+      fatPer100g: serializer.fromJson<double?>(json['fatPer100g']),
+      fiberPer100g: serializer.fromJson<double?>(json['fiberPer100g']),
+      sugarsPer100g: serializer.fromJson<double?>(json['sugarsPer100g']),
+      saturatedFatPer100g: serializer.fromJson<double?>(
+        json['saturatedFatPer100g'],
+      ),
+      saltPer100g: serializer.fromJson<double?>(json['saltPer100g']),
+      servingSizeG: serializer.fromJson<double?>(json['servingSizeG']),
+      nutriscore: serializer.fromJson<String?>(json['nutriscore']),
+      novaGroup: serializer.fromJson<int?>(json['novaGroup']),
+      ingredientsText: serializer.fromJson<String?>(json['ingredientsText']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -429,6 +830,18 @@ class Item extends DataClass implements Insertable<Item> {
       'openedFlag': serializer.toJson<bool>(openedFlag),
       'containerItemId': serializer.toJson<String?>(containerItemId),
       'notes': serializer.toJson<String?>(notes),
+      'caloriesPer100g': serializer.toJson<double?>(caloriesPer100g),
+      'proteinPer100g': serializer.toJson<double?>(proteinPer100g),
+      'carbsPer100g': serializer.toJson<double?>(carbsPer100g),
+      'fatPer100g': serializer.toJson<double?>(fatPer100g),
+      'fiberPer100g': serializer.toJson<double?>(fiberPer100g),
+      'sugarsPer100g': serializer.toJson<double?>(sugarsPer100g),
+      'saturatedFatPer100g': serializer.toJson<double?>(saturatedFatPer100g),
+      'saltPer100g': serializer.toJson<double?>(saltPer100g),
+      'servingSizeG': serializer.toJson<double?>(servingSizeG),
+      'nutriscore': serializer.toJson<String?>(nutriscore),
+      'novaGroup': serializer.toJson<int?>(novaGroup),
+      'ingredientsText': serializer.toJson<String?>(ingredientsText),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -445,6 +858,18 @@ class Item extends DataClass implements Insertable<Item> {
     bool? openedFlag,
     Value<String?> containerItemId = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    Value<double?> caloriesPer100g = const Value.absent(),
+    Value<double?> proteinPer100g = const Value.absent(),
+    Value<double?> carbsPer100g = const Value.absent(),
+    Value<double?> fatPer100g = const Value.absent(),
+    Value<double?> fiberPer100g = const Value.absent(),
+    Value<double?> sugarsPer100g = const Value.absent(),
+    Value<double?> saturatedFatPer100g = const Value.absent(),
+    Value<double?> saltPer100g = const Value.absent(),
+    Value<double?> servingSizeG = const Value.absent(),
+    Value<String?> nutriscore = const Value.absent(),
+    Value<int?> novaGroup = const Value.absent(),
+    Value<String?> ingredientsText = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Item(
@@ -460,6 +885,28 @@ class Item extends DataClass implements Insertable<Item> {
         ? containerItemId.value
         : this.containerItemId,
     notes: notes.present ? notes.value : this.notes,
+    caloriesPer100g: caloriesPer100g.present
+        ? caloriesPer100g.value
+        : this.caloriesPer100g,
+    proteinPer100g: proteinPer100g.present
+        ? proteinPer100g.value
+        : this.proteinPer100g,
+    carbsPer100g: carbsPer100g.present ? carbsPer100g.value : this.carbsPer100g,
+    fatPer100g: fatPer100g.present ? fatPer100g.value : this.fatPer100g,
+    fiberPer100g: fiberPer100g.present ? fiberPer100g.value : this.fiberPer100g,
+    sugarsPer100g: sugarsPer100g.present
+        ? sugarsPer100g.value
+        : this.sugarsPer100g,
+    saturatedFatPer100g: saturatedFatPer100g.present
+        ? saturatedFatPer100g.value
+        : this.saturatedFatPer100g,
+    saltPer100g: saltPer100g.present ? saltPer100g.value : this.saltPer100g,
+    servingSizeG: servingSizeG.present ? servingSizeG.value : this.servingSizeG,
+    nutriscore: nutriscore.present ? nutriscore.value : this.nutriscore,
+    novaGroup: novaGroup.present ? novaGroup.value : this.novaGroup,
+    ingredientsText: ingredientsText.present
+        ? ingredientsText.value
+        : this.ingredientsText,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -485,6 +932,40 @@ class Item extends DataClass implements Insertable<Item> {
           ? data.containerItemId.value
           : this.containerItemId,
       notes: data.notes.present ? data.notes.value : this.notes,
+      caloriesPer100g: data.caloriesPer100g.present
+          ? data.caloriesPer100g.value
+          : this.caloriesPer100g,
+      proteinPer100g: data.proteinPer100g.present
+          ? data.proteinPer100g.value
+          : this.proteinPer100g,
+      carbsPer100g: data.carbsPer100g.present
+          ? data.carbsPer100g.value
+          : this.carbsPer100g,
+      fatPer100g: data.fatPer100g.present
+          ? data.fatPer100g.value
+          : this.fatPer100g,
+      fiberPer100g: data.fiberPer100g.present
+          ? data.fiberPer100g.value
+          : this.fiberPer100g,
+      sugarsPer100g: data.sugarsPer100g.present
+          ? data.sugarsPer100g.value
+          : this.sugarsPer100g,
+      saturatedFatPer100g: data.saturatedFatPer100g.present
+          ? data.saturatedFatPer100g.value
+          : this.saturatedFatPer100g,
+      saltPer100g: data.saltPer100g.present
+          ? data.saltPer100g.value
+          : this.saltPer100g,
+      servingSizeG: data.servingSizeG.present
+          ? data.servingSizeG.value
+          : this.servingSizeG,
+      nutriscore: data.nutriscore.present
+          ? data.nutriscore.value
+          : this.nutriscore,
+      novaGroup: data.novaGroup.present ? data.novaGroup.value : this.novaGroup,
+      ingredientsText: data.ingredientsText.present
+          ? data.ingredientsText.value
+          : this.ingredientsText,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -503,6 +984,18 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('openedFlag: $openedFlag, ')
           ..write('containerItemId: $containerItemId, ')
           ..write('notes: $notes, ')
+          ..write('caloriesPer100g: $caloriesPer100g, ')
+          ..write('proteinPer100g: $proteinPer100g, ')
+          ..write('carbsPer100g: $carbsPer100g, ')
+          ..write('fatPer100g: $fatPer100g, ')
+          ..write('fiberPer100g: $fiberPer100g, ')
+          ..write('sugarsPer100g: $sugarsPer100g, ')
+          ..write('saturatedFatPer100g: $saturatedFatPer100g, ')
+          ..write('saltPer100g: $saltPer100g, ')
+          ..write('servingSizeG: $servingSizeG, ')
+          ..write('nutriscore: $nutriscore, ')
+          ..write('novaGroup: $novaGroup, ')
+          ..write('ingredientsText: $ingredientsText, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -510,7 +1003,7 @@ class Item extends DataClass implements Insertable<Item> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     name,
     brand,
@@ -521,9 +1014,21 @@ class Item extends DataClass implements Insertable<Item> {
     openedFlag,
     containerItemId,
     notes,
+    caloriesPer100g,
+    proteinPer100g,
+    carbsPer100g,
+    fatPer100g,
+    fiberPer100g,
+    sugarsPer100g,
+    saturatedFatPer100g,
+    saltPer100g,
+    servingSizeG,
+    nutriscore,
+    novaGroup,
+    ingredientsText,
     createdAt,
     updatedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -538,6 +1043,18 @@ class Item extends DataClass implements Insertable<Item> {
           other.openedFlag == this.openedFlag &&
           other.containerItemId == this.containerItemId &&
           other.notes == this.notes &&
+          other.caloriesPer100g == this.caloriesPer100g &&
+          other.proteinPer100g == this.proteinPer100g &&
+          other.carbsPer100g == this.carbsPer100g &&
+          other.fatPer100g == this.fatPer100g &&
+          other.fiberPer100g == this.fiberPer100g &&
+          other.sugarsPer100g == this.sugarsPer100g &&
+          other.saturatedFatPer100g == this.saturatedFatPer100g &&
+          other.saltPer100g == this.saltPer100g &&
+          other.servingSizeG == this.servingSizeG &&
+          other.nutriscore == this.nutriscore &&
+          other.novaGroup == this.novaGroup &&
+          other.ingredientsText == this.ingredientsText &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -553,6 +1070,18 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<bool> openedFlag;
   final Value<String?> containerItemId;
   final Value<String?> notes;
+  final Value<double?> caloriesPer100g;
+  final Value<double?> proteinPer100g;
+  final Value<double?> carbsPer100g;
+  final Value<double?> fatPer100g;
+  final Value<double?> fiberPer100g;
+  final Value<double?> sugarsPer100g;
+  final Value<double?> saturatedFatPer100g;
+  final Value<double?> saltPer100g;
+  final Value<double?> servingSizeG;
+  final Value<String?> nutriscore;
+  final Value<int?> novaGroup;
+  final Value<String?> ingredientsText;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -567,6 +1096,18 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.openedFlag = const Value.absent(),
     this.containerItemId = const Value.absent(),
     this.notes = const Value.absent(),
+    this.caloriesPer100g = const Value.absent(),
+    this.proteinPer100g = const Value.absent(),
+    this.carbsPer100g = const Value.absent(),
+    this.fatPer100g = const Value.absent(),
+    this.fiberPer100g = const Value.absent(),
+    this.sugarsPer100g = const Value.absent(),
+    this.saturatedFatPer100g = const Value.absent(),
+    this.saltPer100g = const Value.absent(),
+    this.servingSizeG = const Value.absent(),
+    this.nutriscore = const Value.absent(),
+    this.novaGroup = const Value.absent(),
+    this.ingredientsText = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -582,6 +1123,18 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.openedFlag = const Value.absent(),
     this.containerItemId = const Value.absent(),
     this.notes = const Value.absent(),
+    this.caloriesPer100g = const Value.absent(),
+    this.proteinPer100g = const Value.absent(),
+    this.carbsPer100g = const Value.absent(),
+    this.fatPer100g = const Value.absent(),
+    this.fiberPer100g = const Value.absent(),
+    this.sugarsPer100g = const Value.absent(),
+    this.saturatedFatPer100g = const Value.absent(),
+    this.saltPer100g = const Value.absent(),
+    this.servingSizeG = const Value.absent(),
+    this.nutriscore = const Value.absent(),
+    this.novaGroup = const Value.absent(),
+    this.ingredientsText = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -599,6 +1152,18 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<bool>? openedFlag,
     Expression<String>? containerItemId,
     Expression<String>? notes,
+    Expression<double>? caloriesPer100g,
+    Expression<double>? proteinPer100g,
+    Expression<double>? carbsPer100g,
+    Expression<double>? fatPer100g,
+    Expression<double>? fiberPer100g,
+    Expression<double>? sugarsPer100g,
+    Expression<double>? saturatedFatPer100g,
+    Expression<double>? saltPer100g,
+    Expression<double>? servingSizeG,
+    Expression<String>? nutriscore,
+    Expression<int>? novaGroup,
+    Expression<String>? ingredientsText,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -615,6 +1180,19 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (openedFlag != null) 'opened_flag': openedFlag,
       if (containerItemId != null) 'container_item_id': containerItemId,
       if (notes != null) 'notes': notes,
+      if (caloriesPer100g != null) 'calories_per100g': caloriesPer100g,
+      if (proteinPer100g != null) 'protein_per100g': proteinPer100g,
+      if (carbsPer100g != null) 'carbs_per100g': carbsPer100g,
+      if (fatPer100g != null) 'fat_per100g': fatPer100g,
+      if (fiberPer100g != null) 'fiber_per100g': fiberPer100g,
+      if (sugarsPer100g != null) 'sugars_per100g': sugarsPer100g,
+      if (saturatedFatPer100g != null)
+        'saturated_fat_per100g': saturatedFatPer100g,
+      if (saltPer100g != null) 'salt_per100g': saltPer100g,
+      if (servingSizeG != null) 'serving_size_g': servingSizeG,
+      if (nutriscore != null) 'nutriscore': nutriscore,
+      if (novaGroup != null) 'nova_group': novaGroup,
+      if (ingredientsText != null) 'ingredients_text': ingredientsText,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -632,6 +1210,18 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<bool>? openedFlag,
     Value<String?>? containerItemId,
     Value<String?>? notes,
+    Value<double?>? caloriesPer100g,
+    Value<double?>? proteinPer100g,
+    Value<double?>? carbsPer100g,
+    Value<double?>? fatPer100g,
+    Value<double?>? fiberPer100g,
+    Value<double?>? sugarsPer100g,
+    Value<double?>? saturatedFatPer100g,
+    Value<double?>? saltPer100g,
+    Value<double?>? servingSizeG,
+    Value<String?>? nutriscore,
+    Value<int?>? novaGroup,
+    Value<String?>? ingredientsText,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -647,6 +1237,18 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       openedFlag: openedFlag ?? this.openedFlag,
       containerItemId: containerItemId ?? this.containerItemId,
       notes: notes ?? this.notes,
+      caloriesPer100g: caloriesPer100g ?? this.caloriesPer100g,
+      proteinPer100g: proteinPer100g ?? this.proteinPer100g,
+      carbsPer100g: carbsPer100g ?? this.carbsPer100g,
+      fatPer100g: fatPer100g ?? this.fatPer100g,
+      fiberPer100g: fiberPer100g ?? this.fiberPer100g,
+      sugarsPer100g: sugarsPer100g ?? this.sugarsPer100g,
+      saturatedFatPer100g: saturatedFatPer100g ?? this.saturatedFatPer100g,
+      saltPer100g: saltPer100g ?? this.saltPer100g,
+      servingSizeG: servingSizeG ?? this.servingSizeG,
+      nutriscore: nutriscore ?? this.nutriscore,
+      novaGroup: novaGroup ?? this.novaGroup,
+      ingredientsText: ingredientsText ?? this.ingredientsText,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -686,6 +1288,44 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (caloriesPer100g.present) {
+      map['calories_per100g'] = Variable<double>(caloriesPer100g.value);
+    }
+    if (proteinPer100g.present) {
+      map['protein_per100g'] = Variable<double>(proteinPer100g.value);
+    }
+    if (carbsPer100g.present) {
+      map['carbs_per100g'] = Variable<double>(carbsPer100g.value);
+    }
+    if (fatPer100g.present) {
+      map['fat_per100g'] = Variable<double>(fatPer100g.value);
+    }
+    if (fiberPer100g.present) {
+      map['fiber_per100g'] = Variable<double>(fiberPer100g.value);
+    }
+    if (sugarsPer100g.present) {
+      map['sugars_per100g'] = Variable<double>(sugarsPer100g.value);
+    }
+    if (saturatedFatPer100g.present) {
+      map['saturated_fat_per100g'] = Variable<double>(
+        saturatedFatPer100g.value,
+      );
+    }
+    if (saltPer100g.present) {
+      map['salt_per100g'] = Variable<double>(saltPer100g.value);
+    }
+    if (servingSizeG.present) {
+      map['serving_size_g'] = Variable<double>(servingSizeG.value);
+    }
+    if (nutriscore.present) {
+      map['nutriscore'] = Variable<String>(nutriscore.value);
+    }
+    if (novaGroup.present) {
+      map['nova_group'] = Variable<int>(novaGroup.value);
+    }
+    if (ingredientsText.present) {
+      map['ingredients_text'] = Variable<String>(ingredientsText.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -711,6 +1351,18 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('openedFlag: $openedFlag, ')
           ..write('containerItemId: $containerItemId, ')
           ..write('notes: $notes, ')
+          ..write('caloriesPer100g: $caloriesPer100g, ')
+          ..write('proteinPer100g: $proteinPer100g, ')
+          ..write('carbsPer100g: $carbsPer100g, ')
+          ..write('fatPer100g: $fatPer100g, ')
+          ..write('fiberPer100g: $fiberPer100g, ')
+          ..write('sugarsPer100g: $sugarsPer100g, ')
+          ..write('saturatedFatPer100g: $saturatedFatPer100g, ')
+          ..write('saltPer100g: $saltPer100g, ')
+          ..write('servingSizeG: $servingSizeG, ')
+          ..write('nutriscore: $nutriscore, ')
+          ..write('novaGroup: $novaGroup, ')
+          ..write('ingredientsText: $ingredientsText, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -10044,6 +10696,18 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<bool> openedFlag,
       Value<String?> containerItemId,
       Value<String?> notes,
+      Value<double?> caloriesPer100g,
+      Value<double?> proteinPer100g,
+      Value<double?> carbsPer100g,
+      Value<double?> fatPer100g,
+      Value<double?> fiberPer100g,
+      Value<double?> sugarsPer100g,
+      Value<double?> saturatedFatPer100g,
+      Value<double?> saltPer100g,
+      Value<double?> servingSizeG,
+      Value<String?> nutriscore,
+      Value<int?> novaGroup,
+      Value<String?> ingredientsText,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -10060,6 +10724,18 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<bool> openedFlag,
       Value<String?> containerItemId,
       Value<String?> notes,
+      Value<double?> caloriesPer100g,
+      Value<double?> proteinPer100g,
+      Value<double?> carbsPer100g,
+      Value<double?> fatPer100g,
+      Value<double?> fiberPer100g,
+      Value<double?> sugarsPer100g,
+      Value<double?> saturatedFatPer100g,
+      Value<double?> saltPer100g,
+      Value<double?> servingSizeG,
+      Value<String?> nutriscore,
+      Value<int?> novaGroup,
+      Value<String?> ingredientsText,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -10201,6 +10877,66 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get caloriesPer100g => $composableBuilder(
+    column: $table.caloriesPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get proteinPer100g => $composableBuilder(
+    column: $table.proteinPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get carbsPer100g => $composableBuilder(
+    column: $table.carbsPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fatPer100g => $composableBuilder(
+    column: $table.fatPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fiberPer100g => $composableBuilder(
+    column: $table.fiberPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get sugarsPer100g => $composableBuilder(
+    column: $table.sugarsPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get saturatedFatPer100g => $composableBuilder(
+    column: $table.saturatedFatPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get saltPer100g => $composableBuilder(
+    column: $table.saltPer100g,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get servingSizeG => $composableBuilder(
+    column: $table.servingSizeG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nutriscore => $composableBuilder(
+    column: $table.nutriscore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get novaGroup => $composableBuilder(
+    column: $table.novaGroup,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ingredientsText => $composableBuilder(
+    column: $table.ingredientsText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10374,6 +11110,66 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get caloriesPer100g => $composableBuilder(
+    column: $table.caloriesPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get proteinPer100g => $composableBuilder(
+    column: $table.proteinPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get carbsPer100g => $composableBuilder(
+    column: $table.carbsPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fatPer100g => $composableBuilder(
+    column: $table.fatPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fiberPer100g => $composableBuilder(
+    column: $table.fiberPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get sugarsPer100g => $composableBuilder(
+    column: $table.sugarsPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get saturatedFatPer100g => $composableBuilder(
+    column: $table.saturatedFatPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get saltPer100g => $composableBuilder(
+    column: $table.saltPer100g,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get servingSizeG => $composableBuilder(
+    column: $table.servingSizeG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nutriscore => $composableBuilder(
+    column: $table.nutriscore,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get novaGroup => $composableBuilder(
+    column: $table.novaGroup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ingredientsText => $composableBuilder(
+    column: $table.ingredientsText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -10433,6 +11229,64 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<double> get caloriesPer100g => $composableBuilder(
+    column: $table.caloriesPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get proteinPer100g => $composableBuilder(
+    column: $table.proteinPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get carbsPer100g => $composableBuilder(
+    column: $table.carbsPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get fatPer100g => $composableBuilder(
+    column: $table.fatPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get fiberPer100g => $composableBuilder(
+    column: $table.fiberPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get sugarsPer100g => $composableBuilder(
+    column: $table.sugarsPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get saturatedFatPer100g => $composableBuilder(
+    column: $table.saturatedFatPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get saltPer100g => $composableBuilder(
+    column: $table.saltPer100g,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get servingSizeG => $composableBuilder(
+    column: $table.servingSizeG,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nutriscore => $composableBuilder(
+    column: $table.nutriscore,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get novaGroup =>
+      $composableBuilder(column: $table.novaGroup, builder: (column) => column);
+
+  GeneratedColumn<String> get ingredientsText => $composableBuilder(
+    column: $table.ingredientsText,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -10584,6 +11438,18 @@ class $$ItemsTableTableManager
                 Value<bool> openedFlag = const Value.absent(),
                 Value<String?> containerItemId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<double?> caloriesPer100g = const Value.absent(),
+                Value<double?> proteinPer100g = const Value.absent(),
+                Value<double?> carbsPer100g = const Value.absent(),
+                Value<double?> fatPer100g = const Value.absent(),
+                Value<double?> fiberPer100g = const Value.absent(),
+                Value<double?> sugarsPer100g = const Value.absent(),
+                Value<double?> saturatedFatPer100g = const Value.absent(),
+                Value<double?> saltPer100g = const Value.absent(),
+                Value<double?> servingSizeG = const Value.absent(),
+                Value<String?> nutriscore = const Value.absent(),
+                Value<int?> novaGroup = const Value.absent(),
+                Value<String?> ingredientsText = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -10598,6 +11464,18 @@ class $$ItemsTableTableManager
                 openedFlag: openedFlag,
                 containerItemId: containerItemId,
                 notes: notes,
+                caloriesPer100g: caloriesPer100g,
+                proteinPer100g: proteinPer100g,
+                carbsPer100g: carbsPer100g,
+                fatPer100g: fatPer100g,
+                fiberPer100g: fiberPer100g,
+                sugarsPer100g: sugarsPer100g,
+                saturatedFatPer100g: saturatedFatPer100g,
+                saltPer100g: saltPer100g,
+                servingSizeG: servingSizeG,
+                nutriscore: nutriscore,
+                novaGroup: novaGroup,
+                ingredientsText: ingredientsText,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -10614,6 +11492,18 @@ class $$ItemsTableTableManager
                 Value<bool> openedFlag = const Value.absent(),
                 Value<String?> containerItemId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<double?> caloriesPer100g = const Value.absent(),
+                Value<double?> proteinPer100g = const Value.absent(),
+                Value<double?> carbsPer100g = const Value.absent(),
+                Value<double?> fatPer100g = const Value.absent(),
+                Value<double?> fiberPer100g = const Value.absent(),
+                Value<double?> sugarsPer100g = const Value.absent(),
+                Value<double?> saturatedFatPer100g = const Value.absent(),
+                Value<double?> saltPer100g = const Value.absent(),
+                Value<double?> servingSizeG = const Value.absent(),
+                Value<String?> nutriscore = const Value.absent(),
+                Value<int?> novaGroup = const Value.absent(),
+                Value<String?> ingredientsText = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -10628,6 +11518,18 @@ class $$ItemsTableTableManager
                 openedFlag: openedFlag,
                 containerItemId: containerItemId,
                 notes: notes,
+                caloriesPer100g: caloriesPer100g,
+                proteinPer100g: proteinPer100g,
+                carbsPer100g: carbsPer100g,
+                fatPer100g: fatPer100g,
+                fiberPer100g: fiberPer100g,
+                sugarsPer100g: sugarsPer100g,
+                saturatedFatPer100g: saturatedFatPer100g,
+                saltPer100g: saltPer100g,
+                servingSizeG: servingSizeG,
+                nutriscore: nutriscore,
+                novaGroup: novaGroup,
+                ingredientsText: ingredientsText,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

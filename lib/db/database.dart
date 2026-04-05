@@ -45,13 +45,26 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
-          // Incremental migrations added here as schema evolves
+          if (from < 2) {
+            await m.addColumn(items, items.caloriesPer100g);
+            await m.addColumn(items, items.proteinPer100g);
+            await m.addColumn(items, items.carbsPer100g);
+            await m.addColumn(items, items.fatPer100g);
+            await m.addColumn(items, items.fiberPer100g);
+            await m.addColumn(items, items.sugarsPer100g);
+            await m.addColumn(items, items.saturatedFatPer100g);
+            await m.addColumn(items, items.saltPer100g);
+            await m.addColumn(items, items.servingSizeG);
+            await m.addColumn(items, items.nutriscore);
+            await m.addColumn(items, items.novaGroup);
+            await m.addColumn(items, items.ingredientsText);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

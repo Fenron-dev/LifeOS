@@ -73,6 +73,19 @@ class ItemsNotifier extends AsyncNotifier<void> {
     bool alwaysConsumedFully = false,
     bool openedFlag = true,
     String? notes,
+    // Nutrition
+    double? caloriesPer100g,
+    double? proteinPer100g,
+    double? carbsPer100g,
+    double? fatPer100g,
+    double? fiberPer100g,
+    double? sugarsPer100g,
+    double? saturatedFatPer100g,
+    double? saltPer100g,
+    double? servingSizeG,
+    String? nutriscore,
+    int? novaGroup,
+    String? ingredientsText,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -85,6 +98,18 @@ class ItemsNotifier extends AsyncNotifier<void> {
       alwaysConsumedFully: Value(alwaysConsumedFully),
       openedFlag: Value(openedFlag),
       notes: Value(notes),
+      caloriesPer100g: Value(caloriesPer100g),
+      proteinPer100g: Value(proteinPer100g),
+      carbsPer100g: Value(carbsPer100g),
+      fatPer100g: Value(fatPer100g),
+      fiberPer100g: Value(fiberPer100g),
+      sugarsPer100g: Value(sugarsPer100g),
+      saturatedFatPer100g: Value(saturatedFatPer100g),
+      saltPer100g: Value(saltPer100g),
+      servingSizeG: Value(servingSizeG),
+      nutriscore: Value(nutriscore),
+      novaGroup: Value(novaGroup),
+      ingredientsText: Value(ingredientsText),
     ));
     return id;
   }
@@ -101,6 +126,18 @@ class ItemsNotifier extends AsyncNotifier<void> {
       openedFlag: Value(item.openedFlag),
       containerItemId: Value(item.containerItemId),
       notes: Value(item.notes),
+      caloriesPer100g: Value(item.caloriesPer100g),
+      proteinPer100g: Value(item.proteinPer100g),
+      carbsPer100g: Value(item.carbsPer100g),
+      fatPer100g: Value(item.fatPer100g),
+      fiberPer100g: Value(item.fiberPer100g),
+      sugarsPer100g: Value(item.sugarsPer100g),
+      saturatedFatPer100g: Value(item.saturatedFatPer100g),
+      saltPer100g: Value(item.saltPer100g),
+      servingSizeG: Value(item.servingSizeG),
+      nutriscore: Value(item.nutriscore),
+      novaGroup: Value(item.novaGroup),
+      ingredientsText: Value(item.ingredientsText),
       updatedAt: Value(DateTime.now()),
     ));
   }
