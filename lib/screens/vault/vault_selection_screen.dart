@@ -9,6 +9,11 @@ import '../../providers/vault_provider.dart';
 class VaultSelectionScreen extends ConsumerWidget {
   const VaultSelectionScreen({super.key});
 
+  // On Android/iOS, FilePicker returns a content URI (SAF), not a real
+  // filesystem path — SQLite cannot open such URIs (error 14).
+  // Mobile always uses the app's documents directory as vault location.
+  static bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recentAsync = ref.watch(recentVaultsProvider);
@@ -40,17 +45,23 @@ class VaultSelectionScreen extends ConsumerWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 40),
+                  // On mobile: single button uses default path (always writable).
+                  // On desktop: offer both default and custom folder.
                   FilledButton.icon(
-                    onPressed: () => _openVault(context, ref),
-                    icon: const Icon(Icons.folder_open),
-                    label: const Text('Vault öffnen'),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => _createVault(context, ref),
+                    onPressed: () => _createDefaultVault(context, ref),
                     icon: const Icon(Icons.create_new_folder_outlined),
-                    label: const Text('Neuer Vault'),
+                    label: Text(_isMobile
+                        ? 'Vault erstellen'
+                        : 'Standard-Vault erstellen'),
                   ),
+                  if (!_isMobile) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => _pickVault(context, ref),
+                      icon: const Icon(Icons.folder_open),
+                      label: const Text('Ordner auswählen'),
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   recentAsync.when(
                     loading: () => const SizedBox.shrink(),
@@ -82,17 +93,18 @@ class VaultSelectionScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _openVault(BuildContext context, WidgetRef ref) async {
-    final result = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Vault-Ordner auswählen',
-    );
-    if (result == null || !context.mounted) return;
-    await _activateVault(context, ref, result);
+  /// Creates (or opens) the vault at the platform default location.
+  /// On Android this is always inside the app sandbox — guaranteed writable.
+  Future<void> _createDefaultVault(BuildContext context, WidgetRef ref) async {
+    final path = await VaultManager.defaultVaultPath();
+    if (!context.mounted) return;
+    await _activateVault(context, ref, path);
   }
 
-  Future<void> _createVault(BuildContext context, WidgetRef ref) async {
+  /// Desktop only: let the user pick any folder via the system dialog.
+  Future<void> _pickVault(BuildContext context, WidgetRef ref) async {
     final result = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Neuen Vault-Ordner auswählen oder erstellen',
+      dialogTitle: 'Vault-Ordner auswählen oder erstellen',
     );
     if (result == null || !context.mounted) return;
     await _activateVault(context, ref, result);
@@ -101,7 +113,13 @@ class VaultSelectionScreen extends ConsumerWidget {
   Future<void> _activateVault(
       BuildContext context, WidgetRef ref, String path) async {
     final ok = await VaultManager.initializeVault(path);
-    if (!ok || !context.mounted) return;
+    if (!context.mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vault konnte nicht erstellt werden.')),
+      );
+      return;
+    }
     await ref.read(recentVaultsProvider.notifier).addVault(path);
     ref.read(vaultPathProvider.notifier).state = path;
   }

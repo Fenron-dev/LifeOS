@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../db/database.dart';
 import '../../providers/items_provider.dart';
+import '../../widgets/adaptive_shell.dart';
 
 class InventoryScreen extends ConsumerWidget {
   const InventoryScreen({super.key});
@@ -16,6 +17,7 @@ class InventoryScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inventar'),
+        actions: shellMenuActions(context),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(

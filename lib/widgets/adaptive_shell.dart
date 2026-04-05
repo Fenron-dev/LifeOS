@@ -1,6 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+/// Overflow menu actions shared across all main-branch AppBars.
+/// Provides navigation to Wishlist and Settings.
+List<Widget> shellMenuActions(BuildContext context) => [
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
+        tooltip: 'Mehr',
+        onSelected: (route) => context.push(route),
+        itemBuilder: (_) => const [
+          PopupMenuItem(
+            value: '/wishlist',
+            child: Row(children: [
+              Icon(Icons.star_outline),
+              SizedBox(width: 12),
+              Text('Wunschliste'),
+            ]),
+          ),
+          PopupMenuItem(
+            value: '/settings',
+            child: Row(children: [
+              Icon(Icons.settings_outlined),
+              SizedBox(width: 12),
+              Text('Einstellungen'),
+            ]),
+          ),
+        ],
+      ),
+    ];
+
 // Breakpoints
 const _kMobileBreakpoint = 600.0;
 const _kDesktopBreakpoint = 1200.0;
@@ -39,18 +67,6 @@ final _destinations = [
     icon: Icons.task_outlined,
     selectedIcon: Icons.task,
     route: '/tasks',
-  ),
-  const _NavDest(
-    label: 'Wunschliste',
-    icon: Icons.star_outline,
-    selectedIcon: Icons.star,
-    route: '/wishlist',
-  ),
-  const _NavDest(
-    label: 'Einstellungen',
-    icon: Icons.settings_outlined,
-    selectedIcon: Icons.settings,
-    route: '/settings',
   ),
 ];
 
@@ -113,7 +129,6 @@ class _MobileShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      floatingActionButton: _scanFab(context),
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: onTap,
@@ -127,12 +142,6 @@ class _MobileShell extends StatelessWidget {
       ),
     );
   }
-
-  Widget _scanFab(BuildContext context) => FloatingActionButton(
-        onPressed: () => context.push('/scan'),
-        tooltip: 'Barcode scannen',
-        child: const Icon(Icons.qr_code_scanner),
-      );
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +168,6 @@ class _TabletShell extends StatelessWidget {
             selectedIndex: currentIndex,
             onDestinationSelected: onTap,
             labelType: NavigationRailLabelType.selected,
-            leading: _scanRailButton(context),
             destinations: _destinations
                 .map((d) => NavigationRailDestination(
                       icon: Icon(d.icon),
@@ -174,15 +182,6 @@ class _TabletShell extends StatelessWidget {
       ),
     );
   }
-
-  Widget _scanRailButton(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: IconButton.filled(
-          onPressed: () => context.push('/scan'),
-          icon: const Icon(Icons.qr_code_scanner),
-          tooltip: 'Barcode scannen',
-        ),
-      );
 }
 
 // ---------------------------------------------------------------------------
@@ -236,12 +235,6 @@ class _DesktopShell extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => context.push('/scan'),
-              icon: const Icon(Icons.qr_code_scanner, size: 18),
-              label: const Text('Scan'),
             ),
           ],
         ),

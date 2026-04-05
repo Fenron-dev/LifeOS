@@ -36,6 +36,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BarcodeScannerScreen(),
       ),
 
+      // ── Wishlist & Settings: full-screen push routes (not in shell nav) ──
+      GoRoute(
+        path: '/wishlist',
+        builder: (context, state) => const WishlistScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+        routes: [
+          GoRoute(
+            path: 'locations',
+            builder: (context, state) => const LocationsScreen(),
+          ),
+        ],
+      ),
+
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdaptiveShell(navigationShell: shell),
         branches: [
@@ -85,30 +101,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/tasks',
                 builder: (context, state) => const TasksScreen(),
-              ),
-            ],
-          ),
-          // ── Wishlist branch ───────────────────────────────────────────────
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/wishlist',
-                builder: (context, state) => const WishlistScreen(),
-              ),
-            ],
-          ),
-          // ── Settings branch ───────────────────────────────────────────────
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/settings',
-                builder: (context, state) => const SettingsScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'locations',
-                    builder: (context, state) => const LocationsScreen(),
-                  ),
-                ],
               ),
             ],
           ),
