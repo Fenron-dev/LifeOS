@@ -204,7 +204,7 @@ class _MealFormState extends ConsumerState<_MealForm> {
 
   @override
   Widget build(BuildContext context) {
-    final units = ref.watch(unitNamesProvider);
+    final units = List<String>.from(ref.watch(unitNamesProvider));
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(

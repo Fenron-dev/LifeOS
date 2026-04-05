@@ -51,7 +51,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -74,6 +74,9 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             await m.createTable(shops);
             await m.createTable(unitConversions);
+          }
+          if (from < 5) {
+            await m.addColumn(locations, locations.locationType);
           }
           if (from < 4) {
             await m.createTable(units);

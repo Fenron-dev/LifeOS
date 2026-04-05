@@ -4532,6 +4532,18 @@ class $LocationsTable extends Locations
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _locationTypeMeta = const VerificationMeta(
+    'locationType',
+  );
+  @override
+  late final GeneratedColumn<String> locationType = GeneratedColumn<String>(
+    'location_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('normal'),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -4551,6 +4563,7 @@ class $LocationsTable extends Locations
     parentId,
     photoPath,
     notes,
+    locationType,
     createdAt,
   ];
   @override
@@ -4596,6 +4609,15 @@ class $LocationsTable extends Locations
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('location_type')) {
+      context.handle(
+        _locationTypeMeta,
+        locationType.isAcceptableOrUnknown(
+          data['location_type']!,
+          _locationTypeMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -4631,6 +4653,10 @@ class $LocationsTable extends Locations
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      locationType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_type'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -4650,6 +4676,9 @@ class Location extends DataClass implements Insertable<Location> {
   final String? parentId;
   final String? photoPath;
   final String? notes;
+
+  /// 'normal' | 'fridge' | 'freezer'
+  final String locationType;
   final DateTime createdAt;
   const Location({
     required this.id,
@@ -4657,6 +4686,7 @@ class Location extends DataClass implements Insertable<Location> {
     this.parentId,
     this.photoPath,
     this.notes,
+    required this.locationType,
     required this.createdAt,
   });
   @override
@@ -4673,6 +4703,7 @@ class Location extends DataClass implements Insertable<Location> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    map['location_type'] = Variable<String>(locationType);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -4690,6 +4721,7 @@ class Location extends DataClass implements Insertable<Location> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      locationType: Value(locationType),
       createdAt: Value(createdAt),
     );
   }
@@ -4705,6 +4737,7 @@ class Location extends DataClass implements Insertable<Location> {
       parentId: serializer.fromJson<String?>(json['parentId']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       notes: serializer.fromJson<String?>(json['notes']),
+      locationType: serializer.fromJson<String>(json['locationType']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -4717,6 +4750,7 @@ class Location extends DataClass implements Insertable<Location> {
       'parentId': serializer.toJson<String?>(parentId),
       'photoPath': serializer.toJson<String?>(photoPath),
       'notes': serializer.toJson<String?>(notes),
+      'locationType': serializer.toJson<String>(locationType),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -4727,6 +4761,7 @@ class Location extends DataClass implements Insertable<Location> {
     Value<String?> parentId = const Value.absent(),
     Value<String?> photoPath = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    String? locationType,
     DateTime? createdAt,
   }) => Location(
     id: id ?? this.id,
@@ -4734,6 +4769,7 @@ class Location extends DataClass implements Insertable<Location> {
     parentId: parentId.present ? parentId.value : this.parentId,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
     notes: notes.present ? notes.value : this.notes,
+    locationType: locationType ?? this.locationType,
     createdAt: createdAt ?? this.createdAt,
   );
   Location copyWithCompanion(LocationsCompanion data) {
@@ -4743,6 +4779,9 @@ class Location extends DataClass implements Insertable<Location> {
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
       notes: data.notes.present ? data.notes.value : this.notes,
+      locationType: data.locationType.present
+          ? data.locationType.value
+          : this.locationType,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -4755,14 +4794,22 @@ class Location extends DataClass implements Insertable<Location> {
           ..write('parentId: $parentId, ')
           ..write('photoPath: $photoPath, ')
           ..write('notes: $notes, ')
+          ..write('locationType: $locationType, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, parentId, photoPath, notes, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    parentId,
+    photoPath,
+    notes,
+    locationType,
+    createdAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4772,6 +4819,7 @@ class Location extends DataClass implements Insertable<Location> {
           other.parentId == this.parentId &&
           other.photoPath == this.photoPath &&
           other.notes == this.notes &&
+          other.locationType == this.locationType &&
           other.createdAt == this.createdAt);
 }
 
@@ -4781,6 +4829,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
   final Value<String?> parentId;
   final Value<String?> photoPath;
   final Value<String?> notes;
+  final Value<String> locationType;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const LocationsCompanion({
@@ -4789,6 +4838,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     this.parentId = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.notes = const Value.absent(),
+    this.locationType = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -4798,6 +4848,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     this.parentId = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.notes = const Value.absent(),
+    this.locationType = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -4808,6 +4859,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     Expression<String>? parentId,
     Expression<String>? photoPath,
     Expression<String>? notes,
+    Expression<String>? locationType,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -4817,6 +4869,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
       if (parentId != null) 'parent_id': parentId,
       if (photoPath != null) 'photo_path': photoPath,
       if (notes != null) 'notes': notes,
+      if (locationType != null) 'location_type': locationType,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -4828,6 +4881,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     Value<String?>? parentId,
     Value<String?>? photoPath,
     Value<String?>? notes,
+    Value<String>? locationType,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -4837,6 +4891,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
       parentId: parentId ?? this.parentId,
       photoPath: photoPath ?? this.photoPath,
       notes: notes ?? this.notes,
+      locationType: locationType ?? this.locationType,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -4860,6 +4915,9 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (locationType.present) {
+      map['location_type'] = Variable<String>(locationType.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -4877,6 +4935,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
           ..write('parentId: $parentId, ')
           ..write('photoPath: $photoPath, ')
           ..write('notes: $notes, ')
+          ..write('locationType: $locationType, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -15445,6 +15504,7 @@ typedef $$LocationsTableCreateCompanionBuilder =
       Value<String?> parentId,
       Value<String?> photoPath,
       Value<String?> notes,
+      Value<String> locationType,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -15455,6 +15515,7 @@ typedef $$LocationsTableUpdateCompanionBuilder =
       Value<String?> parentId,
       Value<String?> photoPath,
       Value<String?> notes,
+      Value<String> locationType,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -15490,6 +15551,11 @@ class $$LocationsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationType => $composableBuilder(
+    column: $table.locationType,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15533,6 +15599,11 @@ class $$LocationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get locationType => $composableBuilder(
+    column: $table.locationType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -15562,6 +15633,11 @@ class $$LocationsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get locationType => $composableBuilder(
+    column: $table.locationType,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -15600,6 +15676,7 @@ class $$LocationsTableTableManager
                 Value<String?> parentId = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> locationType = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocationsCompanion(
@@ -15608,6 +15685,7 @@ class $$LocationsTableTableManager
                 parentId: parentId,
                 photoPath: photoPath,
                 notes: notes,
+                locationType: locationType,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -15618,6 +15696,7 @@ class $$LocationsTableTableManager
                 Value<String?> parentId = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> locationType = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocationsCompanion.insert(
@@ -15626,6 +15705,7 @@ class $$LocationsTableTableManager
                 parentId: parentId,
                 photoPath: photoPath,
                 notes: notes,
+                locationType: locationType,
                 createdAt: createdAt,
                 rowid: rowid,
               ),

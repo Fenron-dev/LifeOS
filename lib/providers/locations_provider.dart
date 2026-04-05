@@ -26,6 +26,7 @@ class LocationsNotifier extends AsyncNotifier<void> {
     required String name,
     String? parentId,
     String? notes,
+    String locationType = 'normal',
   }) async {
     final id = _uuid.v4();
     await _db.insertLocation(LocationsCompanion.insert(
@@ -33,6 +34,7 @@ class LocationsNotifier extends AsyncNotifier<void> {
       name: name,
       parentId: Value(parentId),
       notes: Value(notes),
+      locationType: Value(locationType),
     ));
     return id;
   }
@@ -42,12 +44,14 @@ class LocationsNotifier extends AsyncNotifier<void> {
     required String name,
     String? parentId,
     String? notes,
+    String locationType = 'normal',
   }) async {
     await _db.updateLocation(LocationsCompanion(
       id: Value(id),
       name: Value(name),
       parentId: Value(parentId),
       notes: Value(notes),
+      locationType: Value(locationType),
     ));
   }
 

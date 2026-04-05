@@ -15,7 +15,7 @@ final allUnitsProvider = StreamProvider<List<Unit>>((ref) {
 /// Just the unit names as a sorted list — used everywhere units are selected.
 final unitNamesProvider = Provider<List<String>>((ref) {
   return ref.watch(allUnitsProvider).valueOrNull?.map((u) => u.name).toList() ??
-      const ['g', 'kg', 'ml', 'l', 'Stück', 'Packung', 'Dose', 'Flasche', 'Tüte'];
+      ['g', 'kg', 'ml', 'l', 'Stück', 'Packung', 'Dose', 'Flasche', 'Tüte'];
 });
 
 final unitsNotifierProvider =

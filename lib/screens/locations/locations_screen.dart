@@ -75,7 +75,7 @@ class _LocationTile extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.place)),
+        leading: CircleAvatar(child: Icon(_locationIcon(location))),
         title: Text(location.name),
         subtitle: parent != null ? Text('in: ${parent.name}') : null,
         trailing: PopupMenuButton<String>(
@@ -108,6 +108,12 @@ class _LocationTile extends ConsumerWidget {
       ),
     );
   }
+
+  IconData _locationIcon(Location loc) => switch (loc.locationType) {
+        'fridge' => Icons.kitchen,
+        'freezer' => Icons.ac_unit,
+        _ => Icons.inventory_2_outlined,
+      };
 
   void _showEditDialog(BuildContext context, WidgetRef ref, Location loc) {
     showDialog(
@@ -153,6 +159,7 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _notesCtrl;
   String? _parentId;
+  String _locationType = 'normal';
   bool _saving = false;
 
   @override
@@ -161,6 +168,7 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
     _nameCtrl = TextEditingController(text: widget.location?.name ?? '');
     _notesCtrl = TextEditingController(text: widget.location?.notes ?? '');
     _parentId = widget.location?.parentId;
+    _locationType = widget.location?.locationType ?? 'normal';
   }
 
   @override
@@ -180,6 +188,7 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
           name: _nameCtrl.text.trim(),
           parentId: _parentId,
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          locationType: _locationType,
         );
       } else {
         await notifier.updateLocation(
@@ -187,6 +196,7 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
           name: _nameCtrl.text.trim(),
           parentId: _parentId,
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          locationType: _locationType,
         );
       }
       if (mounted) Navigator.of(context).pop();
@@ -225,6 +235,30 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
                   DropdownMenuItem(value: l.id, child: Text(l.name))),
             ],
             onChanged: (v) => setState(() => _parentId = v),
+          ),
+          const SizedBox(height: 12),
+          const SizedBox(height: 12),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'normal',
+                icon: Icon(Icons.inventory_2_outlined),
+                label: Text('Normal'),
+              ),
+              ButtonSegment(
+                value: 'fridge',
+                icon: Icon(Icons.kitchen),
+                label: Text('Kühlschrank'),
+              ),
+              ButtonSegment(
+                value: 'freezer',
+                icon: Icon(Icons.ac_unit),
+                label: Text('Gefrierer'),
+              ),
+            ],
+            selected: {_locationType},
+            onSelectionChanged: (s) =>
+                setState(() => _locationType = s.first),
           ),
           const SizedBox(height: 12),
           TextField(

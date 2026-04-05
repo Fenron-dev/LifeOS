@@ -367,10 +367,9 @@ class _IngredientEditor extends ConsumerStatefulWidget {
 class _IngredientEditorState extends ConsumerState<_IngredientEditor> {
   @override
   Widget build(BuildContext context) {
-    final units = ref.watch(unitNamesProvider);
     final row = widget.row;
-
-    // Ensure unit is in list
+    // Local mutable copy — never mutate the provider-owned list
+    final units = List<String>.from(ref.watch(unitNamesProvider));
     if (!units.contains(row.unit)) units.add(row.unit);
 
     return Padding(

@@ -40,16 +40,35 @@ final shoppingNeedsProvider = FutureProvider<List<ShoppingNeed>>((ref) async {
   if (db == null) return [];
 
   final groups = await db.groupsWithMinStock();
+  // Load all conversions once
+  final globalConvs = await db.watchConversionsGlobal().first;
   final needs = <ShoppingNeed>[];
 
   for (final group in groups) {
     final members = await db.membersForGroup(group.id);
     if (members.isEmpty) continue;
 
+    final groupConvs = await db.watchConversionsForGroup(group.id).first;
+    // group overrides global
+    final allConvs = [...groupConvs, ...globalConvs];
+    final targetUnit = group.minStockUnit;
+
     double total = 0;
     for (final member in members) {
       final states = await db.statesForItem(member.itemId);
-      total += states.fold(0.0, (sum, s) => sum + s.currentQuantity);
+      for (final s in states) {
+        if (targetUnit == null || s.unit == targetUnit) {
+          total += s.currentQuantity;
+        } else {
+          // Try to convert s.unit → targetUnit
+          final conv = allConvs
+              .where((c) => c.fromUnit == s.unit && c.toUnit == targetUnit)
+              .firstOrNull;
+          total += conv != null
+              ? s.currentQuantity * conv.factor
+              : s.currentQuantity; // fallback: add raw
+        }
+      }
     }
 
     final minQty = group.minStockQuantity!;

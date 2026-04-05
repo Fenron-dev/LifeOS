@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../providers/settings_provider.dart';
 
 /// Overflow menu actions shared across all main-branch AppBars.
 /// Provides navigation to Wishlist and Settings.
@@ -114,7 +117,7 @@ class AdaptiveShell extends StatelessWidget {
 // Mobile: Bottom NavigationBar
 // ---------------------------------------------------------------------------
 
-class _MobileShell extends StatelessWidget {
+class _MobileShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -126,7 +129,10 @@ class _MobileShell extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider).valueOrNull;
+    final actions = settings?.quickActions ?? AppSettingsData.defaultQuickActions;
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
@@ -140,7 +146,92 @@ class _MobileShell extends StatelessWidget {
                 ))
             .toList(),
       ),
+      floatingActionButton: actions.isEmpty
+          ? null
+          : FloatingActionButton(
+              heroTag: 'quick_action',
+              onPressed: () => _showQuickActions(context, ref, actions),
+              tooltip: 'Schnellaktionen',
+              child: const Icon(Icons.add),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
+  }
+
+  void _showQuickActions(
+      BuildContext context, WidgetRef ref, List<QuickAction> actions) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => _QuickActionsSheet(actions: actions),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick-Actions bottom sheet
+// ---------------------------------------------------------------------------
+
+class _QuickActionsSheet extends ConsumerWidget {
+  final List<QuickAction> actions;
+  const _QuickActionsSheet({required this.actions});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Text('Schnellaktionen',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.push('/settings');
+                  },
+                  child: const Text('Konfigurieren'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ...actions.map((a) => ListTile(
+                leading: CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(a.icon,
+                      color:
+                          Theme.of(context).colorScheme.onPrimaryContainer),
+                ),
+                title: Text(a.label),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _navigate(context, a);
+                },
+              )),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  void _navigate(BuildContext context, QuickAction action) {
+    switch (action) {
+      case QuickAction.addInventory:
+        context.push('/inventory/item/new');
+      case QuickAction.consumeInventory:
+        context.push('/inventory');
+      case QuickAction.addTask:
+        context.push('/tasks');
+      case QuickAction.addWishlist:
+        context.push('/wishlist');
+      case QuickAction.addRecipe:
+        context.push('/recipes/new');
+    }
   }
 }
 

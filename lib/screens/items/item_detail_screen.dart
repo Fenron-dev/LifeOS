@@ -162,10 +162,16 @@ class _ItemInfoCard extends StatelessWidget {
                 _ProductTypeChip(type: item.productType),
                 const Spacer(),
                 if (item.ean != null)
-                  Chip(
-                    avatar: const Icon(Icons.barcode_reader, size: 16),
-                    label: Text(item.ean!, style: theme.textTheme.bodySmall),
-                    visualDensity: VisualDensity.compact,
+                  Flexible(
+                    child: Chip(
+                      avatar: const Icon(Icons.barcode_reader, size: 16),
+                      label: Text(
+                        item.ean!,
+                        style: theme.textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
               ],
             ),
@@ -474,6 +480,10 @@ class _StockEntryCard extends ConsumerWidget {
     final expiresIn = entry.expiryDate?.difference(DateTime.now()).inDays;
     final isExpiringSoon = expiresIn != null && expiresIn <= 3;
     final isExpired = expiresIn != null && expiresIn < 0;
+    final locations = ref.watch(allLocationsProvider).valueOrNull ?? [];
+    final location = entry.locationId != null
+        ? locations.where((l) => l.id == entry.locationId).firstOrNull
+        : null;
 
     Color? cardColor;
     if (isExpired) cardColor = theme.colorScheme.errorContainer;
@@ -508,6 +518,20 @@ class _StockEntryCard extends ConsumerWidget {
                       ),
                     ),
                   _StateChip(state: entry.state),
+                  if (location != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.place_outlined,
+                            size: 12,
+                            color: theme.colorScheme.outline),
+                        const SizedBox(width: 3),
+                        Text(location.name,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.outline)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

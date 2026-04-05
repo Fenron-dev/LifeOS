@@ -76,6 +76,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   String? _nutriscore;
   int? _novaGroup;
   bool _loadingOff = false;
+  bool _loadingNameSearch = false;
   bool _showNutrition = false;
 
   // Stock unit for inventory aggregation
@@ -192,7 +193,61 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     // Show selection dialog
     final selected = await showOffImportDialog(context, product);
     if (selected == null || !mounted) return;
+    _applyOffProduct(product, selected);
+  }
 
+  Future<void> _searchByName() async {
+    final query = _nameCtrl.text.trim();
+    if (query.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitte zuerst einen Namen eingeben')),
+      );
+      return;
+    }
+    setState(() => _loadingNameSearch = true);
+    final results = await OpenFoodFactsService.searchByName(query);
+    if (!mounted) return;
+    setState(() => _loadingNameSearch = false);
+
+    if (results.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Keine Treffer in OpenFoodFacts')),
+      );
+      return;
+    }
+
+    // Let user pick one result
+    final chosen = await showDialog<OFFProduct>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Produkt auswählen'),
+        children: results.map((p) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(p),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p.name ?? p.ean,
+                    style: const TextStyle(fontWeight: FontWeight.w500)),
+                if (p.brand != null)
+                  Text(p.brand!, style: const TextStyle(fontSize: 12)),
+                const Divider(height: 8),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+
+    // Fill EAN and trigger import dialog
+    setState(() => _eanCtrl.text = chosen.ean);
+    final selected = await showOffImportDialog(context, chosen);
+    if (selected == null || !mounted) return;
+    _applyOffProduct(chosen, selected);
+  }
+
+  void _applyOffProduct(OFFProduct product, Set<OFFField> selected) {
     setState(() {
       if (selected.contains(OFFField.name) && product.name != null) {
         _nameCtrl.text = product.name!;
@@ -237,7 +292,6 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
           product.ingredientsText != null) {
         _ingredientsCtrl.text = product.ingredientsText!;
       }
-      // Show section if any nutrition was selected
       final nutritionFields = {
         OFFField.calories, OFFField.protein, OFFField.carbs, OFFField.sugars,
         OFFField.fat, OFFField.saturatedFat, OFFField.fiber, OFFField.salt,
@@ -396,11 +450,29 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               ],
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Name *'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Name erforderlich' : null,
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Name *'),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Name erforderlich' : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  onPressed: _loadingNameSearch ? null : _searchByName,
+                  tooltip: 'Nach Name in OpenFoodFacts suchen',
+                  icon: _loadingNameSearch
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.travel_explore),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             TextFormField(

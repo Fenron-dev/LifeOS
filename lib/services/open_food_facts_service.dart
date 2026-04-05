@@ -139,6 +139,75 @@ class OpenFoodFactsService {
     }
   }
 
+  /// Searches products by name. Returns up to [pageSize] results.
+  static Future<List<OFFProduct>> searchByName(
+    String query, {
+    int pageSize = 15,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        'https://world.openfoodfacts.org/cgi/search.pl',
+      ).replace(queryParameters: {
+        'search_terms': query,
+        'search_simple': '1',
+        'action': 'process',
+        'json': '1',
+        'page_size': '$pageSize',
+        'fields': 'code,product_name,brands,image_url,nutriments,'
+            'nutriscore_grade,nova_group,ingredients_text,serving_size',
+      });
+
+      final response = await http
+          .get(uri, headers: {'User-Agent': _userAgent})
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) return [];
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final products = body['products'] as List<dynamic>? ?? [];
+
+      return products
+          .map((p) => _parseProduct(p as Map<String, dynamic>))
+          .whereType<OFFProduct>()
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static OFFProduct? _parseProduct(Map<String, dynamic> product) {
+    final code = (product['code'] as String? ?? '').trim();
+    if (code.isEmpty) return null;
+
+    final nutriments = product['nutriments'] as Map<String, dynamic>? ?? {};
+    final name = (product['product_name'] as String? ?? '').trim();
+    final brand = (product['brands'] as String? ?? '').trim();
+    final servingSizeG = _parseServingSize(product['serving_size'] as String?);
+
+    return OFFProduct(
+      ean: code,
+      name: name.isNotEmpty ? name : null,
+      brand: brand.isNotEmpty ? brand : null,
+      imageUrl: product['image_url'] as String?,
+      calories: _toDouble(nutriments['energy-kcal_100g']),
+      protein: _toDouble(nutriments['proteins_100g']),
+      carbs: _toDouble(nutriments['carbohydrates_100g']),
+      fat: _toDouble(nutriments['fat_100g']),
+      fiber: _toDouble(nutriments['fiber_100g']),
+      sugars: _toDouble(nutriments['sugars_100g']),
+      saturatedFat: _toDouble(nutriments['saturated-fat_100g']),
+      salt: _toDouble(nutriments['salt_100g']),
+      servingSizeG: servingSizeG,
+      nutriscore:
+          (product['nutriscore_grade'] as String?)?.toLowerCase().trim(),
+      novaGroup: _toInt(product['nova_group']),
+      ingredientsText:
+          (product['ingredients_text'] as String?)?.trim().isNotEmpty == true
+              ? (product['ingredients_text'] as String).trim()
+              : null,
+    );
+  }
+
   static double? _toDouble(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toDouble();
