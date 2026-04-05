@@ -8,6 +8,7 @@ import '../../providers/items_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/events_provider.dart';
 import '../../providers/locations_provider.dart';
+import '../../providers/shops_provider.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
   final String itemId;
@@ -649,10 +650,10 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   final _formKey = GlobalKey<FormState>();
   final _qtyCtrl = TextEditingController(text: '1');
   final _priceCtrl = TextEditingController();
-  final _storeCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String _unit = 'Stück';
   String? _locationId;
+  String? _shopName;
   DateTime? _expiryDate;
   bool _saving = false;
 
@@ -664,7 +665,6 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   void dispose() {
     _qtyCtrl.dispose();
     _priceCtrl.dispose();
-    _storeCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -682,7 +682,7 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
         price: _priceCtrl.text.trim().isEmpty
             ? null
             : double.tryParse(_priceCtrl.text.replaceAll(',', '.')),
-        store: _storeCtrl.text.trim().isEmpty ? null : _storeCtrl.text.trim(),
+        store: _shopName?.trim().isEmpty == true ? null : _shopName?.trim(),
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       );
       if (mounted) Navigator.of(context).pop();
@@ -785,30 +785,74 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
               },
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _priceCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Preis (€)',
-                      prefixIcon: Icon(Icons.euro),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _storeCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Geschäft',
-                      prefixIcon: Icon(Icons.store),
-                    ),
-                  ),
-                ),
-              ],
+            TextFormField(
+              controller: _priceCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Preis (€)',
+                prefixIcon: Icon(Icons.euro),
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
+            const SizedBox(height: 12),
+            // Shop picker with autocomplete + quick-save
+            Consumer(builder: (context, ref, _) {
+              final shops =
+                  ref.watch(allShopsProvider).valueOrNull ?? [];
+              final names = shops.map((s) => s.name).toList();
+              return Row(
+                children: [
+                  Expanded(
+                    child: Autocomplete<String>(
+                      initialValue:
+                          TextEditingValue(text: _shopName ?? ''),
+                      optionsBuilder: (v) => v.text.isEmpty
+                          ? names
+                          : names.where((n) => n
+                              .toLowerCase()
+                              .contains(v.text.toLowerCase())),
+                      onSelected: (v) =>
+                          setState(() => _shopName = v),
+                      fieldViewBuilder:
+                          (context, ctrl, focusNode, onSubmit) {
+                        ctrl.addListener(() => setState(
+                            () => _shopName = ctrl.text.isEmpty
+                                ? null
+                                : ctrl.text));
+                        return TextField(
+                          controller: ctrl,
+                          focusNode: focusNode,
+                          decoration: const InputDecoration(
+                            labelText: 'Geschäft (optional)',
+                            prefixIcon: Icon(Icons.store_outlined),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Quick-save if name is new
+                  if (_shopName != null &&
+                      _shopName!.trim().isNotEmpty &&
+                      !names.contains(_shopName!.trim()))
+                    IconButton(
+                      icon: const Icon(Icons.bookmark_add_outlined),
+                      tooltip: 'Als Geschäft speichern',
+                      onPressed: () async {
+                        final name = _shopName!.trim();
+                        final messenger =
+                            ScaffoldMessenger.of(context);
+                        await ref
+                            .read(shopsNotifierProvider.notifier)
+                            .create(name);
+                        messenger.showSnackBar(
+                          SnackBar(
+                              content: Text('„$name" gespeichert')),
+                        );
+                      },
+                    ),
+                ],
+              );
+            }),
             const SizedBox(height: 12),
             TextFormField(
               controller: _notesCtrl,

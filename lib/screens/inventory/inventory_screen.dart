@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../db/database.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 
@@ -97,23 +98,26 @@ class InventoryScreen extends ConsumerWidget {
   }
 }
 
-class _ItemsList extends StatelessWidget {
+class _ItemsList extends ConsumerWidget {
   final List<Item> items;
   const _ItemsList({required this.items});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stockMap = ref.watch(itemStockMapProvider).valueOrNull ?? {};
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       itemCount: items.length,
-      itemBuilder: (context, i) => _ItemCard(item: items[i]),
+      itemBuilder: (context, i) =>
+          _ItemCard(item: items[i], states: stockMap[items[i].id] ?? []),
     );
   }
 }
 
 class _ItemCard extends StatelessWidget {
   final Item item;
-  const _ItemCard({required this.item});
+  final List<ItemState> states;
+  const _ItemCard({required this.item, required this.states});
 
   @override
   Widget build(BuildContext context) {
@@ -129,10 +133,47 @@ class _ItemCard extends StatelessWidget {
             if (item.ean != null)
               const Icon(Icons.barcode_reader, size: 16, color: Colors.grey),
             const SizedBox(width: 4),
+            _StockBadge(states: states),
             const Icon(Icons.chevron_right),
           ],
         ),
         onTap: () => context.push('/inventory/item/${item.id}'),
+      ),
+    );
+  }
+}
+
+class _StockBadge extends StatelessWidget {
+  final List<ItemState> states;
+  const _StockBadge({required this.states});
+
+  @override
+  Widget build(BuildContext context) {
+    if (states.isEmpty) return const SizedBox.shrink();
+
+    // Group by unit and sum quantities
+    final Map<String, double> byUnit = {};
+    for (final s in states) {
+      byUnit[s.unit] = (byUnit[s.unit] ?? 0) + s.currentQuantity;
+    }
+
+    final parts = byUnit.entries.map((e) {
+      final q = e.value;
+      final qty = q == q.truncateToDouble()
+          ? q.toInt().toString()
+          : q.toStringAsFixed(1);
+      return '$qty ${e.key}';
+    }).join(' + ');
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Chip(
+        label: Text(parts, style: const TextStyle(fontSize: 11)),
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        side: BorderSide.none,
+        backgroundColor:
+            Theme.of(context).colorScheme.secondaryContainer,
       ),
     );
   }

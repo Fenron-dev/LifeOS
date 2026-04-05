@@ -6,6 +6,25 @@ import '../db/database.dart';
 import 'vault_provider.dart';
 
 // ---------------------------------------------------------------------------
+// All item states → Map<itemId, List<ItemState>> for inventory list badges
+// ---------------------------------------------------------------------------
+
+/// Aggregated stock per item: {itemId → list of (qty, unit) entries}.
+/// Used to show stock counts on the inventory list without N individual queries.
+final itemStockMapProvider =
+    StreamProvider<Map<String, List<ItemState>>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchAllItemStates().map((states) {
+    final map = <String, List<ItemState>>{};
+    for (final s in states) {
+      map.putIfAbsent(s.itemId, () => []).add(s);
+    }
+    return map;
+  });
+});
+
+// ---------------------------------------------------------------------------
 // InventoryEntries for a specific item
 // ---------------------------------------------------------------------------
 

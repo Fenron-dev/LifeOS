@@ -32,13 +32,26 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const Divider(),
-          // Locations
           ListTile(
             leading: const Icon(Icons.place_outlined),
             title: const Text('Lagerorte'),
             subtitle: const Text('Kühlschrank, Keller, Regal…'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/locations'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.store_outlined),
+            title: const Text('Geschäfte'),
+            subtitle: const Text('Supermärkte, Läden…'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/shops'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz),
+            title: const Text('Einheiten-Umrechnung'),
+            subtitle: const Text('Globale Regeln: 1 kg = 1000 g…'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/unit-conversions'),
           ),
           const Divider(),
           // Theme

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'tables/items_table.dart';
 import 'tables/events_table.dart';
 import 'tables/locations_table.dart';
+import 'tables/shops_table.dart';
 import 'tables/tags_table.dart';
 import 'tables/recipes_table.dart';
 import 'tables/tasks_table.dart';
@@ -37,6 +38,9 @@ part 'database.g.dart';
   // Tasks & wish list
   Tasks,
   WishListEntries,
+  // Shops & unit conversions
+  Shops,
+  UnitConversions,
   // Automation & settings
   AutomationRules,
   AppSettings,
@@ -45,7 +49,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -64,6 +68,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(items, items.nutriscore);
             await m.addColumn(items, items.novaGroup);
             await m.addColumn(items, items.ingredientsText);
+          }
+          if (from < 3) {
+            await m.createTable(shops);
+            await m.createTable(unitConversions);
           }
         },
         beforeOpen: (details) async {
@@ -254,6 +262,47 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteTask(String id) =>
       (delete(tasks)..where((t) => t.id.equals(id))).go();
+
+  // ── Item States (all) ─────────────────────────────────────────────────────
+
+  Stream<List<ItemState>> watchAllItemStates() => select(itemStates).watch();
+
+  // ── Shops ──────────────────────────────────────────────────────────────────
+
+  Stream<List<Shop>> watchAllShops() =>
+      (select(shops)..orderBy([(s) => OrderingTerm.asc(s.name)])).watch();
+
+  Future<void> insertShop(ShopsCompanion entry) => into(shops).insert(entry);
+
+  Future<void> updateShop(ShopsCompanion entry) =>
+      (update(shops)..where((s) => s.id.equals(entry.id.value))).write(entry);
+
+  Future<void> deleteShop(String id) =>
+      (delete(shops)..where((s) => s.id.equals(id))).go();
+
+  // ── Unit Conversions ───────────────────────────────────────────────────────
+
+  Stream<List<UnitConversion>> watchConversionsGlobal() =>
+      (select(unitConversions)..where((c) => c.scope.equals('global')))
+          .watch();
+
+  Stream<List<UnitConversion>> watchConversionsForGroup(String groupId) =>
+      (select(unitConversions)
+            ..where((c) =>
+                c.scope.equals('group') & c.scopeId.equals(groupId)))
+          .watch();
+
+  Stream<List<UnitConversion>> watchConversionsForItem(String itemId) =>
+      (select(unitConversions)
+            ..where(
+                (c) => c.scope.equals('item') & c.scopeId.equals(itemId)))
+          .watch();
+
+  Future<void> insertConversion(UnitConversionsCompanion entry) =>
+      into(unitConversions).insert(entry);
+
+  Future<void> deleteConversion(String id) =>
+      (delete(unitConversions)..where((c) => c.id.equals(id))).go();
 
   // ── Settings ───────────────────────────────────────────────────────────────
 

@@ -11,6 +11,8 @@ import 'screens/recipes/recipes_screen.dart';
 import 'screens/tasks/tasks_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/settings/shops_screen.dart';
+import 'screens/settings/unit_conversions_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'screens/inventory/groups_screen.dart';
 import 'screens/inventory/shopping_list_screen.dart';
@@ -50,6 +52,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'locations',
             builder: (context, state) => const LocationsScreen(),
+          ),
+          GoRoute(
+            path: 'shops',
+            builder: (context, state) => const ShopsScreen(),
+          ),
+          GoRoute(
+            path: 'unit-conversions',
+            builder: (context, state) => const UnitConversionsScreen(),
           ),
         ],
       ),

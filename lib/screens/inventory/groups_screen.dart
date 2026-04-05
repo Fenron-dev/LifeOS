@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/unit_conversions_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../settings/unit_conversions_screen.dart';
 
 class GroupsScreen extends ConsumerWidget {
   const GroupsScreen({super.key});
@@ -117,6 +119,7 @@ class _GroupCard extends ConsumerWidget {
         ),
         children: [
           _MembersSection(group: group),
+          _GroupConversionsSection(group: group),
         ],
       ),
     );
@@ -127,6 +130,39 @@ class _GroupCard extends ConsumerWidget {
 
   void _showEdit(BuildContext context, WidgetRef ref) {
     showDialog(context: context, builder: (_) => _GroupDialog(group: group));
+  }
+}
+
+// ── Group conversions section ─────────────────────────────────────────────────
+
+class _GroupConversionsSection extends ConsumerWidget {
+  final ItemGroup group;
+  const _GroupConversionsSection({required this.group});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final convsAsync = ref.watch(groupConversionsProvider(group.id));
+    return convsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (convs) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: ConversionsList(
+          conversions: convs,
+          onAdd: () => showAddConversionDialog(
+            context,
+            onSave: (from, to, factor) => ref
+                .read(conversionsNotifierProvider.notifier)
+                .addForGroup(
+                  groupId: group.id,
+                  fromUnit: from,
+                  toUnit: to,
+                  factor: factor,
+                ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -4,7 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../db/database.dart';
+import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/unit_conversions_provider.dart';
+import '../../providers/vault_provider.dart';
+import '../../screens/settings/unit_conversions_screen.dart';
 import '../../services/open_food_facts_service.dart';
 import 'off_import_dialog.dart';
 
@@ -73,6 +77,13 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   bool _loadingOff = false;
   bool _showNutrition = false;
 
+  // Group membership
+  Set<String> _selectedGroupIds = {};
+  Set<String> _originalGroupIds = {};
+
+  // Item-specific unit conversions (local list, synced on save)
+  List<({String fromUnit, String toUnit, double factor})> _conversions = [];
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +113,27 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _novaGroup = i.novaGroup;
       // Show section if any nutrition data exists
       _showNutrition = _hasAnyNutrition(i);
+    }
+    // Load existing group memberships and item conversions
+    if (i != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final db = ref.read(databaseProvider);
+        if (db == null || !mounted) return;
+        final members = await db.groupsForItem(i.id);
+        final convs = await db.watchConversionsForItem(i.id).first;
+        if (!mounted) return;
+        setState(() {
+          _originalGroupIds = members.map((m) => m.groupId).toSet();
+          _selectedGroupIds = Set.from(_originalGroupIds);
+          _conversions = convs
+              .map((c) => (
+                    fromUnit: c.fromUnit,
+                    toUnit: c.toUnit,
+                    factor: c.factor,
+                  ))
+              .toList();
+        });
+      });
     }
     if (widget.prefillEan != null && widget.item == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _lookupOff());
@@ -234,8 +266,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         ? _ingredientsCtrl.text.trim()
         : null;
 
+    final String itemId;
     if (existing == null) {
-      await notifier.createItem(
+      itemId = await notifier.createItem(
         name: _nameCtrl.text.trim(),
         brand: _brandCtrl.text.trim().isEmpty ? null : _brandCtrl.text.trim(),
         ean: _eanCtrl.text.trim().isEmpty ? null : _eanCtrl.text.trim(),
@@ -281,7 +314,33 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         ingredientsText: Value(ingredients),
         updatedAt: DateTime.now(),
       ));
+      itemId = existing.id;
     }
+
+    // Sync group memberships
+    final db = ref.read(databaseProvider)!;
+    for (final gId in _selectedGroupIds.difference(_originalGroupIds)) {
+      await db.addItemToGroup(gId, itemId);
+    }
+    for (final gId in _originalGroupIds.difference(_selectedGroupIds)) {
+      await db.removeItemFromGroup(gId, itemId);
+    }
+
+    // Sync item-specific unit conversions (delete all, reinsert current list)
+    final convNotifier = ref.read(conversionsNotifierProvider.notifier);
+    final existingConvs = await db.watchConversionsForItem(itemId).first;
+    for (final c in existingConvs) {
+      await convNotifier.delete(c.id);
+    }
+    for (final c in _conversions) {
+      await convNotifier.addForItem(
+        itemId: itemId,
+        fromUnit: c.fromUnit,
+        toUnit: c.toUnit,
+        factor: c.factor,
+      );
+    }
+
     if (mounted) context.pop();
   }
 
@@ -397,6 +456,119 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               decoration: const InputDecoration(labelText: 'Notizen'),
               maxLines: 3,
             ),
+
+            // ── Groups section ────────────────────────────────────────────
+            const SizedBox(height: 16),
+            Consumer(builder: (context, ref, _) {
+              final groupsAsync = ref.watch(allGroupsProvider);
+              return groupsAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (e, _) => const SizedBox.shrink(),
+                data: (groups) {
+                  if (groups.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.category_outlined, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Produktgruppen',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: groups.map((g) {
+                          final selected = _selectedGroupIds.contains(g.id);
+                          return FilterChip(
+                            label: Text(g.name),
+                            selected: selected,
+                            onSelected: (v) => setState(() {
+                              if (v) {
+                                _selectedGroupIds.add(g.id);
+                              } else {
+                                _selectedGroupIds.remove(g.id);
+                              }
+                            }),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  );
+                },
+              );
+            }),
+
+            // ── Unit conversions section ──────────────────────────────────
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.swap_horiz, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Einheiten (artikelspezifisch)',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => showAddConversionDialog(
+                    context,
+                    onSave: (from, to, factor) async {
+                      setState(() {
+                        _conversions.add((
+                          fromUnit: from,
+                          toUnit: to,
+                          factor: factor,
+                        ));
+                      });
+                    },
+                  ),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Hinzufügen'),
+                ),
+              ],
+            ),
+            if (_conversions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 28, bottom: 4),
+                child: Text(
+                  'Noch keine Umrechnungen für diesen Artikel.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.outline),
+                ),
+              )
+            else
+              ...List.generate(_conversions.length, (i) {
+                final c = _conversions[i];
+                final factor = c.factor == c.factor.truncateToDouble()
+                    ? c.factor.toInt().toString()
+                    : c.factor.toStringAsFixed(3);
+                return Row(
+                  children: [
+                    const SizedBox(width: 28),
+                    Expanded(
+                      child: Text(
+                        '1 ${c.fromUnit} = $factor ${c.toUnit}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          size: 18, color: Colors.red),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () =>
+                          setState(() => _conversions.removeAt(i)),
+                    ),
+                  ],
+                );
+              }),
 
             // ── Nutrition section ─────────────────────────────────────────
             const SizedBox(height: 16),

@@ -9845,6 +9845,812 @@ class WishListEntriesCompanion extends UpdateCompanion<WishListEntry> {
   }
 }
 
+class $ShopsTable extends Shops with TableInfo<$ShopsTable, Shop> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ShopsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, notes, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'shops';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Shop> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Shop map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Shop(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ShopsTable createAlias(String alias) {
+    return $ShopsTable(attachedDatabase, alias);
+  }
+}
+
+class Shop extends DataClass implements Insertable<Shop> {
+  final String id;
+  final String name;
+  final String? notes;
+  final DateTime createdAt;
+  const Shop({
+    required this.id,
+    required this.name,
+    this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ShopsCompanion toCompanion(bool nullToAbsent) {
+    return ShopsCompanion(
+      id: Value(id),
+      name: Value(name),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Shop.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Shop(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Shop copyWith({
+    String? id,
+    String? name,
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+  }) => Shop(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Shop copyWithCompanion(ShopsCompanion data) {
+    return Shop(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Shop(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, notes, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Shop &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class ShopsCompanion extends UpdateCompanion<Shop> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ShopsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ShopsCompanion.insert({
+    required String id,
+    required String name,
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name);
+  static Insertable<Shop> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ShopsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ShopsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ShopsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UnitConversionsTable extends UnitConversions
+    with TableInfo<$UnitConversionsTable, UnitConversion> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UnitConversionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fromUnitMeta = const VerificationMeta(
+    'fromUnit',
+  );
+  @override
+  late final GeneratedColumn<String> fromUnit = GeneratedColumn<String>(
+    'from_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _toUnitMeta = const VerificationMeta('toUnit');
+  @override
+  late final GeneratedColumn<String> toUnit = GeneratedColumn<String>(
+    'to_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _factorMeta = const VerificationMeta('factor');
+  @override
+  late final GeneratedColumn<double> factor = GeneratedColumn<double>(
+    'factor',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
+  @override
+  late final GeneratedColumn<String> scope = GeneratedColumn<String>(
+    'scope',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('global'),
+  );
+  static const VerificationMeta _scopeIdMeta = const VerificationMeta(
+    'scopeId',
+  );
+  @override
+  late final GeneratedColumn<String> scopeId = GeneratedColumn<String>(
+    'scope_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    fromUnit,
+    toUnit,
+    factor,
+    scope,
+    scopeId,
+    notes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'unit_conversions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UnitConversion> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('from_unit')) {
+      context.handle(
+        _fromUnitMeta,
+        fromUnit.isAcceptableOrUnknown(data['from_unit']!, _fromUnitMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fromUnitMeta);
+    }
+    if (data.containsKey('to_unit')) {
+      context.handle(
+        _toUnitMeta,
+        toUnit.isAcceptableOrUnknown(data['to_unit']!, _toUnitMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_toUnitMeta);
+    }
+    if (data.containsKey('factor')) {
+      context.handle(
+        _factorMeta,
+        factor.isAcceptableOrUnknown(data['factor']!, _factorMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_factorMeta);
+    }
+    if (data.containsKey('scope')) {
+      context.handle(
+        _scopeMeta,
+        scope.isAcceptableOrUnknown(data['scope']!, _scopeMeta),
+      );
+    }
+    if (data.containsKey('scope_id')) {
+      context.handle(
+        _scopeIdMeta,
+        scopeId.isAcceptableOrUnknown(data['scope_id']!, _scopeIdMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UnitConversion map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UnitConversion(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      fromUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}from_unit'],
+      )!,
+      toUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_unit'],
+      )!,
+      factor: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}factor'],
+      )!,
+      scope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope'],
+      )!,
+      scopeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope_id'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $UnitConversionsTable createAlias(String alias) {
+    return $UnitConversionsTable(attachedDatabase, alias);
+  }
+}
+
+class UnitConversion extends DataClass implements Insertable<UnitConversion> {
+  final String id;
+  final String fromUnit;
+  final String toUnit;
+  final double factor;
+  final String scope;
+  final String? scopeId;
+  final String? notes;
+  final DateTime createdAt;
+  const UnitConversion({
+    required this.id,
+    required this.fromUnit,
+    required this.toUnit,
+    required this.factor,
+    required this.scope,
+    this.scopeId,
+    this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['from_unit'] = Variable<String>(fromUnit);
+    map['to_unit'] = Variable<String>(toUnit);
+    map['factor'] = Variable<double>(factor);
+    map['scope'] = Variable<String>(scope);
+    if (!nullToAbsent || scopeId != null) {
+      map['scope_id'] = Variable<String>(scopeId);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  UnitConversionsCompanion toCompanion(bool nullToAbsent) {
+    return UnitConversionsCompanion(
+      id: Value(id),
+      fromUnit: Value(fromUnit),
+      toUnit: Value(toUnit),
+      factor: Value(factor),
+      scope: Value(scope),
+      scopeId: scopeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scopeId),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory UnitConversion.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UnitConversion(
+      id: serializer.fromJson<String>(json['id']),
+      fromUnit: serializer.fromJson<String>(json['fromUnit']),
+      toUnit: serializer.fromJson<String>(json['toUnit']),
+      factor: serializer.fromJson<double>(json['factor']),
+      scope: serializer.fromJson<String>(json['scope']),
+      scopeId: serializer.fromJson<String?>(json['scopeId']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'fromUnit': serializer.toJson<String>(fromUnit),
+      'toUnit': serializer.toJson<String>(toUnit),
+      'factor': serializer.toJson<double>(factor),
+      'scope': serializer.toJson<String>(scope),
+      'scopeId': serializer.toJson<String?>(scopeId),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  UnitConversion copyWith({
+    String? id,
+    String? fromUnit,
+    String? toUnit,
+    double? factor,
+    String? scope,
+    Value<String?> scopeId = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+  }) => UnitConversion(
+    id: id ?? this.id,
+    fromUnit: fromUnit ?? this.fromUnit,
+    toUnit: toUnit ?? this.toUnit,
+    factor: factor ?? this.factor,
+    scope: scope ?? this.scope,
+    scopeId: scopeId.present ? scopeId.value : this.scopeId,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  UnitConversion copyWithCompanion(UnitConversionsCompanion data) {
+    return UnitConversion(
+      id: data.id.present ? data.id.value : this.id,
+      fromUnit: data.fromUnit.present ? data.fromUnit.value : this.fromUnit,
+      toUnit: data.toUnit.present ? data.toUnit.value : this.toUnit,
+      factor: data.factor.present ? data.factor.value : this.factor,
+      scope: data.scope.present ? data.scope.value : this.scope,
+      scopeId: data.scopeId.present ? data.scopeId.value : this.scopeId,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UnitConversion(')
+          ..write('id: $id, ')
+          ..write('fromUnit: $fromUnit, ')
+          ..write('toUnit: $toUnit, ')
+          ..write('factor: $factor, ')
+          ..write('scope: $scope, ')
+          ..write('scopeId: $scopeId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    fromUnit,
+    toUnit,
+    factor,
+    scope,
+    scopeId,
+    notes,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UnitConversion &&
+          other.id == this.id &&
+          other.fromUnit == this.fromUnit &&
+          other.toUnit == this.toUnit &&
+          other.factor == this.factor &&
+          other.scope == this.scope &&
+          other.scopeId == this.scopeId &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class UnitConversionsCompanion extends UpdateCompanion<UnitConversion> {
+  final Value<String> id;
+  final Value<String> fromUnit;
+  final Value<String> toUnit;
+  final Value<double> factor;
+  final Value<String> scope;
+  final Value<String?> scopeId;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const UnitConversionsCompanion({
+    this.id = const Value.absent(),
+    this.fromUnit = const Value.absent(),
+    this.toUnit = const Value.absent(),
+    this.factor = const Value.absent(),
+    this.scope = const Value.absent(),
+    this.scopeId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UnitConversionsCompanion.insert({
+    required String id,
+    required String fromUnit,
+    required String toUnit,
+    required double factor,
+    this.scope = const Value.absent(),
+    this.scopeId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       fromUnit = Value(fromUnit),
+       toUnit = Value(toUnit),
+       factor = Value(factor);
+  static Insertable<UnitConversion> custom({
+    Expression<String>? id,
+    Expression<String>? fromUnit,
+    Expression<String>? toUnit,
+    Expression<double>? factor,
+    Expression<String>? scope,
+    Expression<String>? scopeId,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (fromUnit != null) 'from_unit': fromUnit,
+      if (toUnit != null) 'to_unit': toUnit,
+      if (factor != null) 'factor': factor,
+      if (scope != null) 'scope': scope,
+      if (scopeId != null) 'scope_id': scopeId,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UnitConversionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? fromUnit,
+    Value<String>? toUnit,
+    Value<double>? factor,
+    Value<String>? scope,
+    Value<String?>? scopeId,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return UnitConversionsCompanion(
+      id: id ?? this.id,
+      fromUnit: fromUnit ?? this.fromUnit,
+      toUnit: toUnit ?? this.toUnit,
+      factor: factor ?? this.factor,
+      scope: scope ?? this.scope,
+      scopeId: scopeId ?? this.scopeId,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (fromUnit.present) {
+      map['from_unit'] = Variable<String>(fromUnit.value);
+    }
+    if (toUnit.present) {
+      map['to_unit'] = Variable<String>(toUnit.value);
+    }
+    if (factor.present) {
+      map['factor'] = Variable<double>(factor.value);
+    }
+    if (scope.present) {
+      map['scope'] = Variable<String>(scope.value);
+    }
+    if (scopeId.present) {
+      map['scope_id'] = Variable<String>(scopeId.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UnitConversionsCompanion(')
+          ..write('id: $id, ')
+          ..write('fromUnit: $fromUnit, ')
+          ..write('toUnit: $toUnit, ')
+          ..write('factor: $factor, ')
+          ..write('scope: $scope, ')
+          ..write('scopeId: $scopeId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $AutomationRulesTable extends AutomationRules
     with TableInfo<$AutomationRulesTable, AutomationRule> {
   @override
@@ -10653,6 +11459,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $WishListEntriesTable wishListEntries = $WishListEntriesTable(
     this,
   );
+  late final $ShopsTable shops = $ShopsTable(this);
+  late final $UnitConversionsTable unitConversions = $UnitConversionsTable(
+    this,
+  );
   late final $AutomationRulesTable automationRules = $AutomationRulesTable(
     this,
   );
@@ -10679,6 +11489,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     standardMealIngredients,
     tasks,
     wishListEntries,
+    shops,
+    unitConversions,
     automationRules,
     appSettings,
   ];
@@ -17546,6 +18358,443 @@ typedef $$WishListEntriesTableProcessedTableManager =
       WishListEntry,
       PrefetchHooks Function()
     >;
+typedef $$ShopsTableCreateCompanionBuilder =
+    ShopsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$ShopsTableUpdateCompanionBuilder =
+    ShopsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$ShopsTableFilterComposer extends Composer<_$AppDatabase, $ShopsTable> {
+  $$ShopsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ShopsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ShopsTable> {
+  $$ShopsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ShopsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ShopsTable> {
+  $$ShopsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ShopsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ShopsTable,
+          Shop,
+          $$ShopsTableFilterComposer,
+          $$ShopsTableOrderingComposer,
+          $$ShopsTableAnnotationComposer,
+          $$ShopsTableCreateCompanionBuilder,
+          $$ShopsTableUpdateCompanionBuilder,
+          (Shop, BaseReferences<_$AppDatabase, $ShopsTable, Shop>),
+          Shop,
+          PrefetchHooks Function()
+        > {
+  $$ShopsTableTableManager(_$AppDatabase db, $ShopsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ShopsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ShopsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ShopsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ShopsCompanion(
+                id: id,
+                name: name,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ShopsCompanion.insert(
+                id: id,
+                name: name,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ShopsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ShopsTable,
+      Shop,
+      $$ShopsTableFilterComposer,
+      $$ShopsTableOrderingComposer,
+      $$ShopsTableAnnotationComposer,
+      $$ShopsTableCreateCompanionBuilder,
+      $$ShopsTableUpdateCompanionBuilder,
+      (Shop, BaseReferences<_$AppDatabase, $ShopsTable, Shop>),
+      Shop,
+      PrefetchHooks Function()
+    >;
+typedef $$UnitConversionsTableCreateCompanionBuilder =
+    UnitConversionsCompanion Function({
+      required String id,
+      required String fromUnit,
+      required String toUnit,
+      required double factor,
+      Value<String> scope,
+      Value<String?> scopeId,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$UnitConversionsTableUpdateCompanionBuilder =
+    UnitConversionsCompanion Function({
+      Value<String> id,
+      Value<String> fromUnit,
+      Value<String> toUnit,
+      Value<double> factor,
+      Value<String> scope,
+      Value<String?> scopeId,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$UnitConversionsTableFilterComposer
+    extends Composer<_$AppDatabase, $UnitConversionsTable> {
+  $$UnitConversionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fromUnit => $composableBuilder(
+    column: $table.fromUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toUnit => $composableBuilder(
+    column: $table.toUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get factor => $composableBuilder(
+    column: $table.factor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scopeId => $composableBuilder(
+    column: $table.scopeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UnitConversionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $UnitConversionsTable> {
+  $$UnitConversionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fromUnit => $composableBuilder(
+    column: $table.fromUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get toUnit => $composableBuilder(
+    column: $table.toUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get factor => $composableBuilder(
+    column: $table.factor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scopeId => $composableBuilder(
+    column: $table.scopeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UnitConversionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UnitConversionsTable> {
+  $$UnitConversionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get fromUnit =>
+      $composableBuilder(column: $table.fromUnit, builder: (column) => column);
+
+  GeneratedColumn<String> get toUnit =>
+      $composableBuilder(column: $table.toUnit, builder: (column) => column);
+
+  GeneratedColumn<double> get factor =>
+      $composableBuilder(column: $table.factor, builder: (column) => column);
+
+  GeneratedColumn<String> get scope =>
+      $composableBuilder(column: $table.scope, builder: (column) => column);
+
+  GeneratedColumn<String> get scopeId =>
+      $composableBuilder(column: $table.scopeId, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$UnitConversionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UnitConversionsTable,
+          UnitConversion,
+          $$UnitConversionsTableFilterComposer,
+          $$UnitConversionsTableOrderingComposer,
+          $$UnitConversionsTableAnnotationComposer,
+          $$UnitConversionsTableCreateCompanionBuilder,
+          $$UnitConversionsTableUpdateCompanionBuilder,
+          (
+            UnitConversion,
+            BaseReferences<
+              _$AppDatabase,
+              $UnitConversionsTable,
+              UnitConversion
+            >,
+          ),
+          UnitConversion,
+          PrefetchHooks Function()
+        > {
+  $$UnitConversionsTableTableManager(
+    _$AppDatabase db,
+    $UnitConversionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UnitConversionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UnitConversionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UnitConversionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> fromUnit = const Value.absent(),
+                Value<String> toUnit = const Value.absent(),
+                Value<double> factor = const Value.absent(),
+                Value<String> scope = const Value.absent(),
+                Value<String?> scopeId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UnitConversionsCompanion(
+                id: id,
+                fromUnit: fromUnit,
+                toUnit: toUnit,
+                factor: factor,
+                scope: scope,
+                scopeId: scopeId,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String fromUnit,
+                required String toUnit,
+                required double factor,
+                Value<String> scope = const Value.absent(),
+                Value<String?> scopeId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UnitConversionsCompanion.insert(
+                id: id,
+                fromUnit: fromUnit,
+                toUnit: toUnit,
+                factor: factor,
+                scope: scope,
+                scopeId: scopeId,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UnitConversionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UnitConversionsTable,
+      UnitConversion,
+      $$UnitConversionsTableFilterComposer,
+      $$UnitConversionsTableOrderingComposer,
+      $$UnitConversionsTableAnnotationComposer,
+      $$UnitConversionsTableCreateCompanionBuilder,
+      $$UnitConversionsTableUpdateCompanionBuilder,
+      (
+        UnitConversion,
+        BaseReferences<_$AppDatabase, $UnitConversionsTable, UnitConversion>,
+      ),
+      UnitConversion,
+      PrefetchHooks Function()
+    >;
 typedef $$AutomationRulesTableCreateCompanionBuilder =
     AutomationRulesCompanion Function({
       required String id,
@@ -18016,6 +19265,10 @@ class $AppDatabaseManager {
       $$TasksTableTableManager(_db, _db.tasks);
   $$WishListEntriesTableTableManager get wishListEntries =>
       $$WishListEntriesTableTableManager(_db, _db.wishListEntries);
+  $$ShopsTableTableManager get shops =>
+      $$ShopsTableTableManager(_db, _db.shops);
+  $$UnitConversionsTableTableManager get unitConversions =>
+      $$UnitConversionsTableTableManager(_db, _db.unitConversions);
   $$AutomationRulesTableTableManager get automationRules =>
       $$AutomationRulesTableTableManager(_db, _db.automationRules);
   $$AppSettingsTableTableManager get appSettings =>
