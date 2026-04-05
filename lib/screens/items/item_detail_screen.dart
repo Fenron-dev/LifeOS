@@ -7,6 +7,7 @@ import '../../db/database.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/events_provider.dart';
+import '../../providers/locations_provider.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
   final String itemId;
@@ -449,6 +450,7 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   final _storeCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String _unit = 'Stück';
+  String? _locationId;
   DateTime? _expiryDate;
   bool _saving = false;
 
@@ -473,6 +475,7 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
         itemId: widget.item.id,
         quantity: double.parse(_qtyCtrl.text.replaceAll(',', '.')),
         unit: _unit,
+        locationId: _locationId,
         expiryDate: _expiryDate,
         price: _priceCtrl.text.trim().isEmpty
             ? null
@@ -535,6 +538,26 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            // Location picker
+            Consumer(builder: (context, ref, _) {
+              final locations = ref.watch(allLocationsProvider).valueOrNull ?? [];
+              if (locations.isEmpty) return const SizedBox.shrink();
+              return DropdownButtonFormField<String?>(
+                // ignore: deprecated_member_use
+                value: _locationId,
+                decoration: const InputDecoration(
+                  labelText: 'Lagerort',
+                  prefixIcon: Icon(Icons.place_outlined),
+                ),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('— keiner —')),
+                  ...locations.map((l) =>
+                      DropdownMenuItem(value: l.id, child: Text(l.name))),
+                ],
+                onChanged: (v) => setState(() => _locationId = v),
+              );
+            }),
             const SizedBox(height: 12),
             // Expiry date picker
             ListTile(

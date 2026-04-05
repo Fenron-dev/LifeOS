@@ -17,7 +17,14 @@ class InventoryScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inventar'),
-        actions: shellMenuActions(context),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            tooltip: 'Einkaufsliste',
+            onPressed: () => context.push('/inventory/shopping'),
+          ),
+          ...shellMenuActions(context),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(

@@ -187,6 +187,61 @@ class AppDatabase extends _$AppDatabase {
                 (m) => m.groupId.equals(groupId) & m.itemId.equals(itemId)))
           .go();
 
+  // ── Item States (future variant for shopping computation) ─────────────────
+
+  Future<List<ItemState>> statesForItem(String itemId) =>
+      (select(itemStates)..where((s) => s.itemId.equals(itemId))).get();
+
+  Future<List<ItemGroup>> groupsWithMinStock() =>
+      (select(itemGroups)..where((g) => g.minStockQuantity.isNotNull())).get();
+
+  Future<void> updateItemGroup(ItemGroupsCompanion entry) =>
+      (update(itemGroups)..where((g) => g.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<List<ItemGroupMember>> groupsForItem(String itemId) =>
+      (select(itemGroupMembers)..where((m) => m.itemId.equals(itemId))).get();
+
+  // ── Wishlist ───────────────────────────────────────────────────────────────
+
+  Stream<List<WishListEntry>> watchWishlist() =>
+      (select(wishListEntries)
+            ..orderBy([(w) => OrderingTerm.desc(w.createdAt)]))
+          .watch();
+
+  Future<void> insertWishListEntry(WishListEntriesCompanion entry) =>
+      into(wishListEntries).insert(entry);
+
+  Future<void> updateWishListEntry(WishListEntriesCompanion entry) =>
+      (update(wishListEntries)..where((w) => w.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteWishListEntry(String id) =>
+      (delete(wishListEntries)..where((w) => w.id.equals(id))).go();
+
+  // ── Tasks ──────────────────────────────────────────────────────────────────
+
+  Stream<List<Task>> watchTasks() =>
+      (select(tasks)
+            ..orderBy([
+              (t) => OrderingTerm(
+                  expression: t.status,
+                  mode: OrderingMode.asc), // pending before done
+              (t) => OrderingTerm(
+                  expression: t.dueDate,
+                  mode: OrderingMode.asc,
+                  nulls: NullsOrder.last),
+            ]))
+          .watch();
+
+  Future<void> insertTask(TasksCompanion entry) => into(tasks).insert(entry);
+
+  Future<void> updateTask(TasksCompanion entry) =>
+      (update(tasks)..where((t) => t.id.equals(entry.id.value))).write(entry);
+
+  Future<void> deleteTask(String id) =>
+      (delete(tasks)..where((t) => t.id.equals(id))).go();
+
   // ── Settings ───────────────────────────────────────────────────────────────
 
   Future<String?> getSetting(String key) async {

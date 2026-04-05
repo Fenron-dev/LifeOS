@@ -12,6 +12,8 @@ import 'screens/tasks/tasks_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/locations/locations_screen.dart';
+import 'screens/inventory/groups_screen.dart';
+import 'screens/inventory/shopping_list_screen.dart';
 import 'widgets/adaptive_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -81,6 +83,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                         ),
                       ),
                     ],
+                  ),
+                  GoRoute(
+                    path: 'shopping',
+                    builder: (context, state) => const ShoppingListScreen(),
+                  ),
+                  GoRoute(
+                    path: 'groups',
+                    builder: (context, state) => const GroupsScreen(),
                   ),
                 ],
               ),
