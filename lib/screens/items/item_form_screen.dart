@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/locations_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
 import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
@@ -81,6 +82,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
 
   // Stock unit for inventory aggregation
   String? _stockUnit;
+  String? _defaultLocationId;
 
   // Group membership
   Set<String> _selectedGroupIds = {};
@@ -117,6 +119,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _nutriscore = i.nutriscore;
       _novaGroup = i.novaGroup;
       _stockUnit = i.stockUnit;
+      _defaultLocationId = i.defaultLocationId;
       _showNutrition = _hasAnyNutrition(i);
     }
     // Load existing group memberships and item conversions
@@ -364,6 +367,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         novaGroup: _novaGroup,
         ingredientsText: ingredients,
         stockUnit: _stockUnit,
+        defaultLocationId: _defaultLocationId,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -388,6 +392,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         novaGroup: Value(_novaGroup),
         ingredientsText: Value(ingredients),
         stockUnit: Value(_stockUnit),
+        defaultLocationId: Value(_defaultLocationId),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -565,6 +570,27 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                   ],
                   onChanged: (v) => setState(() => _stockUnit = v),
                 ),
+              );
+            }),
+            const SizedBox(height: 12),
+            // Default location picker
+            Consumer(builder: (context, ref, _) {
+              final locations = ref.watch(allLocationsProvider).valueOrNull ?? [];
+              if (locations.isEmpty) return const SizedBox.shrink();
+              return DropdownButtonFormField<String?>(
+                // ignore: deprecated_member_use
+                value: _defaultLocationId,
+                decoration: const InputDecoration(
+                  labelText: 'Standard-Lagerort',
+                  helperText: 'Wird beim Einlagern vorausgewählt',
+                  prefixIcon: Icon(Icons.place_outlined),
+                ),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('— keiner —')),
+                  ...locations.map((l) =>
+                      DropdownMenuItem(value: l.id, child: Text(l.name))),
+                ],
+                onChanged: (v) => setState(() => _defaultLocationId = v),
               );
             }),
             const SizedBox(height: 12),

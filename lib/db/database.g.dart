@@ -259,6 +259,18 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _defaultLocationIdMeta = const VerificationMeta(
+    'defaultLocationId',
+  );
+  @override
+  late final GeneratedColumn<String> defaultLocationId =
+      GeneratedColumn<String>(
+        'default_location_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -308,6 +320,7 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     novaGroup,
     ingredientsText,
     stockUnit,
+    defaultLocationId,
     createdAt,
     updatedAt,
   ];
@@ -500,6 +513,15 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         stockUnit.isAcceptableOrUnknown(data['stock_unit']!, _stockUnitMeta),
       );
     }
+    if (data.containsKey('default_location_id')) {
+      context.handle(
+        _defaultLocationIdMeta,
+        defaultLocationId.isAcceptableOrUnknown(
+          data['default_location_id']!,
+          _defaultLocationIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -613,6 +635,10 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}stock_unit'],
       ),
+      defaultLocationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_location_id'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -657,6 +683,9 @@ class Item extends DataClass implements Insertable<Item> {
   /// The unit used for stock aggregation (e.g. 'g', 'Stück').
   /// If null, quantities are summed per unit without conversion.
   final String? stockUnit;
+
+  /// Default location for new inventory entries (pre-selects in AddStockSheet).
+  final String? defaultLocationId;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Item({
@@ -683,6 +712,7 @@ class Item extends DataClass implements Insertable<Item> {
     this.novaGroup,
     this.ingredientsText,
     this.stockUnit,
+    this.defaultLocationId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -746,6 +776,9 @@ class Item extends DataClass implements Insertable<Item> {
     if (!nullToAbsent || stockUnit != null) {
       map['stock_unit'] = Variable<String>(stockUnit);
     }
+    if (!nullToAbsent || defaultLocationId != null) {
+      map['default_location_id'] = Variable<String>(defaultLocationId);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -808,6 +841,9 @@ class Item extends DataClass implements Insertable<Item> {
       stockUnit: stockUnit == null && nullToAbsent
           ? const Value.absent()
           : Value(stockUnit),
+      defaultLocationId: defaultLocationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultLocationId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -846,6 +882,9 @@ class Item extends DataClass implements Insertable<Item> {
       novaGroup: serializer.fromJson<int?>(json['novaGroup']),
       ingredientsText: serializer.fromJson<String?>(json['ingredientsText']),
       stockUnit: serializer.fromJson<String?>(json['stockUnit']),
+      defaultLocationId: serializer.fromJson<String?>(
+        json['defaultLocationId'],
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -877,6 +916,7 @@ class Item extends DataClass implements Insertable<Item> {
       'novaGroup': serializer.toJson<int?>(novaGroup),
       'ingredientsText': serializer.toJson<String?>(ingredientsText),
       'stockUnit': serializer.toJson<String?>(stockUnit),
+      'defaultLocationId': serializer.toJson<String?>(defaultLocationId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -906,6 +946,7 @@ class Item extends DataClass implements Insertable<Item> {
     Value<int?> novaGroup = const Value.absent(),
     Value<String?> ingredientsText = const Value.absent(),
     Value<String?> stockUnit = const Value.absent(),
+    Value<String?> defaultLocationId = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Item(
@@ -944,6 +985,9 @@ class Item extends DataClass implements Insertable<Item> {
         ? ingredientsText.value
         : this.ingredientsText,
     stockUnit: stockUnit.present ? stockUnit.value : this.stockUnit,
+    defaultLocationId: defaultLocationId.present
+        ? defaultLocationId.value
+        : this.defaultLocationId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -1004,6 +1048,9 @@ class Item extends DataClass implements Insertable<Item> {
           ? data.ingredientsText.value
           : this.ingredientsText,
       stockUnit: data.stockUnit.present ? data.stockUnit.value : this.stockUnit,
+      defaultLocationId: data.defaultLocationId.present
+          ? data.defaultLocationId.value
+          : this.defaultLocationId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1035,6 +1082,7 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('novaGroup: $novaGroup, ')
           ..write('ingredientsText: $ingredientsText, ')
           ..write('stockUnit: $stockUnit, ')
+          ..write('defaultLocationId: $defaultLocationId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1066,6 +1114,7 @@ class Item extends DataClass implements Insertable<Item> {
     novaGroup,
     ingredientsText,
     stockUnit,
+    defaultLocationId,
     createdAt,
     updatedAt,
   ]);
@@ -1096,6 +1145,7 @@ class Item extends DataClass implements Insertable<Item> {
           other.novaGroup == this.novaGroup &&
           other.ingredientsText == this.ingredientsText &&
           other.stockUnit == this.stockUnit &&
+          other.defaultLocationId == this.defaultLocationId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1124,6 +1174,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<int?> novaGroup;
   final Value<String?> ingredientsText;
   final Value<String?> stockUnit;
+  final Value<String?> defaultLocationId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -1151,6 +1202,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.novaGroup = const Value.absent(),
     this.ingredientsText = const Value.absent(),
     this.stockUnit = const Value.absent(),
+    this.defaultLocationId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1179,6 +1231,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.novaGroup = const Value.absent(),
     this.ingredientsText = const Value.absent(),
     this.stockUnit = const Value.absent(),
+    this.defaultLocationId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1209,6 +1262,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<int>? novaGroup,
     Expression<String>? ingredientsText,
     Expression<String>? stockUnit,
+    Expression<String>? defaultLocationId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -1239,6 +1293,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (novaGroup != null) 'nova_group': novaGroup,
       if (ingredientsText != null) 'ingredients_text': ingredientsText,
       if (stockUnit != null) 'stock_unit': stockUnit,
+      if (defaultLocationId != null) 'default_location_id': defaultLocationId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1269,6 +1324,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<int?>? novaGroup,
     Value<String?>? ingredientsText,
     Value<String?>? stockUnit,
+    Value<String?>? defaultLocationId,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -1297,6 +1353,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       novaGroup: novaGroup ?? this.novaGroup,
       ingredientsText: ingredientsText ?? this.ingredientsText,
       stockUnit: stockUnit ?? this.stockUnit,
+      defaultLocationId: defaultLocationId ?? this.defaultLocationId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -1377,6 +1434,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (stockUnit.present) {
       map['stock_unit'] = Variable<String>(stockUnit.value);
     }
+    if (defaultLocationId.present) {
+      map['default_location_id'] = Variable<String>(defaultLocationId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1415,6 +1475,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('novaGroup: $novaGroup, ')
           ..write('ingredientsText: $ingredientsText, ')
           ..write('stockUnit: $stockUnit, ')
+          ..write('defaultLocationId: $defaultLocationId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -11091,6 +11152,15 @@ class $UnitsTable extends Units with TableInfo<$UnitsTable, Unit> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _pluralMeta = const VerificationMeta('plural');
+  @override
+  late final GeneratedColumn<String> plural = GeneratedColumn<String>(
+    'plural',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _abbreviationMeta = const VerificationMeta(
     'abbreviation',
   );
@@ -11145,6 +11215,7 @@ class $UnitsTable extends Units with TableInfo<$UnitsTable, Unit> {
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    plural,
     abbreviation,
     isDefault,
     sortOrder,
@@ -11174,6 +11245,12 @@ class $UnitsTable extends Units with TableInfo<$UnitsTable, Unit> {
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('plural')) {
+      context.handle(
+        _pluralMeta,
+        plural.isAcceptableOrUnknown(data['plural']!, _pluralMeta),
+      );
     }
     if (data.containsKey('abbreviation')) {
       context.handle(
@@ -11219,6 +11296,10 @@ class $UnitsTable extends Units with TableInfo<$UnitsTable, Unit> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      plural: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plural'],
+      ),
       abbreviation: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}abbreviation'],
@@ -11247,6 +11328,7 @@ class $UnitsTable extends Units with TableInfo<$UnitsTable, Unit> {
 class Unit extends DataClass implements Insertable<Unit> {
   final String id;
   final String name;
+  final String? plural;
   final String? abbreviation;
   final bool isDefault;
   final int sortOrder;
@@ -11254,6 +11336,7 @@ class Unit extends DataClass implements Insertable<Unit> {
   const Unit({
     required this.id,
     required this.name,
+    this.plural,
     this.abbreviation,
     required this.isDefault,
     required this.sortOrder,
@@ -11264,6 +11347,9 @@ class Unit extends DataClass implements Insertable<Unit> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || plural != null) {
+      map['plural'] = Variable<String>(plural);
+    }
     if (!nullToAbsent || abbreviation != null) {
       map['abbreviation'] = Variable<String>(abbreviation);
     }
@@ -11277,6 +11363,9 @@ class Unit extends DataClass implements Insertable<Unit> {
     return UnitsCompanion(
       id: Value(id),
       name: Value(name),
+      plural: plural == null && nullToAbsent
+          ? const Value.absent()
+          : Value(plural),
       abbreviation: abbreviation == null && nullToAbsent
           ? const Value.absent()
           : Value(abbreviation),
@@ -11294,6 +11383,7 @@ class Unit extends DataClass implements Insertable<Unit> {
     return Unit(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      plural: serializer.fromJson<String?>(json['plural']),
       abbreviation: serializer.fromJson<String?>(json['abbreviation']),
       isDefault: serializer.fromJson<bool>(json['isDefault']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
@@ -11306,6 +11396,7 @@ class Unit extends DataClass implements Insertable<Unit> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
+      'plural': serializer.toJson<String?>(plural),
       'abbreviation': serializer.toJson<String?>(abbreviation),
       'isDefault': serializer.toJson<bool>(isDefault),
       'sortOrder': serializer.toJson<int>(sortOrder),
@@ -11316,6 +11407,7 @@ class Unit extends DataClass implements Insertable<Unit> {
   Unit copyWith({
     String? id,
     String? name,
+    Value<String?> plural = const Value.absent(),
     Value<String?> abbreviation = const Value.absent(),
     bool? isDefault,
     int? sortOrder,
@@ -11323,6 +11415,7 @@ class Unit extends DataClass implements Insertable<Unit> {
   }) => Unit(
     id: id ?? this.id,
     name: name ?? this.name,
+    plural: plural.present ? plural.value : this.plural,
     abbreviation: abbreviation.present ? abbreviation.value : this.abbreviation,
     isDefault: isDefault ?? this.isDefault,
     sortOrder: sortOrder ?? this.sortOrder,
@@ -11332,6 +11425,7 @@ class Unit extends DataClass implements Insertable<Unit> {
     return Unit(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      plural: data.plural.present ? data.plural.value : this.plural,
       abbreviation: data.abbreviation.present
           ? data.abbreviation.value
           : this.abbreviation,
@@ -11346,6 +11440,7 @@ class Unit extends DataClass implements Insertable<Unit> {
     return (StringBuffer('Unit(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('plural: $plural, ')
           ..write('abbreviation: $abbreviation, ')
           ..write('isDefault: $isDefault, ')
           ..write('sortOrder: $sortOrder, ')
@@ -11355,14 +11450,22 @@ class Unit extends DataClass implements Insertable<Unit> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, abbreviation, isDefault, sortOrder, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    plural,
+    abbreviation,
+    isDefault,
+    sortOrder,
+    createdAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Unit &&
           other.id == this.id &&
           other.name == this.name &&
+          other.plural == this.plural &&
           other.abbreviation == this.abbreviation &&
           other.isDefault == this.isDefault &&
           other.sortOrder == this.sortOrder &&
@@ -11372,6 +11475,7 @@ class Unit extends DataClass implements Insertable<Unit> {
 class UnitsCompanion extends UpdateCompanion<Unit> {
   final Value<String> id;
   final Value<String> name;
+  final Value<String?> plural;
   final Value<String?> abbreviation;
   final Value<bool> isDefault;
   final Value<int> sortOrder;
@@ -11380,6 +11484,7 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
   const UnitsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.plural = const Value.absent(),
     this.abbreviation = const Value.absent(),
     this.isDefault = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -11389,6 +11494,7 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
   UnitsCompanion.insert({
     required String id,
     required String name,
+    this.plural = const Value.absent(),
     this.abbreviation = const Value.absent(),
     this.isDefault = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -11399,6 +11505,7 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
   static Insertable<Unit> custom({
     Expression<String>? id,
     Expression<String>? name,
+    Expression<String>? plural,
     Expression<String>? abbreviation,
     Expression<bool>? isDefault,
     Expression<int>? sortOrder,
@@ -11408,6 +11515,7 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (plural != null) 'plural': plural,
       if (abbreviation != null) 'abbreviation': abbreviation,
       if (isDefault != null) 'is_default': isDefault,
       if (sortOrder != null) 'sort_order': sortOrder,
@@ -11419,6 +11527,7 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
   UnitsCompanion copyWith({
     Value<String>? id,
     Value<String>? name,
+    Value<String?>? plural,
     Value<String?>? abbreviation,
     Value<bool>? isDefault,
     Value<int>? sortOrder,
@@ -11428,6 +11537,7 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
     return UnitsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      plural: plural ?? this.plural,
       abbreviation: abbreviation ?? this.abbreviation,
       isDefault: isDefault ?? this.isDefault,
       sortOrder: sortOrder ?? this.sortOrder,
@@ -11444,6 +11554,9 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (plural.present) {
+      map['plural'] = Variable<String>(plural.value);
     }
     if (abbreviation.present) {
       map['abbreviation'] = Variable<String>(abbreviation.value);
@@ -11468,6 +11581,7 @@ class UnitsCompanion extends UpdateCompanion<Unit> {
     return (StringBuffer('UnitsCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('plural: $plural, ')
           ..write('abbreviation: $abbreviation, ')
           ..write('isDefault: $isDefault, ')
           ..write('sortOrder: $sortOrder, ')
@@ -12661,6 +12775,7 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<int?> novaGroup,
       Value<String?> ingredientsText,
       Value<String?> stockUnit,
+      Value<String?> defaultLocationId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -12690,6 +12805,7 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<int?> novaGroup,
       Value<String?> ingredientsText,
       Value<String?> stockUnit,
+      Value<String?> defaultLocationId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -12896,6 +13012,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get stockUnit => $composableBuilder(
     column: $table.stockUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defaultLocationId => $composableBuilder(
+    column: $table.defaultLocationId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13134,6 +13255,11 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get defaultLocationId => $composableBuilder(
+    column: $table.defaultLocationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -13254,6 +13380,11 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<String> get stockUnit =>
       $composableBuilder(column: $table.stockUnit, builder: (column) => column);
+
+  GeneratedColumn<String> get defaultLocationId => $composableBuilder(
+    column: $table.defaultLocationId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -13418,6 +13549,7 @@ class $$ItemsTableTableManager
                 Value<int?> novaGroup = const Value.absent(),
                 Value<String?> ingredientsText = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
+                Value<String?> defaultLocationId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -13445,6 +13577,7 @@ class $$ItemsTableTableManager
                 novaGroup: novaGroup,
                 ingredientsText: ingredientsText,
                 stockUnit: stockUnit,
+                defaultLocationId: defaultLocationId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -13474,6 +13607,7 @@ class $$ItemsTableTableManager
                 Value<int?> novaGroup = const Value.absent(),
                 Value<String?> ingredientsText = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
+                Value<String?> defaultLocationId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -13501,6 +13635,7 @@ class $$ItemsTableTableManager
                 novaGroup: novaGroup,
                 ingredientsText: ingredientsText,
                 stockUnit: stockUnit,
+                defaultLocationId: defaultLocationId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -20099,6 +20234,7 @@ typedef $$UnitsTableCreateCompanionBuilder =
     UnitsCompanion Function({
       required String id,
       required String name,
+      Value<String?> plural,
       Value<String?> abbreviation,
       Value<bool> isDefault,
       Value<int> sortOrder,
@@ -20109,6 +20245,7 @@ typedef $$UnitsTableUpdateCompanionBuilder =
     UnitsCompanion Function({
       Value<String> id,
       Value<String> name,
+      Value<String?> plural,
       Value<String?> abbreviation,
       Value<bool> isDefault,
       Value<int> sortOrder,
@@ -20131,6 +20268,11 @@ class $$UnitsTableFilterComposer extends Composer<_$AppDatabase, $UnitsTable> {
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get plural => $composableBuilder(
+    column: $table.plural,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20174,6 +20316,11 @@ class $$UnitsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get plural => $composableBuilder(
+    column: $table.plural,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get abbreviation => $composableBuilder(
     column: $table.abbreviation,
     builder: (column) => ColumnOrderings(column),
@@ -20209,6 +20356,9 @@ class $$UnitsTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get plural =>
+      $composableBuilder(column: $table.plural, builder: (column) => column);
 
   GeneratedColumn<String> get abbreviation => $composableBuilder(
     column: $table.abbreviation,
@@ -20255,6 +20405,7 @@ class $$UnitsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> plural = const Value.absent(),
                 Value<String?> abbreviation = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -20263,6 +20414,7 @@ class $$UnitsTableTableManager
               }) => UnitsCompanion(
                 id: id,
                 name: name,
+                plural: plural,
                 abbreviation: abbreviation,
                 isDefault: isDefault,
                 sortOrder: sortOrder,
@@ -20273,6 +20425,7 @@ class $$UnitsTableTableManager
               ({
                 required String id,
                 required String name,
+                Value<String?> plural = const Value.absent(),
                 Value<String?> abbreviation = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -20281,6 +20434,7 @@ class $$UnitsTableTableManager
               }) => UnitsCompanion.insert(
                 id: id,
                 name: name,
+                plural: plural,
                 abbreviation: abbreviation,
                 isDefault: isDefault,
                 sortOrder: sortOrder,

@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -581,10 +582,20 @@ class _StockEntryCard extends ConsumerWidget {
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline),
-              tooltip: 'Verbrauchen',
-              onPressed: () => _showConsumeDialog(context, ref),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  tooltip: 'Buchung bearbeiten',
+                  onPressed: () => _showEditDialog(context, ref),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, size: 20),
+                  tooltip: 'Verbrauchen',
+                  onPressed: () => _showConsumeDialog(context, ref),
+                ),
+              ],
             ),
           ],
         ),
@@ -603,10 +614,199 @@ class _StockEntryCard extends ConsumerWidget {
     return 'MHD ${DateFormat('dd.MM.yy').format(date)}';
   }
 
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _EditEntrySheet(entry: entry),
+    );
+  }
+
   void _showConsumeDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (_) => ConsumeDialog(entry: entry, item: item),
+    );
+  }
+}
+
+// ── Edit inventory entry sheet ──────────────────────────────────────────────
+
+class _EditEntrySheet extends ConsumerStatefulWidget {
+  final InventoryEntry entry;
+  const _EditEntrySheet({required this.entry});
+
+  @override
+  ConsumerState<_EditEntrySheet> createState() => _EditEntrySheetState();
+}
+
+class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
+  late final TextEditingController _qtyCtrl;
+  DateTime? _expiryDate;
+  String? _locationId;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.entry;
+    _qtyCtrl = TextEditingController(text: _fmt(e.quantity));
+    _expiryDate = e.expiryDate;
+    _locationId = e.locationId;
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmt(double q) =>
+      q == q.truncateToDouble() ? q.toInt().toString() : q.toString();
+
+  Future<void> _save() async {
+    final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
+    if (qty == null || qty <= 0) return;
+    setState(() => _saving = true);
+    try {
+      final db = ref.read(databaseProvider)!;
+      await db.updateInventoryEntry(InventoryEntriesCompanion(
+        id: Value(widget.entry.id),
+        quantity: Value(qty),
+        locationId: Value(_locationId),
+        expiryDate: Value(_expiryDate),
+        updatedAt: Value(DateTime.now()),
+      ));
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Buchung löschen?'),
+        content: const Text('Diese Einlagerung wird dauerhaft entfernt.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Abbrechen')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Löschen',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final db = ref.read(databaseProvider)!;
+    await db.deleteInventoryEntry(widget.entry.id);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final locations = ref.watch(allLocationsProvider).valueOrNull ?? [];
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text('Buchung bearbeiten',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'Buchung löschen',
+                  onPressed: _delete,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _qtyCtrl,
+                    decoration: InputDecoration(
+                        labelText: 'Menge (${widget.entry.unit})'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_today, size: 20),
+                    title: Text(_expiryDate == null
+                        ? 'Kein MHD'
+                        : DateFormat('dd.MM.yyyy').format(_expiryDate!),
+                        style: Theme.of(context).textTheme.bodyMedium),
+                    trailing: _expiryDate != null
+                        ? IconButton(
+                            icon: const Icon(Icons.close, size: 16),
+                            onPressed: () =>
+                                setState(() => _expiryDate = null))
+                        : null,
+                    onTap: () async {
+                      final d = await showDatePicker(
+                        context: context,
+                        initialDate: _expiryDate ??
+                            DateTime.now().add(const Duration(days: 7)),
+                        firstDate: DateTime.now()
+                            .subtract(const Duration(days: 30)),
+                        lastDate:
+                            DateTime.now().add(const Duration(days: 3650)),
+                      );
+                      if (d != null) setState(() => _expiryDate = d);
+                    },
+                  ),
+                ),
+              ],
+            ),
+            if (locations.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                // ignore: deprecated_member_use
+                value: _locationId,
+                decoration: const InputDecoration(
+                  labelText: 'Lagerort',
+                  prefixIcon: Icon(Icons.place_outlined),
+                ),
+                items: [
+                  const DropdownMenuItem(
+                      value: null, child: Text('— keiner —')),
+                  ...locations.map((l) =>
+                      DropdownMenuItem(value: l.id, child: Text(l.name))),
+                ],
+                onChanged: (v) => setState(() => _locationId = v),
+              ),
+            ],
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -665,12 +865,12 @@ class _EventsSection extends ConsumerWidget {
   }
 }
 
-class _EventTile extends StatelessWidget {
+class _EventTile extends ConsumerWidget {
   final ItemEvent event;
   const _EventTile({required this.event});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final (icon, color, label) = _eventMeta(event.type);
     return ListTile(
@@ -685,11 +885,44 @@ class _EventTile extends StatelessWidget {
       subtitle: event.quantity != null
           ? Text('${_formatQty(event.quantity!)} ${event.unit ?? ''}')
           : null,
-      trailing: Text(
-        DateFormat('dd.MM.yy HH:mm').format(event.createdAt),
-        style: theme.textTheme.bodySmall,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            DateFormat('dd.MM.yy HH:mm').format(event.createdAt),
+            style: theme.textTheme.bodySmall,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+            tooltip: 'Ereignis löschen',
+            onPressed: () => _confirmDelete(context, ref),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ereignis löschen?'),
+        content: const Text(
+            'Diesen Verlaufseintrag wirklich entfernen? Der Bestand wird nicht angepasst.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Abbrechen')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Löschen',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ref.read(databaseProvider)?.deleteItemEvent(event.id);
+    }
   }
 
   (IconData, Color, String) _eventMeta(String type) => switch (type) {
@@ -737,6 +970,12 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   }
 
   Future<void> _initLocation() async {
+    // 1. Use item's default location if set
+    if (widget.item.defaultLocationId != null) {
+      setState(() => _locationId = widget.item.defaultLocationId);
+      return;
+    }
+    // 2. Fall back to most recent stock entry location
     final db = ref.read(databaseProvider);
     if (db == null) return;
     final entries = await db.watchInventoryForItem(widget.item.id).first;

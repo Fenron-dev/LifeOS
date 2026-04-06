@@ -56,9 +56,13 @@ class UnitsScreen extends ConsumerWidget {
                     child: ListTile(
                       leading: const Icon(Icons.drag_handle),
                       title: Text(unit.name),
-                      subtitle: unit.abbreviation != null
-                          ? Text('Abkürzung: ${unit.abbreviation}')
-                          : null,
+                      subtitle: () {
+                        final parts = [
+                          if (unit.plural != null) 'Mehrzahl: ${unit.plural}',
+                          if (unit.abbreviation != null) 'Abk.: ${unit.abbreviation}',
+                        ].join(' · ');
+                        return parts.isEmpty ? null : Text(parts);
+                      }(),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -113,6 +117,7 @@ class _UnitDialog extends ConsumerStatefulWidget {
 
 class _UnitDialogState extends ConsumerState<_UnitDialog> {
   late final TextEditingController _nameCtrl;
+  late final TextEditingController _pluralCtrl;
   late final TextEditingController _abbrCtrl;
   bool _saving = false;
 
@@ -120,13 +125,14 @@ class _UnitDialogState extends ConsumerState<_UnitDialog> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.unit?.name ?? '');
-    _abbrCtrl =
-        TextEditingController(text: widget.unit?.abbreviation ?? '');
+    _pluralCtrl = TextEditingController(text: widget.unit?.plural ?? '');
+    _abbrCtrl = TextEditingController(text: widget.unit?.abbreviation ?? '');
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _pluralCtrl.dispose();
     _abbrCtrl.dispose();
     super.dispose();
   }
@@ -139,16 +145,14 @@ class _UnitDialogState extends ConsumerState<_UnitDialog> {
       if (widget.unit == null) {
         await notifier.create(
           _nameCtrl.text.trim(),
-          abbreviation: _abbrCtrl.text.trim().isEmpty
-              ? null
-              : _abbrCtrl.text.trim(),
+          plural: _pluralCtrl.text.trim().isEmpty ? null : _pluralCtrl.text.trim(),
+          abbreviation: _abbrCtrl.text.trim().isEmpty ? null : _abbrCtrl.text.trim(),
         );
       } else {
         await notifier.save(widget.unit!.copyWith(
           name: _nameCtrl.text.trim(),
-          abbreviation: Value(_abbrCtrl.text.trim().isEmpty
-              ? null
-              : _abbrCtrl.text.trim()),
+          plural: Value(_pluralCtrl.text.trim().isEmpty ? null : _pluralCtrl.text.trim()),
+          abbreviation: Value(_abbrCtrl.text.trim().isEmpty ? null : _abbrCtrl.text.trim()),
         ));
       }
       if (mounted) Navigator.of(context).pop();
@@ -168,8 +172,15 @@ class _UnitDialogState extends ConsumerState<_UnitDialog> {
           TextField(
             controller: _nameCtrl,
             decoration: const InputDecoration(
-                labelText: 'Name *', hintText: 'z. B. Packung'),
+                labelText: 'Name (Singular) *', hintText: 'z. B. Packung'),
             autofocus: true,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _pluralCtrl,
+            decoration: const InputDecoration(
+                labelText: 'Mehrzahl (optional)',
+                hintText: 'z. B. Packungen'),
           ),
           const SizedBox(height: 12),
           TextField(

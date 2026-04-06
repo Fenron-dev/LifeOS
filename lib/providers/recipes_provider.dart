@@ -269,6 +269,7 @@ class MealsNotifier extends AsyncNotifier<void> {
         quantity: ing.quantity,
         unit: ing.unit,
         itemId: Value(ing.itemId),
+        itemGroupId: Value(ing.itemGroupId),
         sortOrder: Value(i),
       ));
     }
@@ -284,6 +285,7 @@ class IngredientInput {
   final double quantity;
   final String unit;
   final String? itemId;
+  final String? itemGroupId;
   final bool optional;
 
   const IngredientInput({
@@ -291,6 +293,7 @@ class IngredientInput {
     required this.quantity,
     required this.unit,
     this.itemId,
+    this.itemGroupId,
     this.optional = false,
   });
 }

@@ -37,6 +37,9 @@ class Items extends Table {
   /// If null, quantities are summed per unit without conversion.
   TextColumn get stockUnit => text().nullable()();
 
+  /// Default location for new inventory entries (pre-selects in AddStockSheet).
+  TextColumn get defaultLocationId => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

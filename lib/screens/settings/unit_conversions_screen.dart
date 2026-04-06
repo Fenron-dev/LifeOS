@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
 import '../../providers/unit_conversions_provider.dart';
+import '../../providers/units_provider.dart';
 
 /// Full screen for managing global unit conversions.
 class UnitConversionsScreen extends ConsumerWidget {
@@ -195,24 +196,19 @@ Future<void> showAddConversionDialog(
   );
 }
 
-class _AddConversionDialog extends StatefulWidget {
+class _AddConversionDialog extends ConsumerStatefulWidget {
   final Future<void> Function(String from, String to, double factor) onSave;
   const _AddConversionDialog({required this.onSave});
 
   @override
-  State<_AddConversionDialog> createState() => _AddConversionDialogState();
+  ConsumerState<_AddConversionDialog> createState() => _AddConversionDialogState();
 }
 
-class _AddConversionDialogState extends State<_AddConversionDialog> {
+class _AddConversionDialogState extends ConsumerState<_AddConversionDialog> {
   final _fromCtrl = TextEditingController();
   final _toCtrl = TextEditingController();
   final _factorCtrl = TextEditingController();
   bool _saving = false;
-
-  static const _commonUnits = [
-    'g', 'kg', 'ml', 'l', 'Stück', 'Packung', 'Dose', 'Flasche',
-    'Tüte', 'EL', 'TL', 'Tasse', 'Scheibe', 'Portion',
-  ];
 
   @override
   void dispose() {
@@ -237,10 +233,11 @@ class _AddConversionDialogState extends State<_AddConversionDialog> {
   }
 
   Widget _unitField(TextEditingController ctrl, String label) {
+    final unitNames = ref.watch(unitNamesProvider);
     return Autocomplete<String>(
       optionsBuilder: (v) => v.text.isEmpty
-          ? _commonUnits
-          : _commonUnits
+          ? unitNames
+          : unitNames
               .where((u) => u.toLowerCase().contains(v.text.toLowerCase())),
       onSelected: (v) => ctrl.text = v,
       fieldViewBuilder: (context, textCtrl, focusNode, onSubmit) {

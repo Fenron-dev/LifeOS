@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
-import '../../providers/inventory_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../items/item_detail_screen.dart';
 
 class ShoppingListScreen extends ConsumerWidget {
   const ShoppingListScreen({super.key});
@@ -142,7 +143,7 @@ class _NeedCard extends ConsumerWidget {
               children: [
                 OutlinedButton.icon(
                   onPressed: () =>
-                      _showBuyDialog(context, ref, need),
+                      _showBuyFlow(context, ref, need),
                   icon: const Icon(Icons.add_shopping_cart, size: 18),
                   label: Text(
                       'Einkaufen (+${_fmt(need.neededQty)} $unit)'),
@@ -158,11 +159,49 @@ class _NeedCard extends ConsumerWidget {
   String _fmt(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
 
-  void _showBuyDialog(
-      BuildContext context, WidgetRef ref, ShoppingNeed need) {
-    showDialog(
+  Future<void> _showBuyFlow(
+      BuildContext context, WidgetRef ref, ShoppingNeed need) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    final members = await db.membersForGroup(need.group.id);
+    if (members.isEmpty || !context.mounted) return;
+
+    Item? selectedItem;
+
+    if (members.length == 1) {
+      // Only one article — load it directly
+      selectedItem = await db.itemById(members.first.itemId);
+    } else {
+      // Let user pick which article to stock
+      final items = await Future.wait(
+          members.map((m) => db.itemById(m.itemId)));
+      final available = items.whereType<Item>().toList();
+      if (!context.mounted) return;
+      selectedItem = await showDialog<Item>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Welchen Artikel einlagern?'),
+          children: available.map((item) => SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(item),
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.inventory_2_outlined),
+              title: Text(item.name),
+              subtitle: item.brand != null ? Text(item.brand!) : null,
+            ),
+          )).toList(),
+        ),
+      );
+    }
+
+    if (selectedItem == null || !context.mounted) return;
+
+    showModalBottomSheet(
       context: context,
-      builder: (_) => _QuickBuyDialog(need: need),
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => AddStockSheet(item: selectedItem!),
     );
   }
 }
@@ -197,96 +236,3 @@ class _StockIndicator extends StatelessWidget {
   }
 }
 
-// ── Quick buy dialog ──────────────────────────────────────────────────────────
-
-class _QuickBuyDialog extends ConsumerStatefulWidget {
-  final ShoppingNeed need;
-  const _QuickBuyDialog({required this.need});
-
-  @override
-  ConsumerState<_QuickBuyDialog> createState() => _QuickBuyDialogState();
-}
-
-class _QuickBuyDialogState extends ConsumerState<_QuickBuyDialog> {
-  late final TextEditingController _qtyCtrl;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final needed = widget.need.neededQty;
-    final q = needed == needed.truncateToDouble()
-        ? needed.toInt().toString()
-        : needed.toStringAsFixed(1);
-    _qtyCtrl = TextEditingController(text: q);
-  }
-
-  @override
-  void dispose() {
-    _qtyCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _buy() async {
-    final qty =
-        double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
-    if (qty == null || qty <= 0) return;
-    setState(() => _saving = true);
-
-    // Get first member item of the group to record purchase against
-    final db = ref.read(databaseProvider);
-    if (db == null) return;
-    final members = await db.membersForGroup(widget.need.group.id);
-    if (members.isEmpty || !mounted) {
-      setState(() => _saving = false);
-      return;
-    }
-
-    try {
-      await ref.read(inventoryOpsProvider.notifier).purchase(
-            itemId: members.first.itemId,
-            quantity: qty,
-            unit: widget.need.group.minStockUnit ?? 'Stück',
-          );
-      if (mounted) {
-        Navigator.of(context).pop();
-        ref.invalidate(shoppingNeedsProvider);
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final unit = widget.need.group.minStockUnit ?? 'Stück';
-    return AlertDialog(
-      title: Text('Einkaufen: ${widget.need.group.name}'),
-      content: TextField(
-        controller: _qtyCtrl,
-        decoration: InputDecoration(
-          labelText: 'Eingekaufte Menge ($unit)',
-        ),
-        keyboardType:
-            const TextInputType.numberWithOptions(decimal: true),
-        autofocus: true,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _buy,
-          child: _saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child:
-                      CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Einlagern'),
-        ),
-      ],
-    );
-  }
-}

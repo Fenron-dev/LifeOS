@@ -54,7 +54,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -88,6 +88,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 6) {
             await m.createTable(bodyWeightLogs);
             await _seedDefaultConversions();
+          }
+          if (from < 7) {
+            await m.addColumn(units, units.plural);
+            await m.addColumn(items, items.defaultLocationId);
           }
           if (from < 4) {
             await m.createTable(units);
@@ -173,6 +177,9 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> insertItemEvent(ItemEventsCompanion entry) =>
       into(itemEvents).insert(entry);
+
+  Future<void> deleteItemEvent(String id) =>
+      (delete(itemEvents)..where((e) => e.id.equals(id))).go();
 
   Stream<List<ItemEvent>> watchEventsForItem(String itemId) =>
       (select(itemEvents)

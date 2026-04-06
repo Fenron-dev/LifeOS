@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
+import '../../providers/groups_provider.dart';
+import '../../providers/items_provider.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
@@ -35,7 +37,8 @@ class MealsScreen extends ConsumerWidget {
     );
   }
 
-  void _showMealDialog(BuildContext context, WidgetRef ref, [StandardMeal? meal]) {
+  void _showMealDialog(BuildContext context, WidgetRef ref,
+      [StandardMeal? meal]) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -43,6 +46,10 @@ class MealsScreen extends ConsumerWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Meal card
+// ---------------------------------------------------------------------------
 
 class _MealCard extends ConsumerWidget {
   final StandardMeal meal;
@@ -84,23 +91,37 @@ class _MealCard extends ConsumerWidget {
         ),
         children: [
           ingsAsync.when(
-            loading: () =>
-                const Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()),
+            loading: () => const Padding(
+                padding: EdgeInsets.all(8),
+                child: CircularProgressIndicator()),
             error: (e, _) => Text('Fehler: $e'),
             data: (ings) => ings.isEmpty
-                ? const ListTile(
-                    title: Text('Keine Zutaten'), dense: true)
+                ? const ListTile(title: Text('Keine Zutaten'), dense: true)
                 : Column(
-                    children: ings.map((ing) {
-                      final qty = ing.quantity == ing.quantity.truncateToDouble()
-                          ? ing.quantity.toInt().toString()
-                          : ing.quantity.toStringAsFixed(1);
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.fiber_manual_record, size: 8),
-                        title: Text('$qty ${ing.unit}  ${ing.name}'),
-                      );
-                    }).toList(),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...ings.map((ing) {
+                        final qty = ing.quantity ==
+                                ing.quantity.truncateToDouble()
+                            ? ing.quantity.toInt().toString()
+                            : ing.quantity.toStringAsFixed(1);
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(
+                            ing.itemId != null
+                                ? Icons.inventory_2_outlined
+                                : ing.itemGroupId != null
+                                    ? Icons.category_outlined
+                                    : Icons.fiber_manual_record,
+                            size: ing.itemId != null || ing.itemGroupId != null
+                                ? 16
+                                : 8,
+                          ),
+                          title: Text('$qty ${ing.unit}  ${ing.name}'),
+                        );
+                      }),
+                      _MealNutritionRow(ingredients: ings),
+                    ],
                   ),
           ),
         ],
@@ -115,8 +136,12 @@ class _MealCard extends ConsumerWidget {
         title: const Text('Mahlzeit löschen?'),
         content: Text('«${meal.name}» wird gelöscht.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Löschen')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Abbrechen')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Löschen')),
         ],
       ),
     );
@@ -125,6 +150,119 @@ class _MealCard extends ConsumerWidget {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Nutrition summary row for a meal
+// ---------------------------------------------------------------------------
+
+class _MealNutritionRow extends ConsumerWidget {
+  final List<StandardMealIngredient> ingredients;
+  const _MealNutritionRow({required this.ingredients});
+
+  /// Grams per unit for simple conversions
+  static const Map<String, double> _toGrams = {
+    'g': 1,
+    'kg': 1000,
+    'mg': 0.001,
+    'ml': 1, // approximate water density
+    'l': 1000,
+    'dl': 100,
+    'cl': 10,
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Only ingredients linked to an item with nutrition can contribute
+    final linked = ingredients.where((i) => i.itemId != null).toList();
+    if (linked.isEmpty) return const SizedBox.shrink();
+
+    double? totalKcal;
+    double? totalProtein;
+    double? totalCarbs;
+    double? totalFat;
+
+    for (final ing in linked) {
+      final itemAsync = ref.watch(itemByIdProvider(ing.itemId!));
+      final item = itemAsync.valueOrNull;
+      if (item == null) continue;
+      if (item.caloriesPer100g == null) continue;
+
+      final gramsPerUnit =
+          _toGrams[ing.unit.toLowerCase()] ?? _toGrams[ing.unit];
+      if (gramsPerUnit == null) continue;
+
+      final grams = ing.quantity * gramsPerUnit;
+      final scale = grams / 100.0;
+
+      totalKcal = (totalKcal ?? 0) + item.caloriesPer100g! * scale;
+      if (item.proteinPer100g != null) {
+        totalProtein = (totalProtein ?? 0) + item.proteinPer100g! * scale;
+      }
+      if (item.carbsPer100g != null) {
+        totalCarbs = (totalCarbs ?? 0) + item.carbsPer100g! * scale;
+      }
+      if (item.fatPer100g != null) {
+        totalFat = (totalFat ?? 0) + item.fatPer100g! * scale;
+      }
+    }
+
+    if (totalKcal == null) return const SizedBox.shrink();
+
+    String fmt(double? v) => v == null ? '–' : '${v.round()}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Card(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NutrCell(
+                  label: 'kcal',
+                  value: fmt(totalKcal),
+                  color: Theme.of(context).colorScheme.primary),
+              _NutrCell(label: 'Protein', value: '${fmt(totalProtein)}g'),
+              _NutrCell(label: 'Kohlenhydrate', value: '${fmt(totalCarbs)}g'),
+              _NutrCell(label: 'Fett', value: '${fmt(totalFat)}g'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NutrCell extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? color;
+  const _NutrCell({required this.label, required this.value, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                )),
+        Text(label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                )),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
 
 class _EmptyState extends StatelessWidget {
   @override
@@ -149,6 +287,21 @@ class _EmptyState extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Meal form (bottom sheet)
 // ---------------------------------------------------------------------------
+
+/// A search option representing either an Item or an ItemGroup.
+class _IngOption {
+  final String id;
+  final String name;
+  final String? subtitle;
+  final bool isGroup;
+
+  const _IngOption({
+    required this.id,
+    required this.name,
+    this.subtitle,
+    required this.isGroup,
+  });
+}
 
 class _MealForm extends ConsumerStatefulWidget {
   final StandardMeal? meal;
@@ -185,6 +338,8 @@ class _MealFormState extends ConsumerState<_MealForm> {
                     ? ing.quantity.toInt().toString()
                     : ing.quantity.toStringAsFixed(1)),
             unit: ing.unit,
+            linkedItemId: ing.itemId,
+            linkedGroupId: ing.itemGroupId,
           ));
         }
       }
@@ -202,9 +357,41 @@ class _MealFormState extends ConsumerState<_MealForm> {
     super.dispose();
   }
 
+  List<_IngOption> _buildOptions(
+      List<Item> items, List<ItemGroup> groups, String query) {
+    final q = query.toLowerCase();
+    final opts = <_IngOption>[];
+    for (final item in items) {
+      if (item.name.toLowerCase().contains(q) ||
+          (item.brand?.toLowerCase().contains(q) ?? false)) {
+        opts.add(_IngOption(
+          id: item.id,
+          name: item.name,
+          subtitle: item.brand,
+          isGroup: false,
+        ));
+      }
+    }
+    for (final group in groups) {
+      if (group.name.toLowerCase().contains(q)) {
+        opts.add(_IngOption(
+          id: group.id,
+          name: group.name,
+          subtitle: 'Gruppe',
+          isGroup: true,
+        ));
+      }
+    }
+    return opts;
+  }
+
   @override
   Widget build(BuildContext context) {
     final units = List<String>.from(ref.watch(unitNamesProvider));
+    final itemsAsync = ref.watch(allItemsProvider);
+    final groupsAsync = ref.watch(allGroupsProvider);
+    final allItems = itemsAsync.valueOrNull ?? [];
+    final allGroups = groupsAsync.valueOrNull ?? [];
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
@@ -231,81 +418,36 @@ class _MealFormState extends ConsumerState<_MealForm> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Ingredients
+                  // Ingredients header
                   Row(
                     children: [
-                      Text('Zutaten', style: Theme.of(context).textTheme.titleSmall),
+                      Text('Zutaten',
+                          style: Theme.of(context).textTheme.titleSmall),
                       const Spacer(),
                       TextButton.icon(
-                        onPressed: () => setState(() => _ingredients.add(_IngRow())),
+                        onPressed: () =>
+                            setState(() => _ingredients.add(_IngRow())),
                         icon: const Icon(Icons.add, size: 16),
                         label: const Text('Hinzufügen'),
                       ),
                     ],
                   ),
+
+                  // Ingredient rows
                   ..._ingredients.asMap().entries.map((e) {
                     final row = e.value;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 56,
-                            child: TextField(
-                              controller: row.qtyCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Menge',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 8),
-                              ),
-                              keyboardType: const TextInputType.numberWithOptions(
-                                  decimal: true),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          SizedBox(
-                            width: 80,
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 4),
-                              ),
-                              child: DropdownButton<String>(
-                                value: units.contains(row.unit)
-                                    ? row.unit
-                                    : (units.isNotEmpty ? units.first : null),
-                                isExpanded: true,
-                                underline: const SizedBox.shrink(),
-                                isDense: true,
-                                items: units
-                                    .map((u) => DropdownMenuItem(
-                                        value: u, child: Text(u)))
-                                    .toList(),
-                                onChanged: (v) =>
-                                    setState(() => row.unit = v ?? row.unit),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: TextField(
-                              controller: row.nameCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Zutat',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 8),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 18),
-                            onPressed: () =>
-                                setState(() => _ingredients.removeAt(e.key)),
-                          ),
-                        ],
+                      child: _IngredientRowWidget(
+                        key: ObjectKey(row),
+                        row: row,
+                        units: units,
+                        allItems: allItems,
+                        allGroups: allGroups,
+                        buildOptions: _buildOptions,
+                        onRemove: () =>
+                            setState(() => _ingredients.removeAt(e.key)),
+                        onChanged: () => setState(() {}),
                       ),
                     );
                   }),
@@ -322,7 +464,8 @@ class _MealFormState extends ConsumerState<_MealForm> {
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _save,
-                    child: Text(widget.meal == null ? 'Erstellen' : 'Speichern'),
+                    child:
+                        Text(widget.meal == null ? 'Erstellen' : 'Speichern'),
                   ),
                 ],
               ),
@@ -340,6 +483,8 @@ class _MealFormState extends ConsumerState<_MealForm> {
               quantity:
                   double.tryParse(r.qtyCtrl.text.replaceAll(',', '.')) ?? 1,
               unit: r.unit,
+              itemId: r.linkedItemId,
+              itemGroupId: r.linkedGroupId,
             ))
         .toList();
 
@@ -347,29 +492,227 @@ class _MealFormState extends ConsumerState<_MealForm> {
     if (widget.meal == null) {
       await notifier.createMeal(
         name: _nameCtrl.text.trim(),
-        notes:
-            _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         ingredients: ings,
       );
     } else {
-      await notifier.updateMeal(
-        widget.meal!,
-        ingredients: ings,
-      );
+      await notifier.updateMeal(widget.meal!, ingredients: ings);
     }
     if (mounted) Navigator.of(context).pop();
   }
 }
 
+// ---------------------------------------------------------------------------
+// Ingredient row widget (stateful to manage autocomplete focus)
+// ---------------------------------------------------------------------------
+
+class _IngredientRowWidget extends StatefulWidget {
+  final _IngRow row;
+  final List<String> units;
+  final List<Item> allItems;
+  final List<ItemGroup> allGroups;
+  final List<_IngOption> Function(List<Item>, List<ItemGroup>, String)
+      buildOptions;
+  final VoidCallback onRemove;
+  final VoidCallback onChanged;
+
+  const _IngredientRowWidget({
+    super.key,
+    required this.row,
+    required this.units,
+    required this.allItems,
+    required this.allGroups,
+    required this.buildOptions,
+    required this.onRemove,
+    required this.onChanged,
+  });
+
+  @override
+  State<_IngredientRowWidget> createState() => _IngredientRowWidgetState();
+}
+
+class _IngredientRowWidgetState extends State<_IngredientRowWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final row = widget.row;
+    final isLinked = row.linkedItemId != null || row.linkedGroupId != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            // Quantity
+            SizedBox(
+              width: 56,
+              child: TextField(
+                controller: row.qtyCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Menge',
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Unit
+            SizedBox(
+              width: 80,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                ),
+                child: DropdownButton<String>(
+                  value: widget.units.contains(row.unit)
+                      ? row.unit
+                      : (widget.units.isNotEmpty ? widget.units.first : null),
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  isDense: true,
+                  items: widget.units
+                      .map((u) =>
+                          DropdownMenuItem(value: u, child: Text(u)))
+                      .toList(),
+                  onChanged: (v) {
+                    setState(() => row.unit = v ?? row.unit);
+                    widget.onChanged();
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Name with autocomplete
+            Expanded(
+              child: Autocomplete<_IngOption>(
+                initialValue: TextEditingValue(text: row.nameCtrl.text),
+                optionsBuilder: (value) {
+                  if (value.text.trim().isEmpty) return const [];
+                  return widget.buildOptions(
+                      widget.allItems, widget.allGroups, value.text);
+                },
+                displayStringForOption: (opt) => opt.name,
+                onSelected: (opt) {
+                  setState(() {
+                    row.nameCtrl.text = opt.name;
+                    if (opt.isGroup) {
+                      row.linkedGroupId = opt.id;
+                      row.linkedItemId = null;
+                    } else {
+                      row.linkedItemId = opt.id;
+                      row.linkedGroupId = null;
+                    }
+                  });
+                  widget.onChanged();
+                },
+                fieldViewBuilder:
+                    (context, controller, focusNode, onFieldSubmitted) {
+                  // Sync external nameCtrl ↔ autocomplete controller
+                  controller.text = row.nameCtrl.text;
+                  controller.addListener(() {
+                    if (row.nameCtrl.text != controller.text) {
+                      row.nameCtrl.text = controller.text;
+                      // Clear link if user manually edits
+                      if (row.linkedItemId != null ||
+                          row.linkedGroupId != null) {
+                        setState(() {
+                          row.linkedItemId = null;
+                          row.linkedGroupId = null;
+                        });
+                      }
+                    }
+                  });
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      labelText: 'Zutat',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 8),
+                      suffixIcon: isLinked
+                          ? Tooltip(
+                              message: row.linkedGroupId != null
+                                  ? 'Gruppe verknüpft'
+                                  : 'Artikel verknüpft',
+                              child: Icon(
+                                row.linkedGroupId != null
+                                    ? Icons.category_outlined
+                                    : Icons.inventory_2_outlined,
+                                size: 16,
+                                color:
+                                    Theme.of(context).colorScheme.primary,
+                              ),
+                            )
+                          : null,
+                    ),
+                  );
+                },
+                optionsViewBuilder: (context, onSelected, options) {
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(8),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          itemCount: options.length,
+                          itemBuilder: (context, i) {
+                            final opt = options.elementAt(i);
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(opt.isGroup
+                                  ? Icons.category_outlined
+                                  : Icons.inventory_2_outlined),
+                              title: Text(opt.name),
+                              subtitle: opt.subtitle != null
+                                  ? Text(opt.subtitle!)
+                                  : null,
+                              onTap: () => onSelected(opt),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: widget.onRemove,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ingredient row data model
+// ---------------------------------------------------------------------------
+
 class _IngRow {
   final TextEditingController nameCtrl;
   final TextEditingController qtyCtrl;
   String unit;
+  String? linkedItemId;
+  String? linkedGroupId;
 
   _IngRow({
     TextEditingController? nameCtrl,
     TextEditingController? qtyCtrl,
     String? unit,
+    this.linkedItemId,
+    this.linkedGroupId,
   })  : nameCtrl = nameCtrl ?? TextEditingController(),
         qtyCtrl = qtyCtrl ?? TextEditingController(text: '1'),
         unit = unit ?? 'Stück';

@@ -5,6 +5,7 @@ import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
+import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../settings/unit_conversions_screen.dart';
 
@@ -326,10 +327,6 @@ class _GroupDialogState extends ConsumerState<_GroupDialog> {
   String _minUnit = 'Stück';
   bool _saving = false;
 
-  static const _units = [
-    'Stück', 'g', 'kg', 'ml', 'l', 'Packung',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -412,15 +409,24 @@ class _GroupDialogState extends ConsumerState<_GroupDialog> {
             const SizedBox(width: 12),
             Expanded(
               flex: 3,
-              child: DropdownButtonFormField<String>(
-                // ignore: deprecated_member_use
-                value: _minUnit,
-                decoration: const InputDecoration(labelText: 'Einheit'),
-                items: _units
-                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                    .toList(),
-                onChanged: (v) => setState(() => _minUnit = v!),
-              ),
+              child: Consumer(builder: (context, ref, _) {
+                final unitNames = ref.watch(unitNamesProvider);
+                if (!unitNames.contains(_minUnit) && unitNames.isNotEmpty) {
+                  _minUnit = unitNames.first;
+                }
+                return InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Einheit'),
+                  child: DropdownButton<String>(
+                    value: unitNames.contains(_minUnit) ? _minUnit : null,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    items: unitNames
+                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _minUnit = v ?? _minUnit),
+                  ),
+                );
+              }),
             ),
           ]),
         ],

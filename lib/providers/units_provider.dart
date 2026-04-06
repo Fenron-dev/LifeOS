@@ -29,13 +29,14 @@ class UnitsNotifier extends AsyncNotifier<void> {
 
   AppDatabase get _db => ref.read(databaseProvider)!;
 
-  Future<void> create(String name, {String? abbreviation}) async {
+  Future<void> create(String name, {String? plural, String? abbreviation}) async {
     final all = await _db.allUnitsList();
     final maxOrder =
         all.isEmpty ? 0 : all.map((u) => u.sortOrder).reduce((a, b) => a > b ? a : b);
     await _db.insertUnit(UnitsCompanion.insert(
       id: _uuid.v4(),
       name: name,
+      plural: Value(plural),
       abbreviation: Value(abbreviation),
       sortOrder: Value(maxOrder + 1),
     ));
