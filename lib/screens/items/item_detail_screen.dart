@@ -1316,9 +1316,9 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
   Widget build(BuildContext context) {
     final itemConvsAsync = ref.watch(itemConversionsProvider(widget.item.id));
     final globalConvsAsync = ref.watch(globalConversionsProvider);
-    final convs = [
-      ...itemConvsAsync.valueOrNull ?? [],
-      ...globalConvsAsync.valueOrNull ?? [],
+    final convs = <UnitConversion>[
+      ...itemConvsAsync.valueOrNull ?? const <UnitConversion>[],
+      ...globalConvsAsync.valueOrNull ?? const <UnitConversion>[],
     ];
 
     // Build unit list: entry unit + all units that can convert to it
