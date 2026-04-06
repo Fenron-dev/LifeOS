@@ -74,7 +74,7 @@ class _ItemDetailBody extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: [
           _ItemInfoCard(item: item),
           if (_hasNutrition(item)) ...[
@@ -643,6 +643,7 @@ class _EditEntrySheet extends ConsumerStatefulWidget {
 
 class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
   late final TextEditingController _qtyCtrl;
+  late final TextEditingController _priceCtrl;
   DateTime? _expiryDate;
   String? _locationId;
   bool _saving = false;
@@ -652,6 +653,8 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
     super.initState();
     final e = widget.entry;
     _qtyCtrl = TextEditingController(text: _fmt(e.quantity));
+    _priceCtrl = TextEditingController(
+        text: e.price != null ? e.price!.toStringAsFixed(2) : '');
     _expiryDate = e.expiryDate;
     _locationId = e.locationId;
   }
@@ -659,6 +662,7 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
   @override
   void dispose() {
     _qtyCtrl.dispose();
+    _priceCtrl.dispose();
     super.dispose();
   }
 
@@ -668,12 +672,16 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
   Future<void> _save() async {
     final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
     if (qty == null || qty <= 0) return;
+    final price = _priceCtrl.text.trim().isEmpty
+        ? null
+        : double.tryParse(_priceCtrl.text.replaceAll(',', '.'));
     setState(() => _saving = true);
     try {
       final db = ref.read(databaseProvider)!;
       await db.updateInventoryEntry(InventoryEntriesCompanion(
         id: Value(widget.entry.id),
         quantity: Value(qty),
+        price: Value(price),
         locationId: Value(_locationId),
         expiryDate: Value(_expiryDate),
         updatedAt: Value(DateTime.now()),
@@ -775,6 +783,16 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _priceCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Preis (€)',
+                prefixIcon: Icon(Icons.euro),
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
             if (locations.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -1223,11 +1241,14 @@ class ConsumeDialog extends ConsumerStatefulWidget {
 
 class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
   late final TextEditingController _qtyCtrl;
+  // unit in which the user entered the quantity
+  late String _selectedUnit;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedUnit = widget.entry.unit;
     _qtyCtrl = TextEditingController(text: _formatQty(widget.entry.quantity));
   }
 
@@ -1240,18 +1261,34 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
   String _formatQty(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toString();
 
-  Future<void> _consume() async {
+  /// Convert [qty] in [_selectedUnit] to the entry's native unit using item conversions.
+  /// Returns null if no conversion is found (falls back to native unit in caller).
+  double? _toNativeUnit(double qty, List<UnitConversion> convs) {
+    if (_selectedUnit == widget.entry.unit) return qty;
+    // Find a conversion: selectedUnit → entry.unit
+    final conv = convs.where((c) =>
+        c.fromUnit == _selectedUnit && c.toUnit == widget.entry.unit).firstOrNull;
+    if (conv != null) return qty * conv.factor;
+    // Try reverse
+    final rev = convs.where((c) =>
+        c.fromUnit == widget.entry.unit && c.toUnit == _selectedUnit).firstOrNull;
+    if (rev != null) return qty / rev.factor;
+    return null;
+  }
+
+  Future<void> _consume(List<UnitConversion> convs) async {
     final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
     if (qty == null || qty <= 0) return;
+    final nativeQty = _toNativeUnit(qty, convs) ?? qty;
     setState(() => _saving = true);
     try {
-      final remaining = (widget.entry.quantity - qty).clamp(0, double.infinity);
+      final remaining = (widget.entry.quantity - nativeQty).clamp(0.0, double.infinity);
       await ref.read(inventoryOpsProvider.notifier).consume(
         itemId: widget.item.id,
         inventoryEntryId: widget.entry.id,
-        quantity: qty,
+        quantity: nativeQty,
         unit: widget.entry.unit,
-        remainingQuantity: remaining.toDouble(),
+        remainingQuantity: remaining,
       );
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -1277,6 +1314,25 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final itemConvsAsync = ref.watch(itemConversionsProvider(widget.item.id));
+    final globalConvsAsync = ref.watch(globalConversionsProvider);
+    final convs = [
+      ...itemConvsAsync.valueOrNull ?? [],
+      ...globalConvsAsync.valueOrNull ?? [],
+    ];
+
+    // Build unit list: entry unit + all units that can convert to it
+    final availableUnits = {widget.entry.unit};
+    for (final c in convs) {
+      if (c.toUnit == widget.entry.unit) availableUnits.add(c.fromUnit);
+      if (c.fromUnit == widget.entry.unit) availableUnits.add(c.toUnit);
+    }
+    // Also add item stockUnit and servingSizeG-based unit names
+    if (widget.item.stockUnit != null) availableUnits.add(widget.item.stockUnit!);
+
+    final unitList = availableUnits.toList();
+    if (!unitList.contains(_selectedUnit)) _selectedUnit = widget.entry.unit;
+
     return AlertDialog(
       title: const Text('Verbrauchen'),
       content: Column(
@@ -1285,14 +1341,63 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
         children: [
           Text('Bestand: ${_formatQty(widget.entry.quantity)} ${widget.entry.unit}'),
           const SizedBox(height: 16),
-          TextField(
-            controller: _qtyCtrl,
-            decoration: InputDecoration(
-              labelText: 'Verbrauchte Menge (${widget.entry.unit})',
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            autofocus: true,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _qtyCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Menge',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  autofocus: true,
+                ),
+              ),
+              if (unitList.length > 1) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 110,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
+                    child: DropdownButton<String>(
+                      value: _selectedUnit,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      isDense: true,
+                      items: unitList
+                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedUnit = v ?? _selectedUnit),
+                    ),
+                  ),
+                ),
+              ] else
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(widget.entry.unit,
+                      style: Theme.of(context).textTheme.bodyMedium),
+                ),
+            ],
           ),
+          if (_selectedUnit != widget.entry.unit) ...[
+            const SizedBox(height: 6),
+            Builder(builder: (context) {
+              final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
+              if (qty == null) return const SizedBox.shrink();
+              final native = _toNativeUnit(qty, convs);
+              if (native == null) return const SizedBox.shrink();
+              return Text(
+                '= ${_formatQty(native)} ${widget.entry.unit}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline),
+              );
+            }),
+          ],
         ],
       ),
       actions: [
@@ -1305,7 +1410,7 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
           child: const Text('Alles verbraucht'),
         ),
         FilledButton(
-          onPressed: _saving ? null : _consume,
+          onPressed: _saving ? null : () => _consume(convs),
           child: _saving
               ? const SizedBox(
                   width: 16, height: 16,

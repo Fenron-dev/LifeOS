@@ -31,12 +31,14 @@ part 'database.g.dart';
   TagDefinitions,
   ItemTags,
   EntityPhotos,
-  // Recipes
+  // Recipes & meal planning
   Recipes,
   RecipeIngredients,
   RecipeSteps,
   StandardMeals,
   StandardMealIngredients,
+  MealTypes,
+  MealTypeAssignments,
   // Tasks & wish list
   Tasks,
   WishListEntries,
@@ -54,7 +56,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -62,6 +64,7 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seedDefaultUnits();
           await _seedDefaultConversions();
+          await _seedDefaultMealTypes();
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -92,6 +95,14 @@ class AppDatabase extends _$AppDatabase {
           if (from < 7) {
             await m.addColumn(units, units.plural);
             await m.addColumn(items, items.defaultLocationId);
+          }
+          if (from < 8) {
+            await m.addColumn(inventoryEntries, inventoryEntries.price);
+            await m.createTable(mealTypes);
+            await m.createTable(mealTypeAssignments);
+            await _seedDefaultMealTypes();
+            await _seedDefaultUnits(); // re-seed to add new American units
+            await _seedDefaultConversions(); // re-seed American conversions
           }
           if (from < 4) {
             await m.createTable(units);
@@ -300,38 +311,99 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Default unit seeding ──────────────────────────────────────────────────
 
+  // (id_suffix, name, abbreviation)
   static const _defaultUnits = [
-    ('g', 'g'), ('kg', 'kg'), ('mg', 'mg'),
-    ('ml', 'ml'), ('l', 'l'),
-    ('Stück', 'Stk.'), ('Packung', 'Pkg.'), ('Dose', 'Dose'),
-    ('Flasche', 'Fl.'), ('Tüte', 'Tüte'), ('Glas', 'Glas'),
-    ('EL', 'EL'), ('TL', 'TL'), ('Tasse', 'Tasse'),
-    ('Scheibe', 'Scheibe'), ('Portion', 'Port.'), ('Prise', 'Prise'),
+    // Metric weight
+    ('g',       'g',        'g'),
+    ('kg',      'kg',       'kg'),
+    ('mg',      'mg',       'mg'),
+    // Metric volume
+    ('ml',      'ml',       'ml'),
+    ('l',       'l',        'l'),
+    ('dl',      'dl',       'dl'),
+    ('cl',      'cl',       'cl'),
+    // Containers & pieces
+    ('stueck',  'Stück',    'Stk.'),
+    ('packung', 'Packung',  'Pkg.'),
+    ('dose',    'Dose',     'Dose'),
+    ('flasche', 'Flasche',  'Fl.'),
+    ('tuete',   'Tüte',     'Tüte'),
+    ('glas',    'Glas',     'Glas'),
+    ('beutel',  'Beutel',   'Btl.'),
+    // Cooking measures
+    ('el',      'EL',       'EL'),
+    ('tl',      'TL',       'TL'),
+    ('tasse',   'Tasse',    'Tasse'),
+    ('scheibe', 'Scheibe',  'Scheibe'),
+    ('portion', 'Portion',  'Port.'),
+    ('prise',   'Prise',    'Prise'),
+    // American units
+    ('cup',     'Cup',      'cup'),
+    ('oz',      'Unze',     'oz'),
+    ('lb',      'Pfund',    'lb'),
+    ('floz',    'fl oz',    'fl oz'),
+    ('tbsp',    'Esslöffel (US)', 'tbsp'),
+    ('tsp',     'Teelöffel (US)', 'tsp'),
+    ('qt',      'Quart',    'qt'),
+    ('pt',      'Pint',     'pt'),
+    ('gallon',  'Gallon',   'gal'),
   ];
 
-  /// Standard unit conversions seeded once on DB creation / v6 migration.
-  /// Only inserts; existing rows are left unchanged (insertOnConflictUpdate
-  /// would overwrite user-defined values with the same id).
+  /// Standard unit conversions. Only inserts; existing rows are left unchanged.
   static const _defaultConversions = [
-    // Weight
-    ('def_g_kg',  'g',  'kg', 0.001),
-    ('def_kg_g',  'kg', 'g',  1000.0),
-    ('def_mg_g',  'mg', 'g',  0.001),
-    ('def_g_mg',  'g',  'mg', 1000.0),
-    ('def_kg_mg', 'kg', 'mg', 1000000.0),
-    // Volume
-    ('def_ml_l',  'ml', 'l',  0.001),
-    ('def_l_ml',  'l',  'ml', 1000.0),
-    // Cooking measures (approximate)
-    ('def_el_ml', 'EL', 'ml', 15.0),
-    ('def_tl_ml', 'TL', 'ml', 5.0),
-    ('def_ml_el', 'ml', 'EL', 0.0667),
-    ('def_ml_tl', 'ml', 'TL', 0.2),
+    // Metric weight
+    ('def_g_kg',   'g',   'kg',  0.001),
+    ('def_kg_g',   'kg',  'g',   1000.0),
+    ('def_mg_g',   'mg',  'g',   0.001),
+    ('def_g_mg',   'g',   'mg',  1000.0),
+    ('def_kg_mg',  'kg',  'mg',  1000000.0),
+    // Metric volume
+    ('def_ml_l',   'ml',  'l',   0.001),
+    ('def_l_ml',   'l',   'ml',  1000.0),
+    ('def_dl_ml',  'dl',  'ml',  100.0),
+    ('def_ml_dl',  'ml',  'dl',  0.01),
+    ('def_cl_ml',  'cl',  'ml',  10.0),
+    ('def_ml_cl',  'ml',  'cl',  0.1),
+    // Cooking measures → ml
+    ('def_el_ml',  'EL',  'ml',  15.0),
+    ('def_tl_ml',  'TL',  'ml',  5.0),
+    ('def_ml_el',  'ml',  'EL',  0.0667),
+    ('def_ml_tl',  'ml',  'TL',  0.2),
+    // American weight → metric
+    ('def_oz_g',   'Unze',  'g',   28.3495),
+    ('def_g_oz',   'g',     'Unze', 0.03527),
+    ('def_lb_g',   'Pfund', 'g',   453.592),
+    ('def_g_lb',   'g',     'Pfund', 0.002205),
+    ('def_lb_kg',  'Pfund', 'kg',  0.453592),
+    ('def_kg_lb',  'kg',    'Pfund', 2.20462),
+    // American volume → ml
+    ('def_floz_ml',  'fl oz', 'ml',    29.5735),
+    ('def_ml_floz',  'ml',    'fl oz', 0.033814),
+    ('def_cup_ml',   'Cup',   'ml',    236.588),
+    ('def_ml_cup',   'ml',    'Cup',   0.004227),
+    ('def_tbsp_ml',  'Esslöffel (US)', 'ml', 14.787),
+    ('def_tsp_ml',   'Teelöffel (US)', 'ml', 4.929),
+    ('def_pt_ml',    'Pint',   'ml',   473.176),
+    ('def_qt_ml',    'Quart',  'ml',   946.353),
+    ('def_gal_ml',   'Gallon', 'ml',   3785.41),
+    // American ↔ EL/TL
+    ('def_tbsp_el',  'Esslöffel (US)', 'EL', 0.986),
+    ('def_tsp_tl',   'Teelöffel (US)', 'TL', 0.986),
+  ];
+
+  // Default meal types seeded once
+  static const _defaultMealTypes = [
+    ('mt_fruehstueck', 'Frühstück',       'free_breakfast'),
+    ('mt_mittagessen', 'Mittagessen',      'lunch_dining'),
+    ('mt_abendessen',  'Abendessen',       'dinner_dining'),
+    ('mt_snack',       'Snack',            'apple'),
+    ('mt_suessigkeit', 'Süßigkeit/Dessert','cake'),
+    ('mt_getraenk',    'Getränk',          'local_cafe'),
+    ('mt_sonstiges',   'Sonstiges',        'more_horiz'),
   ];
 
   Future<void> _seedDefaultConversions() async {
     for (final (id, from, to, factor) in _defaultConversions) {
-      // Skip if already exists — don't overwrite user changes
       final existing = await (select(unitConversions)
             ..where((c) => c.id.equals(id)))
           .getSingleOrNull();
@@ -347,12 +419,27 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seedDefaultUnits() async {
     for (var i = 0; i < _defaultUnits.length; i++) {
-      final (name, abbr) = _defaultUnits[i];
+      final (idSuffix, name, abbr) = _defaultUnits[i];
       await into(units).insertOnConflictUpdate(UnitsCompanion.insert(
-        id: 'default_$i',
+        id: 'default_$idSuffix',
         name: name,
         abbreviation: Value(abbr),
         isDefault: const Value(true),
+        sortOrder: Value(i),
+      ));
+    }
+  }
+
+  Future<void> _seedDefaultMealTypes() async {
+    for (var i = 0; i < _defaultMealTypes.length; i++) {
+      final (id, name, icon) = _defaultMealTypes[i];
+      final existing = await (select(mealTypes)..where((m) => m.id.equals(id)))
+          .getSingleOrNull();
+      if (existing != null) continue;
+      await into(mealTypes).insert(MealTypesCompanion.insert(
+        id: id,
+        name: name,
+        iconName: Value(icon),
         sortOrder: Value(i),
       ));
     }
@@ -456,6 +543,38 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteMealIngredients(String mealId) =>
       (delete(standardMealIngredients)
             ..where((i) => i.mealId.equals(mealId)))
+          .go();
+
+  // ── Meal types ────────────────────────────────────────────────────────────
+
+  Stream<List<MealType>> watchAllMealTypes() =>
+      (select(mealTypes)..orderBy([(m) => OrderingTerm.asc(m.sortOrder)])).watch();
+
+  Future<void> insertMealType(MealTypesCompanion entry) =>
+      into(mealTypes).insert(entry);
+
+  Future<void> updateMealType(MealTypesCompanion entry) =>
+      (update(mealTypes)..where((m) => m.id.equals(entry.id.value))).write(entry);
+
+  Future<void> deleteMealType(String id) =>
+      (delete(mealTypes)..where((m) => m.id.equals(id))).go();
+
+  // ── Meal type assignments ─────────────────────────────────────────────────
+
+  Stream<List<MealTypeAssignment>> watchAssignmentsForMealType(String mealTypeId) =>
+      (select(mealTypeAssignments)
+            ..where((a) => a.mealTypeId.equals(mealTypeId)))
+          .watch();
+
+  Future<void> insertMealTypeAssignment(MealTypeAssignmentsCompanion entry) =>
+      into(mealTypeAssignments).insert(entry);
+
+  Future<void> deleteMealTypeAssignment(String id) =>
+      (delete(mealTypeAssignments)..where((a) => a.id.equals(id))).go();
+
+  Future<void> deleteAssignmentsForMealType(String mealTypeId) =>
+      (delete(mealTypeAssignments)
+            ..where((a) => a.mealTypeId.equals(mealTypeId)))
           .go();
 
   // ── Item States (all) ─────────────────────────────────────────────────────

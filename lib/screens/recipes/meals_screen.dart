@@ -16,7 +16,7 @@ class MealsScreen extends ConsumerWidget {
     final mealsAsync = ref.watch(allMealsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mahlzeiten')),
+      appBar: AppBar(title: const Text('Gerichte')),
       body: mealsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Fehler: $e')),
@@ -31,7 +31,7 @@ class MealsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         heroTag: 'add_meal',
         onPressed: () => _showMealDialog(context, ref),
-        tooltip: 'Mahlzeit hinzufügen',
+        tooltip: 'Gericht hinzufügen',
         child: const Icon(Icons.add),
       ),
     );
@@ -133,7 +133,7 @@ class _MealCard extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Mahlzeit löschen?'),
+        title: const Text('Gericht löschen?'),
         content: Text('«${meal.name}» wird gelöscht.'),
         actions: [
           TextButton(
@@ -274,10 +274,10 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.restaurant_menu_outlined,
               size: 64, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 16),
-          Text('Noch keine Mahlzeiten',
+          Text('Noch keine Gerichte',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          const Text('Tippe + um eine Mahlzeit hinzuzufügen.'),
+          const Text('Tippe + um ein Gericht hinzuzufügen.'),
         ],
       ),
     );
@@ -404,7 +404,7 @@ class _MealFormState extends ConsumerState<_MealForm> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    widget.meal == null ? 'Neue Mahlzeit' : 'Mahlzeit bearbeiten',
+                    widget.meal == null ? 'Neues Gericht' : 'Gericht bearbeiten',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),

@@ -60,6 +60,7 @@ class InventoryEntries extends Table {
   DateTimeColumn get thawedAt => dateTime().nullable()();
   // Container currently used (may differ from item.containerItemId)
   TextColumn get activeContainerId => text().nullable()(); // FK → Items
+  RealColumn get price => real().nullable()(); // purchase price
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();

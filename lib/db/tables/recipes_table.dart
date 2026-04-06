@@ -76,3 +76,26 @@ class StandardMealIngredients extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// Meal types: user-defined meal slots (Frühstück, Mittagessen, etc.)
+class MealTypes extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get iconName => text().nullable()(); // Material Icons name string
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Assigns a StandardMeal ("Gericht") or Recipe to a MealType
+class MealTypeAssignments extends Table {
+  TextColumn get id => text()();
+  TextColumn get mealTypeId => text().references(MealTypes, #id)();
+  // exactly one of these will be non-null
+  TextColumn get dishId => text().nullable()();   // FK → StandardMeals
+  TextColumn get recipeId => text().nullable()(); // FK → Recipes
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

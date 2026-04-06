@@ -106,6 +106,13 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/unit-conversions'),
           ),
+          ListTile(
+            leading: const Icon(Icons.restaurant_outlined),
+            title: const Text('Mahlzeiten'),
+            subtitle: const Text('Frühstück, Mittag, Abendessen, Snacks…'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/meal-types'),
+          ),
           const Divider(),
           const ListTile(
             leading: Icon(Icons.backup_outlined),

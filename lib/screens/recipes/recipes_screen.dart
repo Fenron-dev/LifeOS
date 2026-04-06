@@ -20,7 +20,7 @@ class RecipesScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.restaurant_menu),
-            tooltip: 'Mahlzeiten',
+            tooltip: 'Gerichte',
             onPressed: () => context.push('/recipes/meals'),
           ),
           ...shellMenuActions(context),
