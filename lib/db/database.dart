@@ -101,8 +101,10 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(mealTypes);
             await m.createTable(mealTypeAssignments);
             await _seedDefaultMealTypes();
-            await _seedDefaultUnits(); // re-seed to add new American units
-            await _seedDefaultConversions(); // re-seed American conversions
+            // Remove old numeric-id default units to prevent duplicates
+            await _deleteOldDefaultUnits();
+            await _seedDefaultUnits(); // re-seed with new named IDs
+            await _seedDefaultConversions(); // add American conversions
           }
           if (from < 4) {
             await m.createTable(units);
@@ -427,6 +429,15 @@ class AppDatabase extends _$AppDatabase {
         isDefault: const Value(true),
         sortOrder: Value(i),
       ));
+    }
+  }
+
+  /// Delete old numeric-id default units (default_0 … default_16) created by
+  /// the original seed that used index-based IDs. The new seed uses name-based
+  /// IDs (default_g, default_kg, …) so numeric ones become duplicates.
+  Future<void> _deleteOldDefaultUnits() async {
+    for (var i = 0; i <= 30; i++) {
+      await (delete(units)..where((u) => u.id.equals('default_$i'))).go();
     }
   }
 

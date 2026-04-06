@@ -653,11 +653,13 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               children: [
                 const Icon(Icons.swap_horiz, size: 20),
                 const SizedBox(width: 8),
-                Text(
-                  'Einheiten (artikelspezifisch)',
-                  style: Theme.of(context).textTheme.titleSmall,
+                Expanded(
+                  child: Text(
+                    'Einheiten (artikelspezifisch)',
+                    style: Theme.of(context).textTheme.titleSmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
                 TextButton.icon(
                   onPressed: () => showAddConversionDialog(
                     context,

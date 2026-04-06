@@ -114,6 +114,14 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/settings/meal-types'),
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Hilfe & Anleitung'),
+            subtitle: const Text('Alle Funktionen erklärt'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/help'),
+          ),
+          const Divider(),
           const ListTile(
             leading: Icon(Icons.backup_outlined),
             title: Text('Datensicherung'),

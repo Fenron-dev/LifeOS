@@ -12,10 +12,15 @@ final allUnitsProvider = StreamProvider<List<Unit>>((ref) {
   return db.watchAllUnits();
 });
 
-/// Just the unit names as a sorted list — used everywhere units are selected.
+/// Just the unit names as a sorted, deduplicated list — used everywhere units are selected.
 final unitNamesProvider = Provider<List<String>>((ref) {
-  return ref.watch(allUnitsProvider).valueOrNull?.map((u) => u.name).toList() ??
-      ['g', 'kg', 'ml', 'l', 'Stück', 'Packung', 'Dose', 'Flasche', 'Tüte'];
+  final units = ref.watch(allUnitsProvider).valueOrNull;
+  if (units == null) {
+    return ['g', 'kg', 'ml', 'l', 'Stück', 'Packung', 'Dose', 'Flasche', 'Tüte'];
+  }
+  // Deduplicate names while preserving order (first occurrence wins)
+  final seen = <String>{};
+  return units.map((u) => u.name).where(seen.add).toList();
 });
 
 final unitsNotifierProvider =

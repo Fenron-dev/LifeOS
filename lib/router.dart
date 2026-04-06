@@ -19,6 +19,7 @@ import 'screens/settings/shops_screen.dart';
 import 'screens/settings/unit_conversions_screen.dart';
 import 'screens/settings/units_screen.dart';
 import 'screens/settings/meal_types_screen.dart';
+import 'screens/settings/help_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'screens/inventory/groups_screen.dart';
 import 'screens/inventory/shopping_list_screen.dart';
@@ -75,6 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'meal-types',
             builder: (context, state) => const MealTypesScreen(),
+          ),
+          GoRoute(
+            path: 'help',
+            builder: (context, state) => const HelpScreen(),
           ),
         ],
       ),

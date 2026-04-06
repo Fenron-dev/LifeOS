@@ -134,67 +134,19 @@ class _MobileShell extends ConsumerWidget {
     required this.onTap,
   });
 
-  /// Context actions shown in the BottomAppBar beside the nav items.
-  /// Each branch gets different shortcuts.
-  List<_ContextAction> _contextActions(BuildContext context) {
-    switch (currentIndex) {
-      case 0: // Inventar
-        return [
-          _ContextAction(
-            icon: Icons.qr_code_scanner,
-            label: 'Scan',
-            onTap: () => context.push('/scan'),
-          ),
-          _ContextAction(
-            icon: Icons.shopping_cart_outlined,
-            label: 'Einkauf',
-            onTap: () => context.push('/inventory/shopping'),
-          ),
-        ];
-      case 1: // Rezepte
-        return [
-          _ContextAction(
-            icon: Icons.restaurant_menu_outlined,
-            label: 'Gerichte',
-            onTap: () => context.push('/recipes/meals'),
-          ),
-          _ContextAction(
-            icon: Icons.download_outlined,
-            label: 'Import',
-            onTap: () => context.push('/recipes/import'),
-          ),
-        ];
-      case 2: // Aufgaben
-        return [
-          _ContextAction(
-            icon: Icons.checklist,
-            label: 'Erledigt',
-            onTap: () {}, // placeholder — tasks screen handles internally
-          ),
-        ];
-      case 3: // Statistik
-        return [];
-      default:
-        return [];
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider).valueOrNull;
     final actions = settings?.quickActions ?? AppSettingsData.defaultQuickActions;
     final colorScheme = Theme.of(context).colorScheme;
-    final ctxActions = _contextActions(context);
 
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 6,
-        padding: EdgeInsets.zero,
         child: Row(
           children: [
-            // Left nav items
             _BottomNavItem(
               icon: currentIndex == 0 ? _destinations[0].selectedIcon : _destinations[0].icon,
               label: _destinations[0].label,
@@ -209,14 +161,7 @@ class _MobileShell extends ConsumerWidget {
               onTap: () => onTap(1),
               colorScheme: colorScheme,
             ),
-            // Center notch space — shrinks/expands around context actions
-            if (ctxActions.isEmpty)
-              const Spacer()
-            else ...[
-              const SizedBox(width: 56), // notch half-width
-              ...ctxActions.map((a) => _ContextActionButton(action: a, colorScheme: colorScheme)),
-            ],
-            // Right nav items
+            const Spacer(),
             _BottomNavItem(
               icon: currentIndex == 2 ? _destinations[2].selectedIcon : _destinations[2].icon,
               label: _destinations[2].label,
@@ -251,45 +196,6 @@ class _MobileShell extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => _QuickActionsSheet(actions: actions),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Context action model + button
-// ---------------------------------------------------------------------------
-
-class _ContextAction {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _ContextAction({required this.icon, required this.label, required this.onTap});
-}
-
-class _ContextActionButton extends StatelessWidget {
-  final _ContextAction action;
-  final ColorScheme colorScheme;
-  const _ContextActionButton({required this.action, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: action.onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(action.icon, size: 22, color: colorScheme.secondary),
-            const SizedBox(height: 2),
-            Text(
-              action.label,
-              style: TextStyle(fontSize: 10, color: colorScheme.secondary),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
