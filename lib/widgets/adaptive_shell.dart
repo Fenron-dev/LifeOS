@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/items_provider.dart';
 import '../providers/settings_provider.dart';
 
 /// Overflow menu actions shared across all main-branch AppBars.
@@ -195,8 +196,24 @@ class _MobileShell extends ConsumerWidget {
       BuildContext context, WidgetRef ref, List<QuickAction> actions) {
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => _QuickActionsSheet(actions: actions),
+      builder: (ctx) => _QuickActionsSheet(
+        actions: actions,
+        onScanRequest: () => _handleScan(context, ref),
+      ),
     );
+  }
+
+  Future<void> _handleScan(BuildContext context, WidgetRef ref) async {
+    final ean = await context.push<String>('/scan');
+    if (ean == null || !context.mounted) return;
+    final dao = ref.read(itemsDaoProvider);
+    final existing = await dao?.itemByEan(ean);
+    if (!context.mounted) return;
+    if (existing != null) {
+      context.push('/inventory/item/${existing.id}');
+    } else {
+      context.push('/inventory/item/new', extra: ean);
+    }
   }
 }
 
@@ -252,7 +269,8 @@ class _BottomNavItem extends StatelessWidget {
 
 class _QuickActionsSheet extends ConsumerWidget {
   final List<QuickAction> actions;
-  const _QuickActionsSheet({required this.actions});
+  final VoidCallback onScanRequest;
+  const _QuickActionsSheet({required this.actions, required this.onScanRequest});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -289,7 +307,11 @@ class _QuickActionsSheet extends ConsumerWidget {
                 title: Text(a.label),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _navigate(context, a);
+                  if (a == QuickAction.scanBarcode) {
+                    onScanRequest();
+                  } else {
+                    _navigate(context, a);
+                  }
                 },
               )),
           const SizedBox(height: 8),
