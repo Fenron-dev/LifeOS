@@ -56,7 +56,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String vaultPath) : super(_openDb(vaultPath));
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -65,6 +65,7 @@ class AppDatabase extends _$AppDatabase {
           await _seedDefaultUnits();
           await _seedDefaultConversions();
           await _seedDefaultMealTypes();
+          await _createIndexes();
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -84,6 +85,17 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             await m.createTable(shops);
             await m.createTable(unitConversions);
+          }
+          if (from < 4) {
+            await m.createTable(units);
+            await m.addColumn(items, items.stockUnit);
+            await m.addColumn(recipes, recipes.sourceUrl);
+            await m.addColumn(recipes, recipes.mealieSlug);
+            await m.addColumn(recipes, recipes.imageUrl);
+            await m.addColumn(recipes, recipes.tags);
+            await m.addColumn(recipes, recipes.fiberPerServing);
+            await m.addColumn(recipes, recipes.sodiumPerServing);
+            await _seedDefaultUnits();
           }
           if (from < 5) {
             await m.addColumn(locations, locations.locationType);
@@ -106,17 +118,27 @@ class AppDatabase extends _$AppDatabase {
             await _seedDefaultUnits(); // re-seed with new named IDs
             await _seedDefaultConversions(); // add American conversions
           }
-          if (from < 4) {
-            await m.createTable(units);
-            await m.addColumn(items, items.stockUnit);
-            await m.addColumn(recipes, recipes.sourceUrl);
-            await m.addColumn(recipes, recipes.mealieSlug);
-            await m.addColumn(recipes, recipes.imageUrl);
-            await m.addColumn(recipes, recipes.tags);
-            await m.addColumn(recipes, recipes.fiberPerServing);
-            await m.addColumn(recipes, recipes.sodiumPerServing);
-            // Seed default units
-            await _seedDefaultUnits();
+          if (from < 9) {
+            // Rebuild tables to pick up newly declared FOREIGN KEY constraints,
+            // then add hot-path indexes. FKs must be off during rebuild.
+            // ignore_for_file: experimental_member_use
+            await customStatement('PRAGMA foreign_keys = OFF');
+            await transaction(() async {
+              await m.alterTable(TableMigration(items));
+              await m.alterTable(TableMigration(inventoryEntries));
+              await m.alterTable(TableMigration(itemGroupMembers));
+              await m.alterTable(TableMigration(itemEvents));
+              await m.alterTable(TableMigration(itemStates));
+              await m.alterTable(TableMigration(locations));
+              await m.alterTable(TableMigration(itemTags));
+              await m.alterTable(TableMigration(recipeIngredients));
+              await m.alterTable(TableMigration(recipeSteps));
+              await m.alterTable(TableMigration(standardMealIngredients));
+              await m.alterTable(TableMigration(mealTypeAssignments));
+              await m.alterTable(TableMigration(wishListEntries));
+            });
+            await customStatement('PRAGMA foreign_keys = ON');
+            await _createIndexes();
           }
         },
         beforeOpen: (details) async {
@@ -438,6 +460,30 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _deleteOldDefaultUnits() async {
     for (var i = 0; i <= 30; i++) {
       await (delete(units)..where((u) => u.id.equals('default_$i'))).go();
+    }
+  }
+
+  /// Creates indexes on hot-path columns. Idempotent.
+  Future<void> _createIndexes() async {
+    const stmts = [
+      'CREATE INDEX IF NOT EXISTS idx_items_ean ON items (ean)',
+      'CREATE INDEX IF NOT EXISTS idx_items_category ON items (category_id)',
+      'CREATE INDEX IF NOT EXISTS idx_inv_item ON inventory_entries (item_id)',
+      'CREATE INDEX IF NOT EXISTS idx_inv_expiry ON inventory_entries (expiry_date)',
+      'CREATE INDEX IF NOT EXISTS idx_inv_location ON inventory_entries (location_id)',
+      'CREATE INDEX IF NOT EXISTS idx_events_item ON item_events (item_id)',
+      'CREATE INDEX IF NOT EXISTS idx_events_created ON item_events (created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_events_sync ON item_events (sync_status)',
+      'CREATE INDEX IF NOT EXISTS idx_states_item ON item_states (item_id)',
+      'CREATE INDEX IF NOT EXISTS idx_tags_item ON item_tags (item_id)',
+      'CREATE INDEX IF NOT EXISTS idx_tags_tag ON item_tags (tag_id)',
+      'CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations (parent_id)',
+      'CREATE INDEX IF NOT EXISTS idx_recipe_ing_recipe ON recipe_ingredients (recipe_id)',
+      'CREATE INDEX IF NOT EXISTS idx_meal_ing_meal ON standard_meal_ingredients (meal_id)',
+      'CREATE INDEX IF NOT EXISTS idx_mta_mealtype ON meal_type_assignments (meal_type_id)',
+    ];
+    for (final s in stmts) {
+      await customStatement(s);
     }
   }
 

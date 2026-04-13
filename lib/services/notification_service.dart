@@ -2,7 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 const _channelId = 'lifeos_expiry';
-const _channelName = 'Ablaufdaten';
+const _channelName = 'Expiry';
+
+/// Builds the notification body for an item, given its name and the days
+/// remaining until expiry (negative or zero means already expired).
+typedef ExpiryBodyBuilder = String Function(String itemName, int daysLeft);
 
 class NotificationService {
   NotificationService._();
@@ -21,20 +25,17 @@ class NotificationService {
   }
 
   /// Shows a notification for an item expiring soon.
+  ///
+  /// [title] and [body] must be supplied by the caller (already localized).
   static Future<void> showExpiryWarning({
     required int id,
-    required String itemName,
-    required DateTime expiryDate,
+    required String title,
+    required String body,
   }) async {
     if (!_initialized) await initialize();
-    final daysLeft = expiryDate.difference(DateTime.now()).inDays;
-    final body = daysLeft <= 0
-        ? '$itemName ist abgelaufen!'
-        : '$itemName läuft in $daysLeft Tag${daysLeft == 1 ? '' : 'en'} ab.';
-
     await _plugin.show(
       id,
-      'Ablaufdatum',
+      title,
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
@@ -49,11 +50,14 @@ class NotificationService {
     );
   }
 
-  /// Checks the vault DB for items expiring within [warningDays] and fires notifications.
+  /// Checks the vault DB for items expiring within [warningDays] and fires
+  /// notifications. Localized strings are produced by [title] and [buildBody].
   static Future<void> checkExpiry({
     required Future<List<dynamic>> Function(int days) getExpiring,
     required String Function(dynamic entry) getItemName,
     required DateTime? Function(dynamic entry) getExpiryDate,
+    required String title,
+    required ExpiryBodyBuilder buildBody,
     int warningDays = 3,
   }) async {
     try {
@@ -63,10 +67,11 @@ class NotificationService {
         final name = getItemName(entry);
         final expiry = getExpiryDate(entry);
         if (expiry == null) continue;
+        final daysLeft = expiry.difference(DateTime.now()).inDays;
         await showExpiryWarning(
           id: i + 1000, // offset to avoid conflicts with other notifications
-          itemName: name,
-          expiryDate: expiry,
+          title: title,
+          body: buildBody(name, daysLeft),
         );
       }
     } catch (e) {

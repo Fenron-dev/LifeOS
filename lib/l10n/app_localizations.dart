@@ -577,6 +577,24 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Wird geladen...'**
   String get loading;
+
+  /// Title for expiry-warning local notifications
+  ///
+  /// In de, this message translates to:
+  /// **'Ablaufdatum'**
+  String get expiryNotificationTitle;
+
+  /// Body shown when an item is already past its expiry date
+  ///
+  /// In de, this message translates to:
+  /// **'{itemName} ist abgelaufen!'**
+  String expiryNotificationBodyExpired(String itemName);
+
+  /// Body shown when an item is about to expire
+  ///
+  /// In de, this message translates to:
+  /// **'{itemName} läuft in {days, plural, =1{1 Tag} other{{days} Tagen}} ab.'**
+  String expiryNotificationBodySoon(String itemName, int days);
 }
 
 class _AppLocalizationsDelegate

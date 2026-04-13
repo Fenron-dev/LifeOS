@@ -30,14 +30,29 @@ class BackupService {
     final bytes = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
 
+    final vaultRoot = p.normalize(p.absolute(vaultPath));
+    final rootWithSep = vaultRoot.endsWith(p.separator)
+        ? vaultRoot
+        : '$vaultRoot${p.separator}';
+
     for (final file in archive) {
-      final filePath = p.join(vaultPath, file.name);
+      final entryName = file.name;
+      // Reject absolute paths and any segment that escapes the vault.
+      if (p.isAbsolute(entryName) ||
+          p.split(entryName).any((s) => s == '..')) {
+        throw FormatException('Unsicherer Pfad im Backup: $entryName');
+      }
+      final resolved = p.normalize(p.join(vaultRoot, entryName));
+      if (resolved != vaultRoot && !resolved.startsWith(rootWithSep)) {
+        throw FormatException('Unsicherer Pfad im Backup: $entryName');
+      }
+
       if (file.isFile) {
-        final outFile = File(filePath);
+        final outFile = File(resolved);
         await outFile.create(recursive: true);
         await outFile.writeAsBytes(file.content as List<int>);
       } else {
-        await Directory(filePath).create(recursive: true);
+        await Directory(resolved).create(recursive: true);
       }
     }
   }

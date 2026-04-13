@@ -10,8 +10,11 @@ class ItemEvents extends Table {
   //              'state_change' | 'opened' | 'transfer_to_container' | 'expiry_update'
   TextColumn get type => text()();
 
-  TextColumn get itemId => text().references(Items, #id)();
-  TextColumn get inventoryEntryId => text().nullable()(); // FK → InventoryEntries
+  TextColumn get itemId =>
+      text().references(Items, #id, onDelete: KeyAction.cascade)();
+  TextColumn get inventoryEntryId => text()
+      .nullable()
+      .references(InventoryEntries, #id, onDelete: KeyAction.setNull)();
 
   RealColumn get quantity => real().nullable()();
   TextColumn get unit => text().nullable()();
@@ -46,8 +49,10 @@ class ItemEvents extends Table {
 /// Materialized projection of item events — recomputable, used for fast reads.
 /// Updated whenever a relevant event is inserted.
 class ItemStates extends Table {
-  TextColumn get itemId => text().references(Items, #id)();
-  TextColumn get inventoryEntryId => text()();
+  TextColumn get itemId =>
+      text().references(Items, #id, onDelete: KeyAction.cascade)();
+  TextColumn get inventoryEntryId =>
+      text().references(InventoryEntries, #id, onDelete: KeyAction.cascade)();
   RealColumn get currentQuantity => real()();
   TextColumn get unit => text()();
   TextColumn get locationId => text().nullable()();

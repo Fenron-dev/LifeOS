@@ -4,7 +4,9 @@ import 'package:drift/drift.dart';
 class Locations extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
-  TextColumn get parentId => text().nullable()(); // FK → Locations (self-reference)
+  TextColumn get parentId => text()
+      .nullable()
+      .references(Locations, #id, onDelete: KeyAction.setNull)();
   TextColumn get photoPath => text().nullable()(); // relative to vault root
   TextColumn get notes => text().nullable()();
   /// 'normal' | 'fridge' | 'freezer'

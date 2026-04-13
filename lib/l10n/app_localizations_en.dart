@@ -247,4 +247,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loading => 'Loading...';
+
+  @override
+  String get expiryNotificationTitle => 'Expiry';
+
+  @override
+  String expiryNotificationBodyExpired(String itemName) {
+    return '$itemName has expired!';
+  }
+
+  @override
+  String expiryNotificationBodySoon(String itemName, int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return '$itemName expires in $_temp0.';
+  }
 }

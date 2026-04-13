@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import 'locations_table.dart';
+
 /// All objects in the system: food products, appliances, wish list entries, etc.
 class Items extends Table {
   TextColumn get id => text()();
@@ -15,7 +17,9 @@ class Items extends Table {
   BoolColumn get openedFlag => boolean().withDefault(const Constant(true))();
 
   // Smart Tara: default container item for this product
-  TextColumn get containerItemId => text().nullable()(); // FK → Items
+  TextColumn get containerItemId => text()
+      .nullable()
+      .references(Items, #id, onDelete: KeyAction.setNull)();
 
   TextColumn get notes => text().nullable()();
 
@@ -38,7 +42,9 @@ class Items extends Table {
   TextColumn get stockUnit => text().nullable()();
 
   /// Default location for new inventory entries (pre-selects in AddStockSheet).
-  TextColumn get defaultLocationId => text().nullable()();
+  TextColumn get defaultLocationId => text()
+      .nullable()
+      .references(Locations, #id, onDelete: KeyAction.setNull)();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
@@ -50,8 +56,11 @@ class Items extends Table {
 /// Inventory entries: a specific quantity of an item at a location
 class InventoryEntries extends Table {
   TextColumn get id => text()();
-  TextColumn get itemId => text().references(Items, #id)();
-  TextColumn get locationId => text().nullable()(); // FK → Locations
+  TextColumn get itemId =>
+      text().references(Items, #id, onDelete: KeyAction.cascade)();
+  TextColumn get locationId => text()
+      .nullable()
+      .references(Locations, #id, onDelete: KeyAction.setNull)();
   RealColumn get quantity => real()();
   TextColumn get unit => text()(); // g, kg, ml, l, piece, package, ...
   TextColumn get state => text().withDefault(const Constant('fresh'))(); // fresh | frozen | thawed
@@ -59,7 +68,9 @@ class InventoryEntries extends Table {
   DateTimeColumn get frozenAt => dateTime().nullable()();
   DateTimeColumn get thawedAt => dateTime().nullable()();
   // Container currently used (may differ from item.containerItemId)
-  TextColumn get activeContainerId => text().nullable()(); // FK → Items
+  TextColumn get activeContainerId => text()
+      .nullable()
+      .references(Items, #id, onDelete: KeyAction.setNull)();
   RealColumn get price => real().nullable()(); // purchase price
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -85,8 +96,10 @@ class ItemGroups extends Table {
 
 /// Many-to-many: items in groups
 class ItemGroupMembers extends Table {
-  TextColumn get groupId => text().references(ItemGroups, #id)();
-  TextColumn get itemId => text().references(Items, #id)();
+  TextColumn get groupId =>
+      text().references(ItemGroups, #id, onDelete: KeyAction.cascade)();
+  TextColumn get itemId =>
+      text().references(Items, #id, onDelete: KeyAction.cascade)();
 
   @override
   Set<Column> get primaryKey => {groupId, itemId};

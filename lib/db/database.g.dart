@@ -3,6 +3,475 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
+class $LocationsTable extends Locations
+    with TableInfo<$LocationsTable, Location> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES locations (id) ON DELETE SET NULL',
+    ),
+  );
+  static const VerificationMeta _photoPathMeta = const VerificationMeta(
+    'photoPath',
+  );
+  @override
+  late final GeneratedColumn<String> photoPath = GeneratedColumn<String>(
+    'photo_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationTypeMeta = const VerificationMeta(
+    'locationType',
+  );
+  @override
+  late final GeneratedColumn<String> locationType = GeneratedColumn<String>(
+    'location_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('normal'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    parentId,
+    photoPath,
+    notes,
+    locationType,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'locations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Location> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('photo_path')) {
+      context.handle(
+        _photoPathMeta,
+        photoPath.isAcceptableOrUnknown(data['photo_path']!, _photoPathMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('location_type')) {
+      context.handle(
+        _locationTypeMeta,
+        locationType.isAcceptableOrUnknown(
+          data['location_type']!,
+          _locationTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Location map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Location(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_id'],
+      ),
+      photoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_path'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      locationType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_type'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocationsTable createAlias(String alias) {
+    return $LocationsTable(attachedDatabase, alias);
+  }
+}
+
+class Location extends DataClass implements Insertable<Location> {
+  final String id;
+  final String name;
+  final String? parentId;
+  final String? photoPath;
+  final String? notes;
+
+  /// 'normal' | 'fridge' | 'freezer'
+  final String locationType;
+  final DateTime createdAt;
+  const Location({
+    required this.id,
+    required this.name,
+    this.parentId,
+    this.photoPath,
+    this.notes,
+    required this.locationType,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    if (!nullToAbsent || photoPath != null) {
+      map['photo_path'] = Variable<String>(photoPath);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['location_type'] = Variable<String>(locationType);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  LocationsCompanion toCompanion(bool nullToAbsent) {
+    return LocationsCompanion(
+      id: Value(id),
+      name: Value(name),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      photoPath: photoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoPath),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      locationType: Value(locationType),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Location.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Location(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      photoPath: serializer.fromJson<String?>(json['photoPath']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      locationType: serializer.fromJson<String>(json['locationType']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'parentId': serializer.toJson<String?>(parentId),
+      'photoPath': serializer.toJson<String?>(photoPath),
+      'notes': serializer.toJson<String?>(notes),
+      'locationType': serializer.toJson<String>(locationType),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Location copyWith({
+    String? id,
+    String? name,
+    Value<String?> parentId = const Value.absent(),
+    Value<String?> photoPath = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    String? locationType,
+    DateTime? createdAt,
+  }) => Location(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    photoPath: photoPath.present ? photoPath.value : this.photoPath,
+    notes: notes.present ? notes.value : this.notes,
+    locationType: locationType ?? this.locationType,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Location copyWithCompanion(LocationsCompanion data) {
+    return Location(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      locationType: data.locationType.present
+          ? data.locationType.value
+          : this.locationType,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Location(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('photoPath: $photoPath, ')
+          ..write('notes: $notes, ')
+          ..write('locationType: $locationType, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    parentId,
+    photoPath,
+    notes,
+    locationType,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Location &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.parentId == this.parentId &&
+          other.photoPath == this.photoPath &&
+          other.notes == this.notes &&
+          other.locationType == this.locationType &&
+          other.createdAt == this.createdAt);
+}
+
+class LocationsCompanion extends UpdateCompanion<Location> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> parentId;
+  final Value<String?> photoPath;
+  final Value<String?> notes;
+  final Value<String> locationType;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const LocationsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.photoPath = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.locationType = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocationsCompanion.insert({
+    required String id,
+    required String name,
+    this.parentId = const Value.absent(),
+    this.photoPath = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.locationType = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name);
+  static Insertable<Location> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? parentId,
+    Expression<String>? photoPath,
+    Expression<String>? notes,
+    Expression<String>? locationType,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (parentId != null) 'parent_id': parentId,
+      if (photoPath != null) 'photo_path': photoPath,
+      if (notes != null) 'notes': notes,
+      if (locationType != null) 'location_type': locationType,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? parentId,
+    Value<String?>? photoPath,
+    Value<String?>? notes,
+    Value<String>? locationType,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return LocationsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
+      photoPath: photoPath ?? this.photoPath,
+      notes: notes ?? this.notes,
+      locationType: locationType ?? this.locationType,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (photoPath.present) {
+      map['photo_path'] = Variable<String>(photoPath.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (locationType.present) {
+      map['location_type'] = Variable<String>(locationType.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocationsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('photoPath: $photoPath, ')
+          ..write('notes: $notes, ')
+          ..write('locationType: $locationType, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -106,6 +575,9 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
@@ -270,6 +742,9 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         true,
         type: DriftSqlType.string,
         requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES locations (id) ON DELETE SET NULL',
+        ),
       );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
@@ -1508,7 +1983,7 @@ class $InventoryEntriesTable extends InventoryEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES items (id)',
+      'REFERENCES items (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _locationIdMeta = const VerificationMeta(
@@ -1521,6 +1996,9 @@ class $InventoryEntriesTable extends InventoryEntries
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES locations (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _quantityMeta = const VerificationMeta(
     'quantity',
@@ -1596,6 +2074,9 @@ class $InventoryEntriesTable extends InventoryEntries
         true,
         type: DriftSqlType.string,
         requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES items (id) ON DELETE SET NULL',
+        ),
       );
   static const VerificationMeta _priceMeta = const VerificationMeta('price');
   @override
@@ -2784,7 +3265,7 @@ class $ItemGroupMembersTable extends ItemGroupMembers
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES item_groups (id)',
+      'REFERENCES item_groups (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
@@ -2796,7 +3277,7 @@ class $ItemGroupMembersTable extends ItemGroupMembers
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES items (id)',
+      'REFERENCES items (id) ON DELETE CASCADE',
     ),
   );
   @override
@@ -3022,7 +3503,7 @@ class $ItemEventsTable extends ItemEvents
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES items (id)',
+      'REFERENCES items (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _inventoryEntryIdMeta = const VerificationMeta(
@@ -3035,6 +3516,9 @@ class $ItemEventsTable extends ItemEvents
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES inventory_entries (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _quantityMeta = const VerificationMeta(
     'quantity',
@@ -4019,7 +4503,7 @@ class $ItemStatesTable extends ItemStates
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES items (id)',
+      'REFERENCES items (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _inventoryEntryIdMeta = const VerificationMeta(
@@ -4032,6 +4516,9 @@ class $ItemStatesTable extends ItemStates
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES inventory_entries (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _currentQuantityMeta = const VerificationMeta(
     'currentQuantity',
@@ -4585,472 +5072,6 @@ class ItemStatesCompanion extends UpdateCompanion<ItemState> {
   }
 }
 
-class $LocationsTable extends Locations
-    with TableInfo<$LocationsTable, Location> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $LocationsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _parentIdMeta = const VerificationMeta(
-    'parentId',
-  );
-  @override
-  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
-    'parent_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _photoPathMeta = const VerificationMeta(
-    'photoPath',
-  );
-  @override
-  late final GeneratedColumn<String> photoPath = GeneratedColumn<String>(
-    'photo_path',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
-  @override
-  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
-    'notes',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _locationTypeMeta = const VerificationMeta(
-    'locationType',
-  );
-  @override
-  late final GeneratedColumn<String> locationType = GeneratedColumn<String>(
-    'location_type',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('normal'),
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    name,
-    parentId,
-    photoPath,
-    notes,
-    locationType,
-    createdAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'locations';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<Location> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('parent_id')) {
-      context.handle(
-        _parentIdMeta,
-        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
-      );
-    }
-    if (data.containsKey('photo_path')) {
-      context.handle(
-        _photoPathMeta,
-        photoPath.isAcceptableOrUnknown(data['photo_path']!, _photoPathMeta),
-      );
-    }
-    if (data.containsKey('notes')) {
-      context.handle(
-        _notesMeta,
-        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
-      );
-    }
-    if (data.containsKey('location_type')) {
-      context.handle(
-        _locationTypeMeta,
-        locationType.isAcceptableOrUnknown(
-          data['location_type']!,
-          _locationTypeMeta,
-        ),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Location map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Location(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      parentId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}parent_id'],
-      ),
-      photoPath: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}photo_path'],
-      ),
-      notes: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}notes'],
-      ),
-      locationType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}location_type'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-    );
-  }
-
-  @override
-  $LocationsTable createAlias(String alias) {
-    return $LocationsTable(attachedDatabase, alias);
-  }
-}
-
-class Location extends DataClass implements Insertable<Location> {
-  final String id;
-  final String name;
-  final String? parentId;
-  final String? photoPath;
-  final String? notes;
-
-  /// 'normal' | 'fridge' | 'freezer'
-  final String locationType;
-  final DateTime createdAt;
-  const Location({
-    required this.id,
-    required this.name,
-    this.parentId,
-    this.photoPath,
-    this.notes,
-    required this.locationType,
-    required this.createdAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['name'] = Variable<String>(name);
-    if (!nullToAbsent || parentId != null) {
-      map['parent_id'] = Variable<String>(parentId);
-    }
-    if (!nullToAbsent || photoPath != null) {
-      map['photo_path'] = Variable<String>(photoPath);
-    }
-    if (!nullToAbsent || notes != null) {
-      map['notes'] = Variable<String>(notes);
-    }
-    map['location_type'] = Variable<String>(locationType);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    return map;
-  }
-
-  LocationsCompanion toCompanion(bool nullToAbsent) {
-    return LocationsCompanion(
-      id: Value(id),
-      name: Value(name),
-      parentId: parentId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(parentId),
-      photoPath: photoPath == null && nullToAbsent
-          ? const Value.absent()
-          : Value(photoPath),
-      notes: notes == null && nullToAbsent
-          ? const Value.absent()
-          : Value(notes),
-      locationType: Value(locationType),
-      createdAt: Value(createdAt),
-    );
-  }
-
-  factory Location.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Location(
-      id: serializer.fromJson<String>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      parentId: serializer.fromJson<String?>(json['parentId']),
-      photoPath: serializer.fromJson<String?>(json['photoPath']),
-      notes: serializer.fromJson<String?>(json['notes']),
-      locationType: serializer.fromJson<String>(json['locationType']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'name': serializer.toJson<String>(name),
-      'parentId': serializer.toJson<String?>(parentId),
-      'photoPath': serializer.toJson<String?>(photoPath),
-      'notes': serializer.toJson<String?>(notes),
-      'locationType': serializer.toJson<String>(locationType),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-    };
-  }
-
-  Location copyWith({
-    String? id,
-    String? name,
-    Value<String?> parentId = const Value.absent(),
-    Value<String?> photoPath = const Value.absent(),
-    Value<String?> notes = const Value.absent(),
-    String? locationType,
-    DateTime? createdAt,
-  }) => Location(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    parentId: parentId.present ? parentId.value : this.parentId,
-    photoPath: photoPath.present ? photoPath.value : this.photoPath,
-    notes: notes.present ? notes.value : this.notes,
-    locationType: locationType ?? this.locationType,
-    createdAt: createdAt ?? this.createdAt,
-  );
-  Location copyWithCompanion(LocationsCompanion data) {
-    return Location(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      parentId: data.parentId.present ? data.parentId.value : this.parentId,
-      photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
-      notes: data.notes.present ? data.notes.value : this.notes,
-      locationType: data.locationType.present
-          ? data.locationType.value
-          : this.locationType,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Location(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('parentId: $parentId, ')
-          ..write('photoPath: $photoPath, ')
-          ..write('notes: $notes, ')
-          ..write('locationType: $locationType, ')
-          ..write('createdAt: $createdAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    name,
-    parentId,
-    photoPath,
-    notes,
-    locationType,
-    createdAt,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Location &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.parentId == this.parentId &&
-          other.photoPath == this.photoPath &&
-          other.notes == this.notes &&
-          other.locationType == this.locationType &&
-          other.createdAt == this.createdAt);
-}
-
-class LocationsCompanion extends UpdateCompanion<Location> {
-  final Value<String> id;
-  final Value<String> name;
-  final Value<String?> parentId;
-  final Value<String?> photoPath;
-  final Value<String?> notes;
-  final Value<String> locationType;
-  final Value<DateTime> createdAt;
-  final Value<int> rowid;
-  const LocationsCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.parentId = const Value.absent(),
-    this.photoPath = const Value.absent(),
-    this.notes = const Value.absent(),
-    this.locationType = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  LocationsCompanion.insert({
-    required String id,
-    required String name,
-    this.parentId = const Value.absent(),
-    this.photoPath = const Value.absent(),
-    this.notes = const Value.absent(),
-    this.locationType = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       name = Value(name);
-  static Insertable<Location> custom({
-    Expression<String>? id,
-    Expression<String>? name,
-    Expression<String>? parentId,
-    Expression<String>? photoPath,
-    Expression<String>? notes,
-    Expression<String>? locationType,
-    Expression<DateTime>? createdAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (parentId != null) 'parent_id': parentId,
-      if (photoPath != null) 'photo_path': photoPath,
-      if (notes != null) 'notes': notes,
-      if (locationType != null) 'location_type': locationType,
-      if (createdAt != null) 'created_at': createdAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  LocationsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? name,
-    Value<String?>? parentId,
-    Value<String?>? photoPath,
-    Value<String?>? notes,
-    Value<String>? locationType,
-    Value<DateTime>? createdAt,
-    Value<int>? rowid,
-  }) {
-    return LocationsCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      parentId: parentId ?? this.parentId,
-      photoPath: photoPath ?? this.photoPath,
-      notes: notes ?? this.notes,
-      locationType: locationType ?? this.locationType,
-      createdAt: createdAt ?? this.createdAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (parentId.present) {
-      map['parent_id'] = Variable<String>(parentId.value);
-    }
-    if (photoPath.present) {
-      map['photo_path'] = Variable<String>(photoPath.value);
-    }
-    if (notes.present) {
-      map['notes'] = Variable<String>(notes.value);
-    }
-    if (locationType.present) {
-      map['location_type'] = Variable<String>(locationType.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('LocationsCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('parentId: $parentId, ')
-          ..write('photoPath: $photoPath, ')
-          ..write('notes: $notes, ')
-          ..write('locationType: $locationType, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $TagDefinitionsTable extends TagDefinitions
     with TableInfo<$TagDefinitionsTable, TagDefinition> {
   @override
@@ -5518,6 +5539,9 @@ class $ItemTagsTable extends ItemTags with TableInfo<$ItemTagsTable, ItemTag> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _tagIdMeta = const VerificationMeta('tagId');
   @override
@@ -5528,7 +5552,7 @@ class $ItemTagsTable extends ItemTags with TableInfo<$ItemTagsTable, ItemTag> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES tag_definitions (id)',
+      'REFERENCES tag_definitions (id) ON DELETE CASCADE',
     ),
   );
   @override
@@ -7309,7 +7333,7 @@ class $RecipeIngredientsTable extends RecipeIngredients
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES recipes (id)',
+      'REFERENCES recipes (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
@@ -7320,6 +7344,9 @@ class $RecipeIngredientsTable extends RecipeIngredients
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _itemGroupIdMeta = const VerificationMeta(
     'itemGroupId',
@@ -7331,6 +7358,9 @@ class $RecipeIngredientsTable extends RecipeIngredients
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES item_groups (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
@@ -7873,7 +7903,7 @@ class $RecipeStepsTable extends RecipeSteps
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES recipes (id)',
+      'REFERENCES recipes (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _stepNumberMeta = const VerificationMeta(
@@ -8496,7 +8526,7 @@ class $StandardMealIngredientsTable extends StandardMealIngredients
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES standard_meals (id)',
+      'REFERENCES standard_meals (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
@@ -8507,6 +8537,9 @@ class $StandardMealIngredientsTable extends StandardMealIngredients
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _itemGroupIdMeta = const VerificationMeta(
     'itemGroupId',
@@ -8518,6 +8551,9 @@ class $StandardMealIngredientsTable extends StandardMealIngredients
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES item_groups (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
@@ -9321,7 +9357,7 @@ class $MealTypeAssignmentsTable extends MealTypeAssignments
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES meal_types (id)',
+      'REFERENCES meal_types (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _dishIdMeta = const VerificationMeta('dishId');
@@ -9332,6 +9368,9 @@ class $MealTypeAssignmentsTable extends MealTypeAssignments
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES standard_meals (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _recipeIdMeta = const VerificationMeta(
     'recipeId',
@@ -9343,6 +9382,9 @@ class $MealTypeAssignmentsTable extends MealTypeAssignments
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES recipes (id) ON DELETE CASCADE',
+    ),
   );
   @override
   List<GeneratedColumn> get $columns => [id, mealTypeId, dishId, recipeId];
@@ -10410,6 +10452,9 @@ class $WishListEntriesTable extends WishListEntries
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _linkedRecipeIdMeta = const VerificationMeta(
     'linkedRecipeId',
@@ -10421,6 +10466,9 @@ class $WishListEntriesTable extends WishListEntries
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES recipes (id) ON DELETE SET NULL',
+    ),
   );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
@@ -13357,6 +13405,7 @@ class BodyWeightLogsCompanion extends UpdateCompanion<BodyWeightLog> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
+  late final $LocationsTable locations = $LocationsTable(this);
   late final $ItemsTable items = $ItemsTable(this);
   late final $InventoryEntriesTable inventoryEntries = $InventoryEntriesTable(
     this,
@@ -13367,7 +13416,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $ItemEventsTable itemEvents = $ItemEventsTable(this);
   late final $ItemStatesTable itemStates = $ItemStatesTable(this);
-  late final $LocationsTable locations = $LocationsTable(this);
   late final $TagDefinitionsTable tagDefinitions = $TagDefinitionsTable(this);
   late final $ItemTagsTable itemTags = $ItemTagsTable(this);
   late final $EntityPhotosTable entityPhotos = $EntityPhotosTable(this);
@@ -13400,13 +13448,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
+    locations,
     items,
     inventoryEntries,
     itemGroups,
     itemGroupMembers,
     itemEvents,
     itemStates,
-    locations,
     tagDefinitions,
     itemTags,
     entityPhotos,
@@ -13426,8 +13474,761 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     appSettings,
     bodyWeightLogs,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'locations',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('locations', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('items', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'locations',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('items', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('inventory_entries', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'locations',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('inventory_entries', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('inventory_entries', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'item_groups',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_group_members', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_group_members', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_events', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'inventory_entries',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_events', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_states', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'inventory_entries',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_states', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_tags', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'tag_definitions',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_tags', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'recipes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('recipe_ingredients', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('recipe_ingredients', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'item_groups',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('recipe_ingredients', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'recipes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('recipe_steps', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'standard_meals',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [
+        TableUpdate('standard_meal_ingredients', kind: UpdateKind.delete),
+      ],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [
+        TableUpdate('standard_meal_ingredients', kind: UpdateKind.update),
+      ],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'item_groups',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [
+        TableUpdate('standard_meal_ingredients', kind: UpdateKind.update),
+      ],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'meal_types',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('meal_type_assignments', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'standard_meals',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('meal_type_assignments', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'recipes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('meal_type_assignments', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('wish_list_entries', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'recipes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('wish_list_entries', kind: UpdateKind.update)],
+    ),
+  ]);
 }
 
+typedef $$LocationsTableCreateCompanionBuilder =
+    LocationsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> parentId,
+      Value<String?> photoPath,
+      Value<String?> notes,
+      Value<String> locationType,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$LocationsTableUpdateCompanionBuilder =
+    LocationsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> parentId,
+      Value<String?> photoPath,
+      Value<String?> notes,
+      Value<String> locationType,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$LocationsTableReferences
+    extends BaseReferences<_$AppDatabase, $LocationsTable, Location> {
+  $$LocationsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $LocationsTable _parentIdTable(_$AppDatabase db) =>
+      db.locations.createAlias(
+        $_aliasNameGenerator(db.locations.parentId, db.locations.id),
+      );
+
+  $$LocationsTableProcessedTableManager? get parentId {
+    final $_column = $_itemColumn<String>('parent_id');
+    if ($_column == null) return null;
+    final manager = $$LocationsTableTableManager(
+      $_db,
+      $_db.locations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_parentIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$ItemsTable, List<Item>> _itemsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.items,
+    aliasName: $_aliasNameGenerator(
+      db.locations.id,
+      db.items.defaultLocationId,
+    ),
+  );
+
+  $$ItemsTableProcessedTableManager get itemsRefs {
+    final manager = $$ItemsTableTableManager($_db, $_db.items).filter(
+      (f) => f.defaultLocationId.id.sqlEquals($_itemColumn<String>('id')!),
+    );
+
+    final cache = $_typedResult.readTableOrNull(_itemsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$InventoryEntriesTable, List<InventoryEntry>>
+  _inventoryEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.inventoryEntries,
+    aliasName: $_aliasNameGenerator(
+      db.locations.id,
+      db.inventoryEntries.locationId,
+    ),
+  );
+
+  $$InventoryEntriesTableProcessedTableManager get inventoryEntriesRefs {
+    final manager = $$InventoryEntriesTableTableManager(
+      $_db,
+      $_db.inventoryEntries,
+    ).filter((f) => f.locationId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _inventoryEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$LocationsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocationsTable> {
+  $$LocationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationType => $composableBuilder(
+    column: $table.locationType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocationsTableFilterComposer get parentId {
+    final $$LocationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableFilterComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> itemsRefs(
+    Expression<bool> Function($$ItemsTableFilterComposer f) f,
+  ) {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.defaultLocationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> inventoryEntriesRefs(
+    Expression<bool> Function($$InventoryEntriesTableFilterComposer f) f,
+  ) {
+    final $$InventoryEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.locationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$LocationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocationsTable> {
+  $$LocationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationType => $composableBuilder(
+    column: $table.locationType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocationsTableOrderingComposer get parentId {
+    final $$LocationsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableOrderingComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LocationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocationsTable> {
+  $$LocationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get photoPath =>
+      $composableBuilder(column: $table.photoPath, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get locationType => $composableBuilder(
+    column: $table.locationType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$LocationsTableAnnotationComposer get parentId {
+    final $$LocationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> itemsRefs<T extends Object>(
+    Expression<T> Function($$ItemsTableAnnotationComposer a) f,
+  ) {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.defaultLocationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> inventoryEntriesRefs<T extends Object>(
+    Expression<T> Function($$InventoryEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$InventoryEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.locationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$LocationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocationsTable,
+          Location,
+          $$LocationsTableFilterComposer,
+          $$LocationsTableOrderingComposer,
+          $$LocationsTableAnnotationComposer,
+          $$LocationsTableCreateCompanionBuilder,
+          $$LocationsTableUpdateCompanionBuilder,
+          (Location, $$LocationsTableReferences),
+          Location,
+          PrefetchHooks Function({
+            bool parentId,
+            bool itemsRefs,
+            bool inventoryEntriesRefs,
+          })
+        > {
+  $$LocationsTableTableManager(_$AppDatabase db, $LocationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<String?> photoPath = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String> locationType = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocationsCompanion(
+                id: id,
+                name: name,
+                parentId: parentId,
+                photoPath: photoPath,
+                notes: notes,
+                locationType: locationType,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> parentId = const Value.absent(),
+                Value<String?> photoPath = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String> locationType = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocationsCompanion.insert(
+                id: id,
+                name: name,
+                parentId: parentId,
+                photoPath: photoPath,
+                notes: notes,
+                locationType: locationType,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$LocationsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                parentId = false,
+                itemsRefs = false,
+                inventoryEntriesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (itemsRefs) db.items,
+                    if (inventoryEntriesRefs) db.inventoryEntries,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (parentId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.parentId,
+                                    referencedTable: $$LocationsTableReferences
+                                        ._parentIdTable(db),
+                                    referencedColumn: $$LocationsTableReferences
+                                        ._parentIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (itemsRefs)
+                        await $_getPrefetchedData<
+                          Location,
+                          $LocationsTable,
+                          Item
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocationsTableReferences
+                              ._itemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocationsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).itemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.defaultLocationId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (inventoryEntriesRefs)
+                        await $_getPrefetchedData<
+                          Location,
+                          $LocationsTable,
+                          InventoryEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocationsTableReferences
+                              ._inventoryEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocationsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).inventoryEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.locationId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$LocationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocationsTable,
+      Location,
+      $$LocationsTableFilterComposer,
+      $$LocationsTableOrderingComposer,
+      $$LocationsTableAnnotationComposer,
+      $$LocationsTableCreateCompanionBuilder,
+      $$LocationsTableUpdateCompanionBuilder,
+      (Location, $$LocationsTableReferences),
+      Location,
+      PrefetchHooks Function({
+        bool parentId,
+        bool itemsRefs,
+        bool inventoryEntriesRefs,
+      })
+    >;
 typedef $$ItemsTableCreateCompanionBuilder =
     ItemsCompanion Function({
       required String id,
@@ -13493,23 +14294,39 @@ final class $$ItemsTableReferences
     extends BaseReferences<_$AppDatabase, $ItemsTable, Item> {
   $$ItemsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$InventoryEntriesTable, List<InventoryEntry>>
-  _inventoryEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.inventoryEntries,
-    aliasName: $_aliasNameGenerator(db.items.id, db.inventoryEntries.itemId),
-  );
+  static $ItemsTable _containerItemIdTable(_$AppDatabase db) => db.items
+      .createAlias($_aliasNameGenerator(db.items.containerItemId, db.items.id));
 
-  $$InventoryEntriesTableProcessedTableManager get inventoryEntriesRefs {
-    final manager = $$InventoryEntriesTableTableManager(
+  $$ItemsTableProcessedTableManager? get containerItemId {
+    final $_column = $_itemColumn<String>('container_item_id');
+    if ($_column == null) return null;
+    final manager = $$ItemsTableTableManager(
       $_db,
-      $_db.inventoryEntries,
-    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(
-      _inventoryEntriesRefsTable($_db),
-    );
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_containerItemIdTable($_db));
+    if (item == null) return manager;
     return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $LocationsTable _defaultLocationIdTable(_$AppDatabase db) =>
+      db.locations.createAlias(
+        $_aliasNameGenerator(db.items.defaultLocationId, db.locations.id),
+      );
+
+  $$LocationsTableProcessedTableManager? get defaultLocationId {
+    final $_column = $_itemColumn<String>('default_location_id');
+    if ($_column == null) return null;
+    final manager = $$LocationsTableTableManager(
+      $_db,
+      $_db.locations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_defaultLocationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
     );
   }
 
@@ -13568,6 +14385,100 @@ final class $$ItemsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$ItemTagsTable, List<ItemTag>> _itemTagsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.itemTags,
+    aliasName: $_aliasNameGenerator(db.items.id, db.itemTags.itemId),
+  );
+
+  $$ItemTagsTableProcessedTableManager get itemTagsRefs {
+    final manager = $$ItemTagsTableTableManager(
+      $_db,
+      $_db.itemTags,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_itemTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RecipeIngredientsTable, List<RecipeIngredient>>
+  _recipeIngredientsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.recipeIngredients,
+        aliasName: $_aliasNameGenerator(
+          db.items.id,
+          db.recipeIngredients.itemId,
+        ),
+      );
+
+  $$RecipeIngredientsTableProcessedTableManager get recipeIngredientsRefs {
+    final manager = $$RecipeIngredientsTableTableManager(
+      $_db,
+      $_db.recipeIngredients,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _recipeIngredientsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $StandardMealIngredientsTable,
+    List<StandardMealIngredient>
+  >
+  _standardMealIngredientsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.standardMealIngredients,
+        aliasName: $_aliasNameGenerator(
+          db.items.id,
+          db.standardMealIngredients.itemId,
+        ),
+      );
+
+  $$StandardMealIngredientsTableProcessedTableManager
+  get standardMealIngredientsRefs {
+    final manager = $$StandardMealIngredientsTableTableManager(
+      $_db,
+      $_db.standardMealIngredients,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _standardMealIngredientsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$WishListEntriesTable, List<WishListEntry>>
+  _wishListEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.wishListEntries,
+    aliasName: $_aliasNameGenerator(
+      db.items.id,
+      db.wishListEntries.linkedItemId,
+    ),
+  );
+
+  $$WishListEntriesTableProcessedTableManager get wishListEntriesRefs {
+    final manager = $$WishListEntriesTableTableManager(
+      $_db,
+      $_db.wishListEntries,
+    ).filter((f) => f.linkedItemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _wishListEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
@@ -13615,11 +14526,6 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<bool> get openedFlag => $composableBuilder(
     column: $table.openedFlag,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get containerItemId => $composableBuilder(
-    column: $table.containerItemId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13693,11 +14599,6 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get defaultLocationId => $composableBuilder(
-    column: $table.defaultLocationId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
@@ -13708,29 +14609,50 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  Expression<bool> inventoryEntriesRefs(
-    Expression<bool> Function($$InventoryEntriesTableFilterComposer f) f,
-  ) {
-    final $$InventoryEntriesTableFilterComposer composer = $composerBuilder(
+  $$ItemsTableFilterComposer get containerItemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.inventoryEntries,
-      getReferencedColumn: (t) => t.itemId,
+      getCurrentColumn: (t) => t.containerItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$InventoryEntriesTableFilterComposer(
+          }) => $$ItemsTableFilterComposer(
             $db: $db,
-            $table: $db.inventoryEntries,
+            $table: $db.items,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
                 $removeJoinBuilderFromRootComposer,
           ),
     );
-    return f(composer);
+    return composer;
+  }
+
+  $$LocationsTableFilterComposer get defaultLocationId {
+    final $$LocationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.defaultLocationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableFilterComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
   }
 
   Expression<bool> itemGroupMembersRefs(
@@ -13807,6 +14729,107 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
     );
     return f(composer);
   }
+
+  Expression<bool> itemTagsRefs(
+    Expression<bool> Function($$ItemTagsTableFilterComposer f) f,
+  ) {
+    final $$ItemTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemTags,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.itemTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> recipeIngredientsRefs(
+    Expression<bool> Function($$RecipeIngredientsTableFilterComposer f) f,
+  ) {
+    final $$RecipeIngredientsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recipeIngredients,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipeIngredientsTableFilterComposer(
+            $db: $db,
+            $table: $db.recipeIngredients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> standardMealIngredientsRefs(
+    Expression<bool> Function($$StandardMealIngredientsTableFilterComposer f) f,
+  ) {
+    final $$StandardMealIngredientsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.standardMealIngredients,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$StandardMealIngredientsTableFilterComposer(
+                $db: $db,
+                $table: $db.standardMealIngredients,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> wishListEntriesRefs(
+    Expression<bool> Function($$WishListEntriesTableFilterComposer f) f,
+  ) {
+    final $$WishListEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.wishListEntries,
+      getReferencedColumn: (t) => t.linkedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WishListEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.wishListEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ItemsTableOrderingComposer
@@ -13855,11 +14878,6 @@ class $$ItemsTableOrderingComposer
 
   ColumnOrderings<bool> get openedFlag => $composableBuilder(
     column: $table.openedFlag,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get containerItemId => $composableBuilder(
-    column: $table.containerItemId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -13933,11 +14951,6 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get defaultLocationId => $composableBuilder(
-    column: $table.defaultLocationId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -13947,6 +14960,52 @@ class $$ItemsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$ItemsTableOrderingComposer get containerItemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.containerItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$LocationsTableOrderingComposer get defaultLocationId {
+    final $$LocationsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.defaultLocationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableOrderingComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ItemsTableAnnotationComposer
@@ -13987,11 +15046,6 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<bool> get openedFlag => $composableBuilder(
     column: $table.openedFlag,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get containerItemId => $composableBuilder(
-    column: $table.containerItemId,
     builder: (column) => column,
   );
 
@@ -14059,40 +15113,56 @@ class $$ItemsTableAnnotationComposer
   GeneratedColumn<String> get stockUnit =>
       $composableBuilder(column: $table.stockUnit, builder: (column) => column);
 
-  GeneratedColumn<String> get defaultLocationId => $composableBuilder(
-    column: $table.defaultLocationId,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
-  Expression<T> inventoryEntriesRefs<T extends Object>(
-    Expression<T> Function($$InventoryEntriesTableAnnotationComposer a) f,
-  ) {
-    final $$InventoryEntriesTableAnnotationComposer composer = $composerBuilder(
+  $$ItemsTableAnnotationComposer get containerItemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.inventoryEntries,
-      getReferencedColumn: (t) => t.itemId,
+      getCurrentColumn: (t) => t.containerItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$InventoryEntriesTableAnnotationComposer(
+          }) => $$ItemsTableAnnotationComposer(
             $db: $db,
-            $table: $db.inventoryEntries,
+            $table: $db.items,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
                 $removeJoinBuilderFromRootComposer,
           ),
     );
-    return f(composer);
+    return composer;
+  }
+
+  $$LocationsTableAnnotationComposer get defaultLocationId {
+    final $$LocationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.defaultLocationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
   }
 
   Expression<T> itemGroupMembersRefs<T extends Object>(
@@ -14169,6 +15239,109 @@ class $$ItemsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> itemTagsRefs<T extends Object>(
+    Expression<T> Function($$ItemTagsTableAnnotationComposer a) f,
+  ) {
+    final $$ItemTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemTags,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> recipeIngredientsRefs<T extends Object>(
+    Expression<T> Function($$RecipeIngredientsTableAnnotationComposer a) f,
+  ) {
+    final $$RecipeIngredientsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.recipeIngredients,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$RecipeIngredientsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.recipeIngredients,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> standardMealIngredientsRefs<T extends Object>(
+    Expression<T> Function($$StandardMealIngredientsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$StandardMealIngredientsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.standardMealIngredients,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$StandardMealIngredientsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.standardMealIngredients,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> wishListEntriesRefs<T extends Object>(
+    Expression<T> Function($$WishListEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$WishListEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.wishListEntries,
+      getReferencedColumn: (t) => t.linkedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WishListEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.wishListEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ItemsTableTableManager
@@ -14185,10 +15358,15 @@ class $$ItemsTableTableManager
           (Item, $$ItemsTableReferences),
           Item,
           PrefetchHooks Function({
-            bool inventoryEntriesRefs,
+            bool containerItemId,
+            bool defaultLocationId,
             bool itemGroupMembersRefs,
             bool itemEventsRefs,
             bool itemStatesRefs,
+            bool itemTagsRefs,
+            bool recipeIngredientsRefs,
+            bool standardMealIngredientsRefs,
+            bool wishListEntriesRefs,
           })
         > {
   $$ItemsTableTableManager(_$AppDatabase db, $ItemsTable table)
@@ -14326,43 +15504,74 @@ class $$ItemsTableTableManager
               .toList(),
           prefetchHooksCallback:
               ({
-                inventoryEntriesRefs = false,
+                containerItemId = false,
+                defaultLocationId = false,
                 itemGroupMembersRefs = false,
                 itemEventsRefs = false,
                 itemStatesRefs = false,
+                itemTagsRefs = false,
+                recipeIngredientsRefs = false,
+                standardMealIngredientsRefs = false,
+                wishListEntriesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
-                    if (inventoryEntriesRefs) db.inventoryEntries,
                     if (itemGroupMembersRefs) db.itemGroupMembers,
                     if (itemEventsRefs) db.itemEvents,
                     if (itemStatesRefs) db.itemStates,
+                    if (itemTagsRefs) db.itemTags,
+                    if (recipeIngredientsRefs) db.recipeIngredients,
+                    if (standardMealIngredientsRefs) db.standardMealIngredients,
+                    if (wishListEntriesRefs) db.wishListEntries,
                   ],
-                  addJoins: null,
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (containerItemId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.containerItemId,
+                                    referencedTable: $$ItemsTableReferences
+                                        ._containerItemIdTable(db),
+                                    referencedColumn: $$ItemsTableReferences
+                                        ._containerItemIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (defaultLocationId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.defaultLocationId,
+                                    referencedTable: $$ItemsTableReferences
+                                        ._defaultLocationIdTable(db),
+                                    referencedColumn: $$ItemsTableReferences
+                                        ._defaultLocationIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
                   getPrefetchedDataCallback: (items) async {
                     return [
-                      if (inventoryEntriesRefs)
-                        await $_getPrefetchedData<
-                          Item,
-                          $ItemsTable,
-                          InventoryEntry
-                        >(
-                          currentTable: table,
-                          referencedTable: $$ItemsTableReferences
-                              ._inventoryEntriesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$ItemsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).inventoryEntriesRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.itemId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
                       if (itemGroupMembersRefs)
                         await $_getPrefetchedData<
                           Item,
@@ -14418,6 +15627,86 @@ class $$ItemsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (itemTagsRefs)
+                        await $_getPrefetchedData<Item, $ItemsTable, ItemTag>(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._itemTagsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).itemTagsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (recipeIngredientsRefs)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          RecipeIngredient
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._recipeIngredientsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recipeIngredientsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (standardMealIngredientsRefs)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          StandardMealIngredient
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._standardMealIngredientsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).standardMealIngredientsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (wishListEntriesRefs)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          WishListEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._wishListEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).wishListEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.linkedItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -14439,10 +15728,15 @@ typedef $$ItemsTableProcessedTableManager =
       (Item, $$ItemsTableReferences),
       Item,
       PrefetchHooks Function({
-        bool inventoryEntriesRefs,
+        bool containerItemId,
+        bool defaultLocationId,
         bool itemGroupMembersRefs,
         bool itemEventsRefs,
         bool itemStatesRefs,
+        bool itemTagsRefs,
+        bool recipeIngredientsRefs,
+        bool standardMealIngredientsRefs,
+        bool wishListEntriesRefs,
       })
     >;
 typedef $$InventoryEntriesTableCreateCompanionBuilder =
@@ -14508,6 +15802,87 @@ final class $$InventoryEntriesTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static $LocationsTable _locationIdTable(_$AppDatabase db) =>
+      db.locations.createAlias(
+        $_aliasNameGenerator(db.inventoryEntries.locationId, db.locations.id),
+      );
+
+  $$LocationsTableProcessedTableManager? get locationId {
+    final $_column = $_itemColumn<String>('location_id');
+    if ($_column == null) return null;
+    final manager = $$LocationsTableTableManager(
+      $_db,
+      $_db.locations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_locationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ItemsTable _activeContainerIdTable(_$AppDatabase db) =>
+      db.items.createAlias(
+        $_aliasNameGenerator(
+          db.inventoryEntries.activeContainerId,
+          db.items.id,
+        ),
+      );
+
+  $$ItemsTableProcessedTableManager? get activeContainerId {
+    final $_column = $_itemColumn<String>('active_container_id');
+    if ($_column == null) return null;
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_activeContainerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$ItemEventsTable, List<ItemEvent>>
+  _itemEventsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.itemEvents,
+    aliasName: $_aliasNameGenerator(
+      db.inventoryEntries.id,
+      db.itemEvents.inventoryEntryId,
+    ),
+  );
+
+  $$ItemEventsTableProcessedTableManager get itemEventsRefs {
+    final manager = $$ItemEventsTableTableManager($_db, $_db.itemEvents).filter(
+      (f) => f.inventoryEntryId.id.sqlEquals($_itemColumn<String>('id')!),
+    );
+
+    final cache = $_typedResult.readTableOrNull(_itemEventsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ItemStatesTable, List<ItemState>>
+  _itemStatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.itemStates,
+    aliasName: $_aliasNameGenerator(
+      db.inventoryEntries.id,
+      db.itemStates.inventoryEntryId,
+    ),
+  );
+
+  $$ItemStatesTableProcessedTableManager get itemStatesRefs {
+    final manager = $$ItemStatesTableTableManager($_db, $_db.itemStates).filter(
+      (f) => f.inventoryEntryId.id.sqlEquals($_itemColumn<String>('id')!),
+    );
+
+    final cache = $_typedResult.readTableOrNull(_itemStatesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$InventoryEntriesTableFilterComposer
@@ -14521,11 +15896,6 @@ class $$InventoryEntriesTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get locationId => $composableBuilder(
-    column: $table.locationId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14556,11 +15926,6 @@ class $$InventoryEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get thawedAt => $composableBuilder(
     column: $table.thawedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get activeContainerId => $composableBuilder(
-    column: $table.activeContainerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14606,6 +15971,102 @@ class $$InventoryEntriesTableFilterComposer
     );
     return composer;
   }
+
+  $$LocationsTableFilterComposer get locationId {
+    final $$LocationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.locationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableFilterComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableFilterComposer get activeContainerId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.activeContainerId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> itemEventsRefs(
+    Expression<bool> Function($$ItemEventsTableFilterComposer f) f,
+  ) {
+    final $$ItemEventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemEvents,
+      getReferencedColumn: (t) => t.inventoryEntryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemEventsTableFilterComposer(
+            $db: $db,
+            $table: $db.itemEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> itemStatesRefs(
+    Expression<bool> Function($$ItemStatesTableFilterComposer f) f,
+  ) {
+    final $$ItemStatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemStates,
+      getReferencedColumn: (t) => t.inventoryEntryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemStatesTableFilterComposer(
+            $db: $db,
+            $table: $db.itemStates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$InventoryEntriesTableOrderingComposer
@@ -14619,11 +16080,6 @@ class $$InventoryEntriesTableOrderingComposer
   });
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get locationId => $composableBuilder(
-    column: $table.locationId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -14654,11 +16110,6 @@ class $$InventoryEntriesTableOrderingComposer
 
   ColumnOrderings<DateTime> get thawedAt => $composableBuilder(
     column: $table.thawedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get activeContainerId => $composableBuilder(
-    column: $table.activeContainerId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -14704,6 +16155,52 @@ class $$InventoryEntriesTableOrderingComposer
     );
     return composer;
   }
+
+  $$LocationsTableOrderingComposer get locationId {
+    final $$LocationsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.locationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableOrderingComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableOrderingComposer get activeContainerId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.activeContainerId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$InventoryEntriesTableAnnotationComposer
@@ -14717,11 +16214,6 @@ class $$InventoryEntriesTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get locationId => $composableBuilder(
-    column: $table.locationId,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<double> get quantity =>
       $composableBuilder(column: $table.quantity, builder: (column) => column);
@@ -14742,11 +16234,6 @@ class $$InventoryEntriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get thawedAt =>
       $composableBuilder(column: $table.thawedAt, builder: (column) => column);
-
-  GeneratedColumn<String> get activeContainerId => $composableBuilder(
-    column: $table.activeContainerId,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<double> get price =>
       $composableBuilder(column: $table.price, builder: (column) => column);
@@ -14782,6 +16269,102 @@ class $$InventoryEntriesTableAnnotationComposer
     );
     return composer;
   }
+
+  $$LocationsTableAnnotationComposer get locationId {
+    final $$LocationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.locationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableAnnotationComposer get activeContainerId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.activeContainerId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> itemEventsRefs<T extends Object>(
+    Expression<T> Function($$ItemEventsTableAnnotationComposer a) f,
+  ) {
+    final $$ItemEventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemEvents,
+      getReferencedColumn: (t) => t.inventoryEntryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemEventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> itemStatesRefs<T extends Object>(
+    Expression<T> Function($$ItemStatesTableAnnotationComposer a) f,
+  ) {
+    final $$ItemStatesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemStates,
+      getReferencedColumn: (t) => t.inventoryEntryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemStatesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemStates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$InventoryEntriesTableTableManager
@@ -14797,7 +16380,13 @@ class $$InventoryEntriesTableTableManager
           $$InventoryEntriesTableUpdateCompanionBuilder,
           (InventoryEntry, $$InventoryEntriesTableReferences),
           InventoryEntry,
-          PrefetchHooks Function({bool itemId})
+          PrefetchHooks Function({
+            bool itemId,
+            bool locationId,
+            bool activeContainerId,
+            bool itemEventsRefs,
+            bool itemStatesRefs,
+          })
         > {
   $$InventoryEntriesTableTableManager(
     _$AppDatabase db,
@@ -14888,49 +16477,132 @@ class $$InventoryEntriesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({itemId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (itemId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.itemId,
-                                referencedTable:
-                                    $$InventoryEntriesTableReferences
-                                        ._itemIdTable(db),
-                                referencedColumn:
-                                    $$InventoryEntriesTableReferences
-                                        ._itemIdTable(db)
-                                        .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({
+                itemId = false,
+                locationId = false,
+                activeContainerId = false,
+                itemEventsRefs = false,
+                itemStatesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (itemEventsRefs) db.itemEvents,
+                    if (itemStatesRefs) db.itemStates,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (itemId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.itemId,
+                                    referencedTable:
+                                        $$InventoryEntriesTableReferences
+                                            ._itemIdTable(db),
+                                    referencedColumn:
+                                        $$InventoryEntriesTableReferences
+                                            ._itemIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (locationId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.locationId,
+                                    referencedTable:
+                                        $$InventoryEntriesTableReferences
+                                            ._locationIdTable(db),
+                                    referencedColumn:
+                                        $$InventoryEntriesTableReferences
+                                            ._locationIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (activeContainerId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.activeContainerId,
+                                    referencedTable:
+                                        $$InventoryEntriesTableReferences
+                                            ._activeContainerIdTable(db),
+                                    referencedColumn:
+                                        $$InventoryEntriesTableReferences
+                                            ._activeContainerIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (itemEventsRefs)
+                        await $_getPrefetchedData<
+                          InventoryEntry,
+                          $InventoryEntriesTable,
+                          ItemEvent
+                        >(
+                          currentTable: table,
+                          referencedTable: $$InventoryEntriesTableReferences
+                              ._itemEventsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$InventoryEntriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).itemEventsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.inventoryEntryId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (itemStatesRefs)
+                        await $_getPrefetchedData<
+                          InventoryEntry,
+                          $InventoryEntriesTable,
+                          ItemState
+                        >(
+                          currentTable: table,
+                          referencedTable: $$InventoryEntriesTableReferences
+                              ._itemStatesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$InventoryEntriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).itemStatesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.inventoryEntryId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -14947,7 +16619,13 @@ typedef $$InventoryEntriesTableProcessedTableManager =
       $$InventoryEntriesTableUpdateCompanionBuilder,
       (InventoryEntry, $$InventoryEntriesTableReferences),
       InventoryEntry,
-      PrefetchHooks Function({bool itemId})
+      PrefetchHooks Function({
+        bool itemId,
+        bool locationId,
+        bool activeContainerId,
+        bool itemEventsRefs,
+        bool itemStatesRefs,
+      })
     >;
 typedef $$ItemGroupsTableCreateCompanionBuilder =
     ItemGroupsCompanion Function({
@@ -14993,6 +16671,58 @@ final class $$ItemGroupsTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _itemGroupMembersRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RecipeIngredientsTable, List<RecipeIngredient>>
+  _recipeIngredientsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.recipeIngredients,
+        aliasName: $_aliasNameGenerator(
+          db.itemGroups.id,
+          db.recipeIngredients.itemGroupId,
+        ),
+      );
+
+  $$RecipeIngredientsTableProcessedTableManager get recipeIngredientsRefs {
+    final manager = $$RecipeIngredientsTableTableManager(
+      $_db,
+      $_db.recipeIngredients,
+    ).filter((f) => f.itemGroupId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _recipeIngredientsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $StandardMealIngredientsTable,
+    List<StandardMealIngredient>
+  >
+  _standardMealIngredientsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.standardMealIngredients,
+        aliasName: $_aliasNameGenerator(
+          db.itemGroups.id,
+          db.standardMealIngredients.itemGroupId,
+        ),
+      );
+
+  $$StandardMealIngredientsTableProcessedTableManager
+  get standardMealIngredientsRefs {
+    final manager = $$StandardMealIngredientsTableTableManager(
+      $_db,
+      $_db.standardMealIngredients,
+    ).filter((f) => f.itemGroupId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _standardMealIngredientsRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -15066,6 +16796,57 @@ class $$ItemGroupsTableFilterComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
+    return f(composer);
+  }
+
+  Expression<bool> recipeIngredientsRefs(
+    Expression<bool> Function($$RecipeIngredientsTableFilterComposer f) f,
+  ) {
+    final $$RecipeIngredientsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recipeIngredients,
+      getReferencedColumn: (t) => t.itemGroupId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipeIngredientsTableFilterComposer(
+            $db: $db,
+            $table: $db.recipeIngredients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> standardMealIngredientsRefs(
+    Expression<bool> Function($$StandardMealIngredientsTableFilterComposer f) f,
+  ) {
+    final $$StandardMealIngredientsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.standardMealIngredients,
+          getReferencedColumn: (t) => t.itemGroupId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$StandardMealIngredientsTableFilterComposer(
+                $db: $db,
+                $table: $db.standardMealIngredients,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 }
@@ -15175,6 +16956,59 @@ class $$ItemGroupsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> recipeIngredientsRefs<T extends Object>(
+    Expression<T> Function($$RecipeIngredientsTableAnnotationComposer a) f,
+  ) {
+    final $$RecipeIngredientsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.recipeIngredients,
+          getReferencedColumn: (t) => t.itemGroupId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$RecipeIngredientsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.recipeIngredients,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> standardMealIngredientsRefs<T extends Object>(
+    Expression<T> Function($$StandardMealIngredientsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$StandardMealIngredientsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.standardMealIngredients,
+          getReferencedColumn: (t) => t.itemGroupId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$StandardMealIngredientsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.standardMealIngredients,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$ItemGroupsTableTableManager
@@ -15190,7 +17024,11 @@ class $$ItemGroupsTableTableManager
           $$ItemGroupsTableUpdateCompanionBuilder,
           (ItemGroup, $$ItemGroupsTableReferences),
           ItemGroup,
-          PrefetchHooks Function({bool itemGroupMembersRefs})
+          PrefetchHooks Function({
+            bool itemGroupMembersRefs,
+            bool recipeIngredientsRefs,
+            bool standardMealIngredientsRefs,
+          })
         > {
   $$ItemGroupsTableTableManager(_$AppDatabase db, $ItemGroupsTable table)
     : super(
@@ -15251,38 +17089,89 @@ class $$ItemGroupsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({itemGroupMembersRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (itemGroupMembersRefs) db.itemGroupMembers,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (itemGroupMembersRefs)
-                    await $_getPrefetchedData<
-                      ItemGroup,
-                      $ItemGroupsTable,
-                      ItemGroupMember
-                    >(
-                      currentTable: table,
-                      referencedTable: $$ItemGroupsTableReferences
-                          ._itemGroupMembersRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$ItemGroupsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).itemGroupMembersRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.groupId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                itemGroupMembersRefs = false,
+                recipeIngredientsRefs = false,
+                standardMealIngredientsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (itemGroupMembersRefs) db.itemGroupMembers,
+                    if (recipeIngredientsRefs) db.recipeIngredients,
+                    if (standardMealIngredientsRefs) db.standardMealIngredients,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (itemGroupMembersRefs)
+                        await $_getPrefetchedData<
+                          ItemGroup,
+                          $ItemGroupsTable,
+                          ItemGroupMember
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemGroupsTableReferences
+                              ._itemGroupMembersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemGroupsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).itemGroupMembersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.groupId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (recipeIngredientsRefs)
+                        await $_getPrefetchedData<
+                          ItemGroup,
+                          $ItemGroupsTable,
+                          RecipeIngredient
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemGroupsTableReferences
+                              ._recipeIngredientsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemGroupsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recipeIngredientsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemGroupId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (standardMealIngredientsRefs)
+                        await $_getPrefetchedData<
+                          ItemGroup,
+                          $ItemGroupsTable,
+                          StandardMealIngredient
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemGroupsTableReferences
+                              ._standardMealIngredientsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemGroupsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).standardMealIngredientsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemGroupId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -15299,7 +17188,11 @@ typedef $$ItemGroupsTableProcessedTableManager =
       $$ItemGroupsTableUpdateCompanionBuilder,
       (ItemGroup, $$ItemGroupsTableReferences),
       ItemGroup,
-      PrefetchHooks Function({bool itemGroupMembersRefs})
+      PrefetchHooks Function({
+        bool itemGroupMembersRefs,
+        bool recipeIngredientsRefs,
+        bool standardMealIngredientsRefs,
+      })
     >;
 typedef $$ItemGroupMembersTableCreateCompanionBuilder =
     ItemGroupMembersCompanion Function({
@@ -15727,6 +17620,28 @@ final class $$ItemEventsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static $InventoryEntriesTable _inventoryEntryIdTable(_$AppDatabase db) =>
+      db.inventoryEntries.createAlias(
+        $_aliasNameGenerator(
+          db.itemEvents.inventoryEntryId,
+          db.inventoryEntries.id,
+        ),
+      );
+
+  $$InventoryEntriesTableProcessedTableManager? get inventoryEntryId {
+    final $_column = $_itemColumn<String>('inventory_entry_id');
+    if ($_column == null) return null;
+    final manager = $$InventoryEntriesTableTableManager(
+      $_db,
+      $_db.inventoryEntries,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_inventoryEntryIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 }
 
 class $$ItemEventsTableFilterComposer
@@ -15745,11 +17660,6 @@ class $$ItemEventsTableFilterComposer
 
   ColumnFilters<String> get type => $composableBuilder(
     column: $table.type,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get inventoryEntryId => $composableBuilder(
-    column: $table.inventoryEntryId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15845,6 +17755,29 @@ class $$ItemEventsTableFilterComposer
     );
     return composer;
   }
+
+  $$InventoryEntriesTableFilterComposer get inventoryEntryId {
+    final $$InventoryEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.inventoryEntryId,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ItemEventsTableOrderingComposer
@@ -15863,11 +17796,6 @@ class $$ItemEventsTableOrderingComposer
 
   ColumnOrderings<String> get type => $composableBuilder(
     column: $table.type,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get inventoryEntryId => $composableBuilder(
-    column: $table.inventoryEntryId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -15963,6 +17891,29 @@ class $$ItemEventsTableOrderingComposer
     );
     return composer;
   }
+
+  $$InventoryEntriesTableOrderingComposer get inventoryEntryId {
+    final $$InventoryEntriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.inventoryEntryId,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ItemEventsTableAnnotationComposer
@@ -15979,11 +17930,6 @@ class $$ItemEventsTableAnnotationComposer
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
-
-  GeneratedColumn<String> get inventoryEntryId => $composableBuilder(
-    column: $table.inventoryEntryId,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<double> get quantity =>
       $composableBuilder(column: $table.quantity, builder: (column) => column);
@@ -16057,6 +18003,29 @@ class $$ItemEventsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$InventoryEntriesTableAnnotationComposer get inventoryEntryId {
+    final $$InventoryEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.inventoryEntryId,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ItemEventsTableTableManager
@@ -16072,7 +18041,7 @@ class $$ItemEventsTableTableManager
           $$ItemEventsTableUpdateCompanionBuilder,
           (ItemEvent, $$ItemEventsTableReferences),
           ItemEvent,
-          PrefetchHooks Function({bool itemId})
+          PrefetchHooks Function({bool itemId, bool inventoryEntryId})
         > {
   $$ItemEventsTableTableManager(_$AppDatabase db, $ItemEventsTable table)
     : super(
@@ -16177,7 +18146,7 @@ class $$ItemEventsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({itemId = false}) {
+          prefetchHooksCallback: ({itemId = false, inventoryEntryId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -16210,6 +18179,19 @@ class $$ItemEventsTableTableManager
                               )
                               as T;
                     }
+                    if (inventoryEntryId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.inventoryEntryId,
+                                referencedTable: $$ItemEventsTableReferences
+                                    ._inventoryEntryIdTable(db),
+                                referencedColumn: $$ItemEventsTableReferences
+                                    ._inventoryEntryIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
 
                     return state;
                   },
@@ -16234,7 +18216,7 @@ typedef $$ItemEventsTableProcessedTableManager =
       $$ItemEventsTableUpdateCompanionBuilder,
       (ItemEvent, $$ItemEventsTableReferences),
       ItemEvent,
-      PrefetchHooks Function({bool itemId})
+      PrefetchHooks Function({bool itemId, bool inventoryEntryId})
     >;
 typedef $$ItemStatesTableCreateCompanionBuilder =
     ItemStatesCompanion Function({
@@ -16284,6 +18266,28 @@ final class $$ItemStatesTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static $InventoryEntriesTable _inventoryEntryIdTable(_$AppDatabase db) =>
+      db.inventoryEntries.createAlias(
+        $_aliasNameGenerator(
+          db.itemStates.inventoryEntryId,
+          db.inventoryEntries.id,
+        ),
+      );
+
+  $$InventoryEntriesTableProcessedTableManager get inventoryEntryId {
+    final $_column = $_itemColumn<String>('inventory_entry_id')!;
+
+    final manager = $$InventoryEntriesTableTableManager(
+      $_db,
+      $_db.inventoryEntries,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_inventoryEntryIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 }
 
 class $$ItemStatesTableFilterComposer
@@ -16295,11 +18299,6 @@ class $$ItemStatesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get inventoryEntryId => $composableBuilder(
-    column: $table.inventoryEntryId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<double> get currentQuantity => $composableBuilder(
     column: $table.currentQuantity,
     builder: (column) => ColumnFilters(column),
@@ -16357,6 +18356,29 @@ class $$ItemStatesTableFilterComposer
     );
     return composer;
   }
+
+  $$InventoryEntriesTableFilterComposer get inventoryEntryId {
+    final $$InventoryEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.inventoryEntryId,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ItemStatesTableOrderingComposer
@@ -16368,11 +18390,6 @@ class $$ItemStatesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get inventoryEntryId => $composableBuilder(
-    column: $table.inventoryEntryId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<double> get currentQuantity => $composableBuilder(
     column: $table.currentQuantity,
     builder: (column) => ColumnOrderings(column),
@@ -16430,6 +18447,29 @@ class $$ItemStatesTableOrderingComposer
     );
     return composer;
   }
+
+  $$InventoryEntriesTableOrderingComposer get inventoryEntryId {
+    final $$InventoryEntriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.inventoryEntryId,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ItemStatesTableAnnotationComposer
@@ -16441,11 +18481,6 @@ class $$ItemStatesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get inventoryEntryId => $composableBuilder(
-    column: $table.inventoryEntryId,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<double> get currentQuantity => $composableBuilder(
     column: $table.currentQuantity,
     builder: (column) => column,
@@ -16497,6 +18532,29 @@ class $$ItemStatesTableAnnotationComposer
     );
     return composer;
   }
+
+  $$InventoryEntriesTableAnnotationComposer get inventoryEntryId {
+    final $$InventoryEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.inventoryEntryId,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ItemStatesTableTableManager
@@ -16512,7 +18570,7 @@ class $$ItemStatesTableTableManager
           $$ItemStatesTableUpdateCompanionBuilder,
           (ItemState, $$ItemStatesTableReferences),
           ItemState,
-          PrefetchHooks Function({bool itemId})
+          PrefetchHooks Function({bool itemId, bool inventoryEntryId})
         > {
   $$ItemStatesTableTableManager(_$AppDatabase db, $ItemStatesTable table)
     : super(
@@ -16581,7 +18639,7 @@ class $$ItemStatesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({itemId = false}) {
+          prefetchHooksCallback: ({itemId = false, inventoryEntryId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -16614,6 +18672,19 @@ class $$ItemStatesTableTableManager
                               )
                               as T;
                     }
+                    if (inventoryEntryId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.inventoryEntryId,
+                                referencedTable: $$ItemStatesTableReferences
+                                    ._inventoryEntryIdTable(db),
+                                referencedColumn: $$ItemStatesTableReferences
+                                    ._inventoryEntryIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
 
                     return state;
                   },
@@ -16638,241 +18709,7 @@ typedef $$ItemStatesTableProcessedTableManager =
       $$ItemStatesTableUpdateCompanionBuilder,
       (ItemState, $$ItemStatesTableReferences),
       ItemState,
-      PrefetchHooks Function({bool itemId})
-    >;
-typedef $$LocationsTableCreateCompanionBuilder =
-    LocationsCompanion Function({
-      required String id,
-      required String name,
-      Value<String?> parentId,
-      Value<String?> photoPath,
-      Value<String?> notes,
-      Value<String> locationType,
-      Value<DateTime> createdAt,
-      Value<int> rowid,
-    });
-typedef $$LocationsTableUpdateCompanionBuilder =
-    LocationsCompanion Function({
-      Value<String> id,
-      Value<String> name,
-      Value<String?> parentId,
-      Value<String?> photoPath,
-      Value<String?> notes,
-      Value<String> locationType,
-      Value<DateTime> createdAt,
-      Value<int> rowid,
-    });
-
-class $$LocationsTableFilterComposer
-    extends Composer<_$AppDatabase, $LocationsTable> {
-  $$LocationsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get parentId => $composableBuilder(
-    column: $table.parentId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get photoPath => $composableBuilder(
-    column: $table.photoPath,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get notes => $composableBuilder(
-    column: $table.notes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get locationType => $composableBuilder(
-    column: $table.locationType,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$LocationsTableOrderingComposer
-    extends Composer<_$AppDatabase, $LocationsTable> {
-  $$LocationsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get parentId => $composableBuilder(
-    column: $table.parentId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get photoPath => $composableBuilder(
-    column: $table.photoPath,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get notes => $composableBuilder(
-    column: $table.notes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get locationType => $composableBuilder(
-    column: $table.locationType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$LocationsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LocationsTable> {
-  $$LocationsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<String> get parentId =>
-      $composableBuilder(column: $table.parentId, builder: (column) => column);
-
-  GeneratedColumn<String> get photoPath =>
-      $composableBuilder(column: $table.photoPath, builder: (column) => column);
-
-  GeneratedColumn<String> get notes =>
-      $composableBuilder(column: $table.notes, builder: (column) => column);
-
-  GeneratedColumn<String> get locationType => $composableBuilder(
-    column: $table.locationType,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-}
-
-class $$LocationsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $LocationsTable,
-          Location,
-          $$LocationsTableFilterComposer,
-          $$LocationsTableOrderingComposer,
-          $$LocationsTableAnnotationComposer,
-          $$LocationsTableCreateCompanionBuilder,
-          $$LocationsTableUpdateCompanionBuilder,
-          (Location, BaseReferences<_$AppDatabase, $LocationsTable, Location>),
-          Location,
-          PrefetchHooks Function()
-        > {
-  $$LocationsTableTableManager(_$AppDatabase db, $LocationsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$LocationsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$LocationsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$LocationsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<String?> parentId = const Value.absent(),
-                Value<String?> photoPath = const Value.absent(),
-                Value<String?> notes = const Value.absent(),
-                Value<String> locationType = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => LocationsCompanion(
-                id: id,
-                name: name,
-                parentId: parentId,
-                photoPath: photoPath,
-                notes: notes,
-                locationType: locationType,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String name,
-                Value<String?> parentId = const Value.absent(),
-                Value<String?> photoPath = const Value.absent(),
-                Value<String?> notes = const Value.absent(),
-                Value<String> locationType = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => LocationsCompanion.insert(
-                id: id,
-                name: name,
-                parentId: parentId,
-                photoPath: photoPath,
-                notes: notes,
-                locationType: locationType,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$LocationsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $LocationsTable,
-      Location,
-      $$LocationsTableFilterComposer,
-      $$LocationsTableOrderingComposer,
-      $$LocationsTableAnnotationComposer,
-      $$LocationsTableCreateCompanionBuilder,
-      $$LocationsTableUpdateCompanionBuilder,
-      (Location, BaseReferences<_$AppDatabase, $LocationsTable, Location>),
-      Location,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool itemId, bool inventoryEntryId})
     >;
 typedef $$TagDefinitionsTableCreateCompanionBuilder =
     TagDefinitionsCompanion Function({
@@ -17241,6 +19078,24 @@ final class $$ItemTagsTableReferences
     extends BaseReferences<_$AppDatabase, $ItemTagsTable, ItemTag> {
   $$ItemTagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
+  static $ItemsTable _itemIdTable(_$AppDatabase db) => db.items.createAlias(
+    $_aliasNameGenerator(db.itemTags.itemId, db.items.id),
+  );
+
+  $$ItemsTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<String>('item_id')!;
+
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
   static $TagDefinitionsTable _tagIdTable(_$AppDatabase db) =>
       db.tagDefinitions.createAlias(
         $_aliasNameGenerator(db.itemTags.tagId, db.tagDefinitions.id),
@@ -17270,10 +19125,28 @@ class $$ItemTagsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get itemId => $composableBuilder(
-    column: $table.itemId,
-    builder: (column) => ColumnFilters(column),
-  );
+  $$ItemsTableFilterComposer get itemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   $$TagDefinitionsTableFilterComposer get tagId {
     final $$TagDefinitionsTableFilterComposer composer = $composerBuilder(
@@ -17308,10 +19181,28 @@ class $$ItemTagsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get itemId => $composableBuilder(
-    column: $table.itemId,
-    builder: (column) => ColumnOrderings(column),
-  );
+  $$ItemsTableOrderingComposer get itemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   $$TagDefinitionsTableOrderingComposer get tagId {
     final $$TagDefinitionsTableOrderingComposer composer = $composerBuilder(
@@ -17346,8 +19237,28 @@ class $$ItemTagsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get itemId =>
-      $composableBuilder(column: $table.itemId, builder: (column) => column);
+  $$ItemsTableAnnotationComposer get itemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   $$TagDefinitionsTableAnnotationComposer get tagId {
     final $$TagDefinitionsTableAnnotationComposer composer = $composerBuilder(
@@ -17386,7 +19297,7 @@ class $$ItemTagsTableTableManager
           $$ItemTagsTableUpdateCompanionBuilder,
           (ItemTag, $$ItemTagsTableReferences),
           ItemTag,
-          PrefetchHooks Function({bool tagId})
+          PrefetchHooks Function({bool itemId, bool tagId})
         > {
   $$ItemTagsTableTableManager(_$AppDatabase db, $ItemTagsTable table)
     : super(
@@ -17424,7 +19335,7 @@ class $$ItemTagsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({tagId = false}) {
+          prefetchHooksCallback: ({itemId = false, tagId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -17444,6 +19355,19 @@ class $$ItemTagsTableTableManager
                       dynamic
                     >
                   >(state) {
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable: $$ItemTagsTableReferences
+                                    ._itemIdTable(db),
+                                referencedColumn: $$ItemTagsTableReferences
+                                    ._itemIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
                     if (tagId) {
                       state =
                           state.withJoin(
@@ -17481,7 +19405,7 @@ typedef $$ItemTagsTableProcessedTableManager =
       $$ItemTagsTableUpdateCompanionBuilder,
       (ItemTag, $$ItemTagsTableReferences),
       ItemTag,
-      PrefetchHooks Function({bool tagId})
+      PrefetchHooks Function({bool itemId, bool tagId})
     >;
 typedef $$EntityPhotosTableCreateCompanionBuilder =
     EntityPhotosCompanion Function({
@@ -17798,6 +19722,56 @@ final class $$RecipesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $MealTypeAssignmentsTable,
+    List<MealTypeAssignment>
+  >
+  _mealTypeAssignmentsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.mealTypeAssignments,
+        aliasName: $_aliasNameGenerator(
+          db.recipes.id,
+          db.mealTypeAssignments.recipeId,
+        ),
+      );
+
+  $$MealTypeAssignmentsTableProcessedTableManager get mealTypeAssignmentsRefs {
+    final manager = $$MealTypeAssignmentsTableTableManager(
+      $_db,
+      $_db.mealTypeAssignments,
+    ).filter((f) => f.recipeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _mealTypeAssignmentsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$WishListEntriesTable, List<WishListEntry>>
+  _wishListEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.wishListEntries,
+    aliasName: $_aliasNameGenerator(
+      db.recipes.id,
+      db.wishListEntries.linkedRecipeId,
+    ),
+  );
+
+  $$WishListEntriesTableProcessedTableManager get wishListEntriesRefs {
+    final manager = $$WishListEntriesTableTableManager(
+      $_db,
+      $_db.wishListEntries,
+    ).filter((f) => f.linkedRecipeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _wishListEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$RecipesTableFilterComposer
@@ -17950,6 +19924,56 @@ class $$RecipesTableFilterComposer
           }) => $$RecipeStepsTableFilterComposer(
             $db: $db,
             $table: $db.recipeSteps,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> mealTypeAssignmentsRefs(
+    Expression<bool> Function($$MealTypeAssignmentsTableFilterComposer f) f,
+  ) {
+    final $$MealTypeAssignmentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mealTypeAssignments,
+      getReferencedColumn: (t) => t.recipeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MealTypeAssignmentsTableFilterComposer(
+            $db: $db,
+            $table: $db.mealTypeAssignments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> wishListEntriesRefs(
+    Expression<bool> Function($$WishListEntriesTableFilterComposer f) f,
+  ) {
+    final $$WishListEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.wishListEntries,
+      getReferencedColumn: (t) => t.linkedRecipeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WishListEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.wishListEntries,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18209,6 +20233,57 @@ class $$RecipesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> mealTypeAssignmentsRefs<T extends Object>(
+    Expression<T> Function($$MealTypeAssignmentsTableAnnotationComposer a) f,
+  ) {
+    final $$MealTypeAssignmentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.mealTypeAssignments,
+          getReferencedColumn: (t) => t.recipeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$MealTypeAssignmentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.mealTypeAssignments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> wishListEntriesRefs<T extends Object>(
+    Expression<T> Function($$WishListEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$WishListEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.wishListEntries,
+      getReferencedColumn: (t) => t.linkedRecipeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WishListEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.wishListEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$RecipesTableTableManager
@@ -18227,6 +20302,8 @@ class $$RecipesTableTableManager
           PrefetchHooks Function({
             bool recipeIngredientsRefs,
             bool recipeStepsRefs,
+            bool mealTypeAssignmentsRefs,
+            bool wishListEntriesRefs,
           })
         > {
   $$RecipesTableTableManager(_$AppDatabase db, $RecipesTable table)
@@ -18341,12 +20418,19 @@ class $$RecipesTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({recipeIngredientsRefs = false, recipeStepsRefs = false}) {
+              ({
+                recipeIngredientsRefs = false,
+                recipeStepsRefs = false,
+                mealTypeAssignmentsRefs = false,
+                wishListEntriesRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (recipeIngredientsRefs) db.recipeIngredients,
                     if (recipeStepsRefs) db.recipeSteps,
+                    if (mealTypeAssignmentsRefs) db.mealTypeAssignments,
+                    if (wishListEntriesRefs) db.wishListEntries,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -18393,6 +20477,48 @@ class $$RecipesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (mealTypeAssignmentsRefs)
+                        await $_getPrefetchedData<
+                          Recipe,
+                          $RecipesTable,
+                          MealTypeAssignment
+                        >(
+                          currentTable: table,
+                          referencedTable: $$RecipesTableReferences
+                              ._mealTypeAssignmentsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$RecipesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).mealTypeAssignmentsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.recipeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (wishListEntriesRefs)
+                        await $_getPrefetchedData<
+                          Recipe,
+                          $RecipesTable,
+                          WishListEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$RecipesTableReferences
+                              ._wishListEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$RecipesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).wishListEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.linkedRecipeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -18413,7 +20539,12 @@ typedef $$RecipesTableProcessedTableManager =
       $$RecipesTableUpdateCompanionBuilder,
       (Recipe, $$RecipesTableReferences),
       Recipe,
-      PrefetchHooks Function({bool recipeIngredientsRefs, bool recipeStepsRefs})
+      PrefetchHooks Function({
+        bool recipeIngredientsRefs,
+        bool recipeStepsRefs,
+        bool mealTypeAssignmentsRefs,
+        bool wishListEntriesRefs,
+      })
     >;
 typedef $$RecipeIngredientsTableCreateCompanionBuilder =
     RecipeIngredientsCompanion Function({
@@ -18473,6 +20604,46 @@ final class $$RecipeIngredientsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static $ItemsTable _itemIdTable(_$AppDatabase db) => db.items.createAlias(
+    $_aliasNameGenerator(db.recipeIngredients.itemId, db.items.id),
+  );
+
+  $$ItemsTableProcessedTableManager? get itemId {
+    final $_column = $_itemColumn<String>('item_id');
+    if ($_column == null) return null;
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ItemGroupsTable _itemGroupIdTable(_$AppDatabase db) =>
+      db.itemGroups.createAlias(
+        $_aliasNameGenerator(
+          db.recipeIngredients.itemGroupId,
+          db.itemGroups.id,
+        ),
+      );
+
+  $$ItemGroupsTableProcessedTableManager? get itemGroupId {
+    final $_column = $_itemColumn<String>('item_group_id');
+    if ($_column == null) return null;
+    final manager = $$ItemGroupsTableTableManager(
+      $_db,
+      $_db.itemGroups,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemGroupIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 }
 
 class $$RecipeIngredientsTableFilterComposer
@@ -18486,16 +20657,6 @@ class $$RecipeIngredientsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get itemId => $composableBuilder(
-    column: $table.itemId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get itemGroupId => $composableBuilder(
-    column: $table.itemGroupId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18546,6 +20707,52 @@ class $$RecipeIngredientsTableFilterComposer
     );
     return composer;
   }
+
+  $$ItemsTableFilterComposer get itemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemGroupsTableFilterComposer get itemGroupId {
+    final $$ItemGroupsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemGroupId,
+      referencedTable: $db.itemGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemGroupsTableFilterComposer(
+            $db: $db,
+            $table: $db.itemGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RecipeIngredientsTableOrderingComposer
@@ -18559,16 +20766,6 @@ class $$RecipeIngredientsTableOrderingComposer
   });
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get itemId => $composableBuilder(
-    column: $table.itemId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get itemGroupId => $composableBuilder(
-    column: $table.itemGroupId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -18619,6 +20816,52 @@ class $$RecipeIngredientsTableOrderingComposer
     );
     return composer;
   }
+
+  $$ItemsTableOrderingComposer get itemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemGroupsTableOrderingComposer get itemGroupId {
+    final $$ItemGroupsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemGroupId,
+      referencedTable: $db.itemGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemGroupsTableOrderingComposer(
+            $db: $db,
+            $table: $db.itemGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RecipeIngredientsTableAnnotationComposer
@@ -18632,14 +20875,6 @@ class $$RecipeIngredientsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get itemId =>
-      $composableBuilder(column: $table.itemId, builder: (column) => column);
-
-  GeneratedColumn<String> get itemGroupId => $composableBuilder(
-    column: $table.itemGroupId,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -18678,6 +20913,52 @@ class $$RecipeIngredientsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$ItemsTableAnnotationComposer get itemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemGroupsTableAnnotationComposer get itemGroupId {
+    final $$ItemGroupsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemGroupId,
+      referencedTable: $db.itemGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemGroupsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RecipeIngredientsTableTableManager
@@ -18693,7 +20974,7 @@ class $$RecipeIngredientsTableTableManager
           $$RecipeIngredientsTableUpdateCompanionBuilder,
           (RecipeIngredient, $$RecipeIngredientsTableReferences),
           RecipeIngredient,
-          PrefetchHooks Function({bool recipeId})
+          PrefetchHooks Function({bool recipeId, bool itemId, bool itemGroupId})
         > {
   $$RecipeIngredientsTableTableManager(
     _$AppDatabase db,
@@ -18767,49 +21048,80 @@ class $$RecipeIngredientsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({recipeId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (recipeId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.recipeId,
-                                referencedTable:
-                                    $$RecipeIngredientsTableReferences
-                                        ._recipeIdTable(db),
-                                referencedColumn:
-                                    $$RecipeIngredientsTableReferences
-                                        ._recipeIdTable(db)
-                                        .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({recipeId = false, itemId = false, itemGroupId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (recipeId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.recipeId,
+                                    referencedTable:
+                                        $$RecipeIngredientsTableReferences
+                                            ._recipeIdTable(db),
+                                    referencedColumn:
+                                        $$RecipeIngredientsTableReferences
+                                            ._recipeIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (itemId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.itemId,
+                                    referencedTable:
+                                        $$RecipeIngredientsTableReferences
+                                            ._itemIdTable(db),
+                                    referencedColumn:
+                                        $$RecipeIngredientsTableReferences
+                                            ._itemIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (itemGroupId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.itemGroupId,
+                                    referencedTable:
+                                        $$RecipeIngredientsTableReferences
+                                            ._itemGroupIdTable(db),
+                                    referencedColumn:
+                                        $$RecipeIngredientsTableReferences
+                                            ._itemGroupIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -18826,7 +21138,7 @@ typedef $$RecipeIngredientsTableProcessedTableManager =
       $$RecipeIngredientsTableUpdateCompanionBuilder,
       (RecipeIngredient, $$RecipeIngredientsTableReferences),
       RecipeIngredient,
-      PrefetchHooks Function({bool recipeId})
+      PrefetchHooks Function({bool recipeId, bool itemId, bool itemGroupId})
     >;
 typedef $$RecipeStepsTableCreateCompanionBuilder =
     RecipeStepsCompanion Function({
@@ -19184,6 +21496,33 @@ final class $$StandardMealsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $MealTypeAssignmentsTable,
+    List<MealTypeAssignment>
+  >
+  _mealTypeAssignmentsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.mealTypeAssignments,
+        aliasName: $_aliasNameGenerator(
+          db.standardMeals.id,
+          db.mealTypeAssignments.dishId,
+        ),
+      );
+
+  $$MealTypeAssignmentsTableProcessedTableManager get mealTypeAssignmentsRefs {
+    final manager = $$MealTypeAssignmentsTableTableManager(
+      $_db,
+      $_db.mealTypeAssignments,
+    ).filter((f) => f.dishId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _mealTypeAssignmentsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$StandardMealsTableFilterComposer
@@ -19238,6 +21577,31 @@ class $$StandardMealsTableFilterComposer
                     $removeJoinBuilderFromRootComposer,
               ),
         );
+    return f(composer);
+  }
+
+  Expression<bool> mealTypeAssignmentsRefs(
+    Expression<bool> Function($$MealTypeAssignmentsTableFilterComposer f) f,
+  ) {
+    final $$MealTypeAssignmentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mealTypeAssignments,
+      getReferencedColumn: (t) => t.dishId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MealTypeAssignmentsTableFilterComposer(
+            $db: $db,
+            $table: $db.mealTypeAssignments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
@@ -19319,6 +21683,32 @@ class $$StandardMealsTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> mealTypeAssignmentsRefs<T extends Object>(
+    Expression<T> Function($$MealTypeAssignmentsTableAnnotationComposer a) f,
+  ) {
+    final $$MealTypeAssignmentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.mealTypeAssignments,
+          getReferencedColumn: (t) => t.dishId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$MealTypeAssignmentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.mealTypeAssignments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$StandardMealsTableTableManager
@@ -19334,7 +21724,10 @@ class $$StandardMealsTableTableManager
           $$StandardMealsTableUpdateCompanionBuilder,
           (StandardMeal, $$StandardMealsTableReferences),
           StandardMeal,
-          PrefetchHooks Function({bool standardMealIngredientsRefs})
+          PrefetchHooks Function({
+            bool standardMealIngredientsRefs,
+            bool mealTypeAssignmentsRefs,
+          })
         > {
   $$StandardMealsTableTableManager(_$AppDatabase db, $StandardMealsTable table)
     : super(
@@ -19383,38 +21776,66 @@ class $$StandardMealsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({standardMealIngredientsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (standardMealIngredientsRefs) db.standardMealIngredients,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (standardMealIngredientsRefs)
-                    await $_getPrefetchedData<
-                      StandardMeal,
-                      $StandardMealsTable,
-                      StandardMealIngredient
-                    >(
-                      currentTable: table,
-                      referencedTable: $$StandardMealsTableReferences
-                          ._standardMealIngredientsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$StandardMealsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).standardMealIngredientsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.mealId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                standardMealIngredientsRefs = false,
+                mealTypeAssignmentsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (standardMealIngredientsRefs) db.standardMealIngredients,
+                    if (mealTypeAssignmentsRefs) db.mealTypeAssignments,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (standardMealIngredientsRefs)
+                        await $_getPrefetchedData<
+                          StandardMeal,
+                          $StandardMealsTable,
+                          StandardMealIngredient
+                        >(
+                          currentTable: table,
+                          referencedTable: $$StandardMealsTableReferences
+                              ._standardMealIngredientsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StandardMealsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).standardMealIngredientsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.mealId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (mealTypeAssignmentsRefs)
+                        await $_getPrefetchedData<
+                          StandardMeal,
+                          $StandardMealsTable,
+                          MealTypeAssignment
+                        >(
+                          currentTable: table,
+                          referencedTable: $$StandardMealsTableReferences
+                              ._mealTypeAssignmentsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StandardMealsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).mealTypeAssignmentsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.dishId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -19431,7 +21852,10 @@ typedef $$StandardMealsTableProcessedTableManager =
       $$StandardMealsTableUpdateCompanionBuilder,
       (StandardMeal, $$StandardMealsTableReferences),
       StandardMeal,
-      PrefetchHooks Function({bool standardMealIngredientsRefs})
+      PrefetchHooks Function({
+        bool standardMealIngredientsRefs,
+        bool mealTypeAssignmentsRefs,
+      })
     >;
 typedef $$StandardMealIngredientsTableCreateCompanionBuilder =
     StandardMealIngredientsCompanion Function({
@@ -19492,6 +21916,46 @@ final class $$StandardMealIngredientsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static $ItemsTable _itemIdTable(_$AppDatabase db) => db.items.createAlias(
+    $_aliasNameGenerator(db.standardMealIngredients.itemId, db.items.id),
+  );
+
+  $$ItemsTableProcessedTableManager? get itemId {
+    final $_column = $_itemColumn<String>('item_id');
+    if ($_column == null) return null;
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ItemGroupsTable _itemGroupIdTable(_$AppDatabase db) =>
+      db.itemGroups.createAlias(
+        $_aliasNameGenerator(
+          db.standardMealIngredients.itemGroupId,
+          db.itemGroups.id,
+        ),
+      );
+
+  $$ItemGroupsTableProcessedTableManager? get itemGroupId {
+    final $_column = $_itemColumn<String>('item_group_id');
+    if ($_column == null) return null;
+    final manager = $$ItemGroupsTableTableManager(
+      $_db,
+      $_db.itemGroups,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemGroupIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 }
 
 class $$StandardMealIngredientsTableFilterComposer
@@ -19505,16 +21969,6 @@ class $$StandardMealIngredientsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get itemId => $composableBuilder(
-    column: $table.itemId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get itemGroupId => $composableBuilder(
-    column: $table.itemGroupId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19560,6 +22014,52 @@ class $$StandardMealIngredientsTableFilterComposer
     );
     return composer;
   }
+
+  $$ItemsTableFilterComposer get itemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemGroupsTableFilterComposer get itemGroupId {
+    final $$ItemGroupsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemGroupId,
+      referencedTable: $db.itemGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemGroupsTableFilterComposer(
+            $db: $db,
+            $table: $db.itemGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$StandardMealIngredientsTableOrderingComposer
@@ -19573,16 +22073,6 @@ class $$StandardMealIngredientsTableOrderingComposer
   });
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get itemId => $composableBuilder(
-    column: $table.itemId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get itemGroupId => $composableBuilder(
-    column: $table.itemGroupId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -19628,6 +22118,52 @@ class $$StandardMealIngredientsTableOrderingComposer
     );
     return composer;
   }
+
+  $$ItemsTableOrderingComposer get itemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemGroupsTableOrderingComposer get itemGroupId {
+    final $$ItemGroupsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemGroupId,
+      referencedTable: $db.itemGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemGroupsTableOrderingComposer(
+            $db: $db,
+            $table: $db.itemGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$StandardMealIngredientsTableAnnotationComposer
@@ -19641,14 +22177,6 @@ class $$StandardMealIngredientsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get itemId =>
-      $composableBuilder(column: $table.itemId, builder: (column) => column);
-
-  GeneratedColumn<String> get itemGroupId => $composableBuilder(
-    column: $table.itemGroupId,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -19684,6 +22212,52 @@ class $$StandardMealIngredientsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$ItemsTableAnnotationComposer get itemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemGroupsTableAnnotationComposer get itemGroupId {
+    final $$ItemGroupsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemGroupId,
+      referencedTable: $db.itemGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemGroupsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$StandardMealIngredientsTableTableManager
@@ -19699,7 +22273,7 @@ class $$StandardMealIngredientsTableTableManager
           $$StandardMealIngredientsTableUpdateCompanionBuilder,
           (StandardMealIngredient, $$StandardMealIngredientsTableReferences),
           StandardMealIngredient,
-          PrefetchHooks Function({bool mealId})
+          PrefetchHooks Function({bool mealId, bool itemId, bool itemGroupId})
         > {
   $$StandardMealIngredientsTableTableManager(
     _$AppDatabase db,
@@ -19775,49 +22349,80 @@ class $$StandardMealIngredientsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({mealId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (mealId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.mealId,
-                                referencedTable:
-                                    $$StandardMealIngredientsTableReferences
-                                        ._mealIdTable(db),
-                                referencedColumn:
-                                    $$StandardMealIngredientsTableReferences
-                                        ._mealIdTable(db)
-                                        .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({mealId = false, itemId = false, itemGroupId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (mealId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.mealId,
+                                    referencedTable:
+                                        $$StandardMealIngredientsTableReferences
+                                            ._mealIdTable(db),
+                                    referencedColumn:
+                                        $$StandardMealIngredientsTableReferences
+                                            ._mealIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (itemId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.itemId,
+                                    referencedTable:
+                                        $$StandardMealIngredientsTableReferences
+                                            ._itemIdTable(db),
+                                    referencedColumn:
+                                        $$StandardMealIngredientsTableReferences
+                                            ._itemIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (itemGroupId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.itemGroupId,
+                                    referencedTable:
+                                        $$StandardMealIngredientsTableReferences
+                                            ._itemGroupIdTable(db),
+                                    referencedColumn:
+                                        $$StandardMealIngredientsTableReferences
+                                            ._itemGroupIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -19834,7 +22439,7 @@ typedef $$StandardMealIngredientsTableProcessedTableManager =
       $$StandardMealIngredientsTableUpdateCompanionBuilder,
       (StandardMealIngredient, $$StandardMealIngredientsTableReferences),
       StandardMealIngredient,
-      PrefetchHooks Function({bool mealId})
+      PrefetchHooks Function({bool mealId, bool itemId, bool itemGroupId})
     >;
 typedef $$MealTypesTableCreateCompanionBuilder =
     MealTypesCompanion Function({
@@ -20181,6 +22786,47 @@ final class $$MealTypeAssignmentsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static $StandardMealsTable _dishIdTable(_$AppDatabase db) =>
+      db.standardMeals.createAlias(
+        $_aliasNameGenerator(
+          db.mealTypeAssignments.dishId,
+          db.standardMeals.id,
+        ),
+      );
+
+  $$StandardMealsTableProcessedTableManager? get dishId {
+    final $_column = $_itemColumn<String>('dish_id');
+    if ($_column == null) return null;
+    final manager = $$StandardMealsTableTableManager(
+      $_db,
+      $_db.standardMeals,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_dishIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $RecipesTable _recipeIdTable(_$AppDatabase db) =>
+      db.recipes.createAlias(
+        $_aliasNameGenerator(db.mealTypeAssignments.recipeId, db.recipes.id),
+      );
+
+  $$RecipesTableProcessedTableManager? get recipeId {
+    final $_column = $_itemColumn<String>('recipe_id');
+    if ($_column == null) return null;
+    final manager = $$RecipesTableTableManager(
+      $_db,
+      $_db.recipes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_recipeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 }
 
 class $$MealTypeAssignmentsTableFilterComposer
@@ -20194,16 +22840,6 @@ class $$MealTypeAssignmentsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get dishId => $composableBuilder(
-    column: $table.dishId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get recipeId => $composableBuilder(
-    column: $table.recipeId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20229,6 +22865,52 @@ class $$MealTypeAssignmentsTableFilterComposer
     );
     return composer;
   }
+
+  $$StandardMealsTableFilterComposer get dishId {
+    final $$StandardMealsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.dishId,
+      referencedTable: $db.standardMeals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StandardMealsTableFilterComposer(
+            $db: $db,
+            $table: $db.standardMeals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableFilterComposer get recipeId {
+    final $$RecipesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipesTableFilterComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$MealTypeAssignmentsTableOrderingComposer
@@ -20242,16 +22924,6 @@ class $$MealTypeAssignmentsTableOrderingComposer
   });
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get dishId => $composableBuilder(
-    column: $table.dishId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get recipeId => $composableBuilder(
-    column: $table.recipeId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -20277,6 +22949,52 @@ class $$MealTypeAssignmentsTableOrderingComposer
     );
     return composer;
   }
+
+  $$StandardMealsTableOrderingComposer get dishId {
+    final $$StandardMealsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.dishId,
+      referencedTable: $db.standardMeals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StandardMealsTableOrderingComposer(
+            $db: $db,
+            $table: $db.standardMeals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableOrderingComposer get recipeId {
+    final $$RecipesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipesTableOrderingComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$MealTypeAssignmentsTableAnnotationComposer
@@ -20290,12 +23008,6 @@ class $$MealTypeAssignmentsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get dishId =>
-      $composableBuilder(column: $table.dishId, builder: (column) => column);
-
-  GeneratedColumn<String> get recipeId =>
-      $composableBuilder(column: $table.recipeId, builder: (column) => column);
 
   $$MealTypesTableAnnotationComposer get mealTypeId {
     final $$MealTypesTableAnnotationComposer composer = $composerBuilder(
@@ -20319,6 +23031,52 @@ class $$MealTypeAssignmentsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$StandardMealsTableAnnotationComposer get dishId {
+    final $$StandardMealsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.dishId,
+      referencedTable: $db.standardMeals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StandardMealsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.standardMeals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableAnnotationComposer get recipeId {
+    final $$RecipesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$MealTypeAssignmentsTableTableManager
@@ -20334,7 +23092,7 @@ class $$MealTypeAssignmentsTableTableManager
           $$MealTypeAssignmentsTableUpdateCompanionBuilder,
           (MealTypeAssignment, $$MealTypeAssignmentsTableReferences),
           MealTypeAssignment,
-          PrefetchHooks Function({bool mealTypeId})
+          PrefetchHooks Function({bool mealTypeId, bool dishId, bool recipeId})
         > {
   $$MealTypeAssignmentsTableTableManager(
     _$AppDatabase db,
@@ -20391,49 +23149,80 @@ class $$MealTypeAssignmentsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({mealTypeId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (mealTypeId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.mealTypeId,
-                                referencedTable:
-                                    $$MealTypeAssignmentsTableReferences
-                                        ._mealTypeIdTable(db),
-                                referencedColumn:
-                                    $$MealTypeAssignmentsTableReferences
-                                        ._mealTypeIdTable(db)
-                                        .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({mealTypeId = false, dishId = false, recipeId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (mealTypeId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.mealTypeId,
+                                    referencedTable:
+                                        $$MealTypeAssignmentsTableReferences
+                                            ._mealTypeIdTable(db),
+                                    referencedColumn:
+                                        $$MealTypeAssignmentsTableReferences
+                                            ._mealTypeIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (dishId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.dishId,
+                                    referencedTable:
+                                        $$MealTypeAssignmentsTableReferences
+                                            ._dishIdTable(db),
+                                    referencedColumn:
+                                        $$MealTypeAssignmentsTableReferences
+                                            ._dishIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (recipeId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.recipeId,
+                                    referencedTable:
+                                        $$MealTypeAssignmentsTableReferences
+                                            ._recipeIdTable(db),
+                                    referencedColumn:
+                                        $$MealTypeAssignmentsTableReferences
+                                            ._recipeIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -20450,7 +23239,7 @@ typedef $$MealTypeAssignmentsTableProcessedTableManager =
       $$MealTypeAssignmentsTableUpdateCompanionBuilder,
       (MealTypeAssignment, $$MealTypeAssignmentsTableReferences),
       MealTypeAssignment,
-      PrefetchHooks Function({bool mealTypeId})
+      PrefetchHooks Function({bool mealTypeId, bool dishId, bool recipeId})
     >;
 typedef $$TasksTableCreateCompanionBuilder =
     TasksCompanion Function({
@@ -20817,6 +23606,54 @@ typedef $$WishListEntriesTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$WishListEntriesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $WishListEntriesTable, WishListEntry> {
+  $$WishListEntriesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ItemsTable _linkedItemIdTable(_$AppDatabase db) =>
+      db.items.createAlias(
+        $_aliasNameGenerator(db.wishListEntries.linkedItemId, db.items.id),
+      );
+
+  $$ItemsTableProcessedTableManager? get linkedItemId {
+    final $_column = $_itemColumn<String>('linked_item_id');
+    if ($_column == null) return null;
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_linkedItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $RecipesTable _linkedRecipeIdTable(_$AppDatabase db) =>
+      db.recipes.createAlias(
+        $_aliasNameGenerator(db.wishListEntries.linkedRecipeId, db.recipes.id),
+      );
+
+  $$RecipesTableProcessedTableManager? get linkedRecipeId {
+    final $_column = $_itemColumn<String>('linked_recipe_id');
+    if ($_column == null) return null;
+    final manager = $$RecipesTableTableManager(
+      $_db,
+      $_db.recipes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_linkedRecipeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$WishListEntriesTableFilterComposer
     extends Composer<_$AppDatabase, $WishListEntriesTable> {
   $$WishListEntriesTableFilterComposer({
@@ -20856,16 +23693,6 @@ class $$WishListEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get linkedItemId => $composableBuilder(
-    column: $table.linkedItemId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get linkedRecipeId => $composableBuilder(
-    column: $table.linkedRecipeId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnFilters(column),
@@ -20880,6 +23707,52 @@ class $$WishListEntriesTableFilterComposer
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$ItemsTableFilterComposer get linkedItemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableFilterComposer get linkedRecipeId {
+    final $$RecipesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedRecipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipesTableFilterComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$WishListEntriesTableOrderingComposer
@@ -20921,16 +23794,6 @@ class $$WishListEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get linkedItemId => $composableBuilder(
-    column: $table.linkedItemId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get linkedRecipeId => $composableBuilder(
-    column: $table.linkedRecipeId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -20945,6 +23808,52 @@ class $$WishListEntriesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$ItemsTableOrderingComposer get linkedItemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableOrderingComposer get linkedRecipeId {
+    final $$RecipesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedRecipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipesTableOrderingComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$WishListEntriesTableAnnotationComposer
@@ -20974,16 +23883,6 @@ class $$WishListEntriesTableAnnotationComposer
   GeneratedColumn<String> get forPerson =>
       $composableBuilder(column: $table.forPerson, builder: (column) => column);
 
-  GeneratedColumn<String> get linkedItemId => $composableBuilder(
-    column: $table.linkedItemId,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get linkedRecipeId => $composableBuilder(
-    column: $table.linkedRecipeId,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
@@ -20992,6 +23891,52 @@ class $$WishListEntriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$ItemsTableAnnotationComposer get linkedItemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableAnnotationComposer get linkedRecipeId {
+    final $$RecipesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedRecipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecipesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$WishListEntriesTableTableManager
@@ -21005,12 +23950,9 @@ class $$WishListEntriesTableTableManager
           $$WishListEntriesTableAnnotationComposer,
           $$WishListEntriesTableCreateCompanionBuilder,
           $$WishListEntriesTableUpdateCompanionBuilder,
-          (
-            WishListEntry,
-            BaseReferences<_$AppDatabase, $WishListEntriesTable, WishListEntry>,
-          ),
+          (WishListEntry, $$WishListEntriesTableReferences),
           WishListEntry,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool linkedItemId, bool linkedRecipeId})
         > {
   $$WishListEntriesTableTableManager(
     _$AppDatabase db,
@@ -21082,9 +24024,72 @@ class $$WishListEntriesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$WishListEntriesTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback:
+              ({linkedItemId = false, linkedRecipeId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (linkedItemId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.linkedItemId,
+                                    referencedTable:
+                                        $$WishListEntriesTableReferences
+                                            ._linkedItemIdTable(db),
+                                    referencedColumn:
+                                        $$WishListEntriesTableReferences
+                                            ._linkedItemIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (linkedRecipeId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.linkedRecipeId,
+                                    referencedTable:
+                                        $$WishListEntriesTableReferences
+                                            ._linkedRecipeIdTable(db),
+                                    referencedColumn:
+                                        $$WishListEntriesTableReferences
+                                            ._linkedRecipeIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
         ),
       );
 }
@@ -21099,12 +24104,9 @@ typedef $$WishListEntriesTableProcessedTableManager =
       $$WishListEntriesTableAnnotationComposer,
       $$WishListEntriesTableCreateCompanionBuilder,
       $$WishListEntriesTableUpdateCompanionBuilder,
-      (
-        WishListEntry,
-        BaseReferences<_$AppDatabase, $WishListEntriesTable, WishListEntry>,
-      ),
+      (WishListEntry, $$WishListEntriesTableReferences),
       WishListEntry,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool linkedItemId, bool linkedRecipeId})
     >;
 typedef $$ShopsTableCreateCompanionBuilder =
     ShopsCompanion Function({
@@ -22392,6 +25394,8 @@ typedef $$BodyWeightLogsTableProcessedTableManager =
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
+  $$LocationsTableTableManager get locations =>
+      $$LocationsTableTableManager(_db, _db.locations);
   $$ItemsTableTableManager get items =>
       $$ItemsTableTableManager(_db, _db.items);
   $$InventoryEntriesTableTableManager get inventoryEntries =>
@@ -22404,8 +25408,6 @@ class $AppDatabaseManager {
       $$ItemEventsTableTableManager(_db, _db.itemEvents);
   $$ItemStatesTableTableManager get itemStates =>
       $$ItemStatesTableTableManager(_db, _db.itemStates);
-  $$LocationsTableTableManager get locations =>
-      $$LocationsTableTableManager(_db, _db.locations);
   $$TagDefinitionsTableTableManager get tagDefinitions =>
       $$TagDefinitionsTableTableManager(_db, _db.tagDefinitions);
   $$ItemTagsTableTableManager get itemTags =>

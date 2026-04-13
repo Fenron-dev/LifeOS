@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import 'items_table.dart';
+
 /// Tag definitions — scoped per category so food tags != electronics tags
 class TagDefinitions extends Table {
   TextColumn get id => text()();
@@ -16,8 +18,10 @@ class TagDefinitions extends Table {
 
 /// Many-to-many: items ↔ tags
 class ItemTags extends Table {
-  TextColumn get itemId => text()();
-  TextColumn get tagId => text().references(TagDefinitions, #id)();
+  TextColumn get itemId =>
+      text().references(Items, #id, onDelete: KeyAction.cascade)();
+  TextColumn get tagId => text()
+      .references(TagDefinitions, #id, onDelete: KeyAction.cascade)();
 
   @override
   Set<Column> get primaryKey => {itemId, tagId};

@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import 'items_table.dart';
+
 class Recipes extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
@@ -29,9 +31,14 @@ class Recipes extends Table {
 
 class RecipeIngredients extends Table {
   TextColumn get id => text()();
-  TextColumn get recipeId => text().references(Recipes, #id)();
-  TextColumn get itemId => text().nullable()(); // FK → Items (linked product)
-  TextColumn get itemGroupId => text().nullable()(); // FK → ItemGroups (alternative)
+  TextColumn get recipeId =>
+      text().references(Recipes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get itemId => text()
+      .nullable()
+      .references(Items, #id, onDelete: KeyAction.setNull)();
+  TextColumn get itemGroupId => text()
+      .nullable()
+      .references(ItemGroups, #id, onDelete: KeyAction.setNull)();
   TextColumn get name => text()(); // display name (may differ from item name)
   RealColumn get quantity => real()();
   TextColumn get unit => text()();
@@ -44,7 +51,8 @@ class RecipeIngredients extends Table {
 
 class RecipeSteps extends Table {
   TextColumn get id => text()();
-  TextColumn get recipeId => text().references(Recipes, #id)();
+  TextColumn get recipeId =>
+      text().references(Recipes, #id, onDelete: KeyAction.cascade)();
   IntColumn get stepNumber => integer()();
   TextColumn get instruction => text()();
 
@@ -65,9 +73,14 @@ class StandardMeals extends Table {
 
 class StandardMealIngredients extends Table {
   TextColumn get id => text()();
-  TextColumn get mealId => text().references(StandardMeals, #id)();
-  TextColumn get itemId => text().nullable()();
-  TextColumn get itemGroupId => text().nullable()();
+  TextColumn get mealId =>
+      text().references(StandardMeals, #id, onDelete: KeyAction.cascade)();
+  TextColumn get itemId => text()
+      .nullable()
+      .references(Items, #id, onDelete: KeyAction.setNull)();
+  TextColumn get itemGroupId => text()
+      .nullable()
+      .references(ItemGroups, #id, onDelete: KeyAction.setNull)();
   TextColumn get name => text()();
   RealColumn get quantity => real()();
   TextColumn get unit => text()();
@@ -91,10 +104,15 @@ class MealTypes extends Table {
 /// Assigns a StandardMeal ("Gericht") or Recipe to a MealType
 class MealTypeAssignments extends Table {
   TextColumn get id => text()();
-  TextColumn get mealTypeId => text().references(MealTypes, #id)();
+  TextColumn get mealTypeId =>
+      text().references(MealTypes, #id, onDelete: KeyAction.cascade)();
   // exactly one of these will be non-null
-  TextColumn get dishId => text().nullable()();   // FK → StandardMeals
-  TextColumn get recipeId => text().nullable()(); // FK → Recipes
+  TextColumn get dishId => text()
+      .nullable()
+      .references(StandardMeals, #id, onDelete: KeyAction.cascade)();
+  TextColumn get recipeId => text()
+      .nullable()
+      .references(Recipes, #id, onDelete: KeyAction.cascade)();
 
   @override
   Set<Column> get primaryKey => {id};

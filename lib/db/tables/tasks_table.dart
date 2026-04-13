@@ -1,5 +1,8 @@
 import 'package:drift/drift.dart';
 
+import 'items_table.dart';
+import 'recipes_table.dart';
+
 class Tasks extends Table {
   TextColumn get id => text()();
   TextColumn get title => text()();
@@ -27,8 +30,12 @@ class WishListEntries extends Table {
   RealColumn get price => real().nullable()();
   TextColumn get priority => text().withDefault(const Constant('medium'))(); // low | medium | high
   TextColumn get forPerson => text().nullable()();
-  TextColumn get linkedItemId => text().nullable()(); // FK → Items
-  TextColumn get linkedRecipeId => text().nullable()(); // FK → Recipes
+  TextColumn get linkedItemId => text()
+      .nullable()
+      .references(Items, #id, onDelete: KeyAction.setNull)();
+  TextColumn get linkedRecipeId => text()
+      .nullable()
+      .references(Recipes, #id, onDelete: KeyAction.setNull)();
   TextColumn get notes => text().nullable()();
   BoolColumn get fulfilled => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

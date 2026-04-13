@@ -93,5 +93,9 @@
 
   "errorGeneric": "An error occurred",
   "noItemsFound": "No items found",
-  "loading": "Loading..."
+  "loading": "Loading...",
+
+  "expiryNotificationTitle": "Expiry",
+  "expiryNotificationBodyExpired": "{itemName} has expired!",
+  "expiryNotificationBodySoon": "{itemName} expires in {days, plural, =1{1 day} other{{days} days}}."
 }

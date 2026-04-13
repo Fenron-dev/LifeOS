@@ -95,5 +95,21 @@
 
   "errorGeneric": "Ein Fehler ist aufgetreten",
   "noItemsFound": "Keine Einträge gefunden",
-  "loading": "Wird geladen..."
+  "loading": "Wird geladen...",
+
+  "expiryNotificationTitle": "Ablaufdatum",
+  "@expiryNotificationTitle": {"description": "Title for expiry-warning local notifications"},
+  "expiryNotificationBodyExpired": "{itemName} ist abgelaufen!",
+  "@expiryNotificationBodyExpired": {
+    "description": "Body shown when an item is already past its expiry date",
+    "placeholders": {"itemName": {"type": "String"}}
+  },
+  "expiryNotificationBodySoon": "{itemName} läuft in {days, plural, =1{1 Tag} other{{days} Tagen}} ab.",
+  "@expiryNotificationBodySoon": {
+    "description": "Body shown when an item is about to expire",
+    "placeholders": {
+      "itemName": {"type": "String"},
+      "days": {"type": "int"}
+    }
+  }
 }
