@@ -80,6 +80,12 @@ class OFFProduct {
   }
 }
 
+class _LookupCacheEntry {
+  final OFFProduct? value;
+  final DateTime fetchedAt;
+  _LookupCacheEntry(this.value, this.fetchedAt);
+}
+
 class OpenFoodFactsService {
   static const _baseUrl = 'https://world.openfoodfacts.org/api/v2/product';
   static const _userAgent = 'LifeOS/1.0 (github.com/fenron/lifeos)';
@@ -88,8 +94,59 @@ class OpenFoodFactsService {
       'product_name,brands,image_url,nutriments,nutriscore_grade,'
       'nova_group,ingredients_text,serving_size';
 
+  // OFF asks clients to cache and not hammer their API. We keep an in-process
+  // cache keyed by EAN (24 h for hits, 10 min for misses) plus an in-flight
+  // map that deduplicates parallel requests for the same code.
+  static const _cacheMaxEntries = 200;
+  static const _hitTtl = Duration(hours: 24);
+  static const _missTtl = Duration(minutes: 10);
+  static final Map<String, _LookupCacheEntry> _lookupCache = {};
+  static final Map<String, Future<OFFProduct?>> _inflight = {};
+
+  /// Test/debug helper — clears the lookup cache.
+  static void clearCache() {
+    _lookupCache.clear();
+    _inflight.clear();
+  }
+
   /// Looks up a product by EAN barcode. Returns null if not found.
   static Future<OFFProduct?> lookup(String ean) async {
+    final cached = _lookupCache[ean];
+    if (cached != null) {
+      final age = DateTime.now().difference(cached.fetchedAt);
+      final ttl = cached.value == null ? _missTtl : _hitTtl;
+      if (age < ttl) {
+        // Touch for LRU.
+        _lookupCache.remove(ean);
+        _lookupCache[ean] = cached;
+        return cached.value;
+      }
+      _lookupCache.remove(ean);
+    }
+
+    final inflight = _inflight[ean];
+    if (inflight != null) return inflight;
+
+    final future = _fetchAndCache(ean);
+    _inflight[ean] = future;
+    try {
+      return await future;
+    } finally {
+      _inflight.remove(ean);
+    }
+  }
+
+  static Future<OFFProduct?> _fetchAndCache(String ean) async {
+    final result = await _fetchFromApi(ean);
+    _lookupCache[ean] = _LookupCacheEntry(result, DateTime.now());
+    if (_lookupCache.length > _cacheMaxEntries) {
+      // Evict oldest insertion (Map preserves insertion order in Dart).
+      _lookupCache.remove(_lookupCache.keys.first);
+    }
+    return result;
+  }
+
+  static Future<OFFProduct?> _fetchFromApi(String ean) async {
     try {
       final uri = Uri.parse('$_baseUrl/$ean.json?fields=$_fields');
       final response = await http

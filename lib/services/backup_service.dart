@@ -26,34 +26,47 @@ class BackupService {
 
   /// Restores a backup zip to [vaultPath].
   /// The caller must close the database connection before calling this.
+  ///
+  /// Streams the archive entry-by-entry instead of decoding the whole zip
+  /// into memory, so photo-heavy backups don't OOM.
   static Future<void> restoreBackup(String zipPath, String vaultPath) async {
-    final bytes = await File(zipPath).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
-
     final vaultRoot = p.normalize(p.absolute(vaultPath));
     final rootWithSep = vaultRoot.endsWith(p.separator)
         ? vaultRoot
         : '$vaultRoot${p.separator}';
 
-    for (final file in archive) {
-      final entryName = file.name;
-      // Reject absolute paths and any segment that escapes the vault.
-      if (p.isAbsolute(entryName) ||
-          p.split(entryName).any((s) => s == '..')) {
-        throw FormatException('Unsicherer Pfad im Backup: $entryName');
-      }
-      final resolved = p.normalize(p.join(vaultRoot, entryName));
-      if (resolved != vaultRoot && !resolved.startsWith(rootWithSep)) {
-        throw FormatException('Unsicherer Pfad im Backup: $entryName');
-      }
+    final input = InputFileStream(zipPath);
+    try {
+      final archive = ZipDecoder().decodeBuffer(input);
+      for (final file in archive) {
+        final entryName = file.name;
+        // Reject absolute paths and any segment that escapes the vault.
+        if (p.isAbsolute(entryName) ||
+            p.split(entryName).any((s) => s == '..')) {
+          throw FormatException('Unsicherer Pfad im Backup: $entryName');
+        }
+        final resolved = p.normalize(p.join(vaultRoot, entryName));
+        if (resolved != vaultRoot && !resolved.startsWith(rootWithSep)) {
+          throw FormatException('Unsicherer Pfad im Backup: $entryName');
+        }
 
-      if (file.isFile) {
-        final outFile = File(resolved);
-        await outFile.create(recursive: true);
-        await outFile.writeAsBytes(file.content as List<int>);
-      } else {
-        await Directory(resolved).create(recursive: true);
+        if (file.isFile) {
+          final outFile = File(resolved);
+          await outFile.create(recursive: true);
+          final out = OutputFileStream(resolved);
+          try {
+            file.writeContent(out);
+          } finally {
+            await out.close();
+          }
+        } else {
+          await Directory(resolved).create(recursive: true);
+        }
+        // Release per-entry buffers so memory use stays flat.
+        file.clear();
       }
+    } finally {
+      await input.close();
     }
   }
 }

@@ -4,13 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/recipes_provider.dart';
 import '../../services/mealie_service.dart';
+import '../../services/secret_storage.dart';
 
 // ---------------------------------------------------------------------------
 // Persistent Mealie connection settings
 // ---------------------------------------------------------------------------
 
+// URL is non-sensitive → SharedPreferences. Token lives in secure storage.
 const _kMealieUrl = 'mealie_url';
-const _kMealieToken = 'mealie_token';
+const _kMealieTokenSecret = 'mealie_token';
+// Legacy SharedPreferences key, migrated on first read.
+const _kMealieTokenLegacyPrefs = 'mealie_token';
 
 class MealieImportScreen extends ConsumerStatefulWidget {
   const MealieImportScreen({super.key});
@@ -40,7 +44,12 @@ class _MealieImportScreenState extends ConsumerState<MealieImportScreen> {
   Future<void> _loadSaved() async {
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString(_kMealieUrl) ?? '';
-    final token = prefs.getString(_kMealieToken) ?? '';
+    final token = await SecretStorage.read(
+          _kMealieTokenSecret,
+          legacyPrefsKey: _kMealieTokenLegacyPrefs,
+        ) ??
+        '';
+    if (!mounted) return;
     _urlCtrl.text = url;
     _tokenCtrl.text = token;
     if (url.isNotEmpty && token.isNotEmpty) {
@@ -56,8 +65,9 @@ class _MealieImportScreenState extends ConsumerState<MealieImportScreen> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kMealieUrl, url);
-    await prefs.setString(_kMealieToken, token);
+    await SecretStorage.write(_kMealieTokenSecret, token);
 
+    if (!mounted) return;
     setState(() {
       _service = MealieService(baseUrl: url, apiToken: token);
       _error = null;
