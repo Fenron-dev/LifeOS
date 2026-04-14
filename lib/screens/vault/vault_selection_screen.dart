@@ -261,32 +261,34 @@ class _EncryptionChoiceDialogState extends State<_EncryptionChoiceDialog> {
               'unverschlüsselt im Ordner — nur die Datenbank wird verschlüsselt.',
             ),
             const SizedBox(height: 16),
-            RadioListTile<VaultEncryptionMode>(
-              value: VaultEncryptionMode.keystore,
+            RadioGroup<VaultEncryptionMode>(
               groupValue: _mode,
               onChanged: (v) => setState(() => _mode = v!),
-              title: const Text('OS-Schlüsselbund (empfohlen)'),
-              subtitle: const Text(
-                'Bequem, kein Passwort-Prompt. Schlüssel bleibt auf diesem '
-                'Gerät — beim Kopieren des Vaults muss neu gepairt werden.',
+              child: Column(
+                children: [
+                  RadioListTile<VaultEncryptionMode>(
+                    value: VaultEncryptionMode.keystore,
+                    title: const Text('OS-Schlüsselbund (empfohlen)'),
+                    subtitle: const Text(
+                      'Bequem, kein Passwort-Prompt. Schlüssel bleibt auf diesem '
+                      'Gerät — beim Kopieren des Vaults muss neu gepairt werden.',
+                    ),
+                  ),
+                  RadioListTile<VaultEncryptionMode>(
+                    value: VaultEncryptionMode.password,
+                    title: const Text('Passwort'),
+                    subtitle: const Text(
+                      'Sicherer und vollständig portabel. Wird bei jedem App-Start '
+                      'abgefragt.',
+                    ),
+                  ),
+                  RadioListTile<VaultEncryptionMode>(
+                    value: VaultEncryptionMode.none,
+                    title: const Text('Keine Verschlüsselung'),
+                    subtitle: const Text('Nur für Tests / unkritische Daten.'),
+                  ),
+                ],
               ),
-            ),
-            RadioListTile<VaultEncryptionMode>(
-              value: VaultEncryptionMode.password,
-              groupValue: _mode,
-              onChanged: (v) => setState(() => _mode = v!),
-              title: const Text('Passwort'),
-              subtitle: const Text(
-                'Sicherer und vollständig portabel. Wird bei jedem App-Start '
-                'abgefragt.',
-              ),
-            ),
-            RadioListTile<VaultEncryptionMode>(
-              value: VaultEncryptionMode.none,
-              groupValue: _mode,
-              onChanged: (v) => setState(() => _mode = v!),
-              title: const Text('Keine Verschlüsselung'),
-              subtitle: const Text('Nur für Tests / unkritische Daten.'),
             ),
             if (_mode == VaultEncryptionMode.password) ...[
               const SizedBox(height: 8),
