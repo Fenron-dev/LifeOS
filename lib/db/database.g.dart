@@ -14519,6 +14519,51 @@ final class $$ItemsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$InventoryEntriesTable, List<InventoryEntry>>
+  _inventoryEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.inventoryEntries,
+    aliasName: $_aliasNameGenerator(db.items.id, db.inventoryEntries.itemId),
+  );
+
+  $$InventoryEntriesTableProcessedTableManager get inventoryEntriesRefs {
+    final manager = $$InventoryEntriesTableTableManager(
+      $_db,
+      $_db.inventoryEntries,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _inventoryEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$InventoryEntriesTable, List<InventoryEntry>>
+  _activeContainerInventoryRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.inventoryEntries,
+        aliasName: $_aliasNameGenerator(
+          db.items.id,
+          db.inventoryEntries.activeContainerId,
+        ),
+      );
+
+  $$InventoryEntriesTableProcessedTableManager
+  get activeContainerInventoryRefs {
+    final manager =
+        $$InventoryEntriesTableTableManager($_db, $_db.inventoryEntries).filter(
+          (f) => f.activeContainerId.id.sqlEquals($_itemColumn<String>('id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _activeContainerInventoryRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$ItemGroupMembersTable, List<ItemGroupMember>>
   _itemGroupMembersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.itemGroupMembers,
@@ -14842,6 +14887,56 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
           ),
     );
     return composer;
+  }
+
+  Expression<bool> inventoryEntriesRefs(
+    Expression<bool> Function($$InventoryEntriesTableFilterComposer f) f,
+  ) {
+    final $$InventoryEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> activeContainerInventoryRefs(
+    Expression<bool> Function($$InventoryEntriesTableFilterComposer f) f,
+  ) {
+    final $$InventoryEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.activeContainerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 
   Expression<bool> itemGroupMembersRefs(
@@ -15354,6 +15449,56 @@ class $$ItemsTableAnnotationComposer
     return composer;
   }
 
+  Expression<T> inventoryEntriesRefs<T extends Object>(
+    Expression<T> Function($$InventoryEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$InventoryEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> activeContainerInventoryRefs<T extends Object>(
+    Expression<T> Function($$InventoryEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$InventoryEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inventoryEntries,
+      getReferencedColumn: (t) => t.activeContainerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InventoryEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.inventoryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> itemGroupMembersRefs<T extends Object>(
     Expression<T> Function($$ItemGroupMembersTableAnnotationComposer a) f,
   ) {
@@ -15549,6 +15694,8 @@ class $$ItemsTableTableManager
           PrefetchHooks Function({
             bool containerItemId,
             bool defaultLocationId,
+            bool inventoryEntriesRefs,
+            bool activeContainerInventoryRefs,
             bool itemGroupMembersRefs,
             bool itemEventsRefs,
             bool itemStatesRefs,
@@ -15695,6 +15842,8 @@ class $$ItemsTableTableManager
               ({
                 containerItemId = false,
                 defaultLocationId = false,
+                inventoryEntriesRefs = false,
+                activeContainerInventoryRefs = false,
                 itemGroupMembersRefs = false,
                 itemEventsRefs = false,
                 itemStatesRefs = false,
@@ -15706,6 +15855,8 @@ class $$ItemsTableTableManager
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
+                    if (inventoryEntriesRefs) db.inventoryEntries,
+                    if (activeContainerInventoryRefs) db.inventoryEntries,
                     if (itemGroupMembersRefs) db.itemGroupMembers,
                     if (itemEventsRefs) db.itemEvents,
                     if (itemStatesRefs) db.itemStates,
@@ -15761,6 +15912,48 @@ class $$ItemsTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
+                      if (inventoryEntriesRefs)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          InventoryEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._inventoryEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).inventoryEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (activeContainerInventoryRefs)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          InventoryEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._activeContainerInventoryRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activeContainerInventoryRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.activeContainerId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (itemGroupMembersRefs)
                         await $_getPrefetchedData<
                           Item,
@@ -15919,6 +16112,8 @@ typedef $$ItemsTableProcessedTableManager =
       PrefetchHooks Function({
         bool containerItemId,
         bool defaultLocationId,
+        bool inventoryEntriesRefs,
+        bool activeContainerInventoryRefs,
         bool itemGroupMembersRefs,
         bool itemEventsRefs,
         bool itemStatesRefs,

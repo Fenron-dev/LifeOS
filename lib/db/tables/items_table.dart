@@ -68,6 +68,7 @@ class InventoryEntries extends Table {
   DateTimeColumn get frozenAt => dateTime().nullable()();
   DateTimeColumn get thawedAt => dateTime().nullable()();
   // Container currently used (may differ from item.containerItemId)
+  @ReferenceName('activeContainerInventoryRefs')
   TextColumn get activeContainerId => text()
       .nullable()
       .references(Items, #id, onDelete: KeyAction.setNull)();
