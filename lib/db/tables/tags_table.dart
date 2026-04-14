@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'items_table.dart';
+import 'recipes_table.dart';
 
 /// Tag definitions — scoped per category so food tags != electronics tags
 class TagDefinitions extends Table {
@@ -25,6 +26,17 @@ class ItemTags extends Table {
 
   @override
   Set<Column> get primaryKey => {itemId, tagId};
+}
+
+/// Many-to-many: recipes ↔ tags (uses [TagDefinitions] with category 'recipe')
+class RecipeTags extends Table {
+  TextColumn get recipeId =>
+      text().references(Recipes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get tagId => text()
+      .references(TagDefinitions, #id, onDelete: KeyAction.cascade)();
+
+  @override
+  Set<Column> get primaryKey => {recipeId, tagId};
 }
 
 /// Photos attached to any entity (item, location, recipe, task, etc.)

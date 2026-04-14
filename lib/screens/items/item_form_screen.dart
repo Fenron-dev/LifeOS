@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/item_categories.dart';
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
@@ -73,7 +74,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   String _productType = 'needsCooking';
   bool _alwaysConsumedFully = false;
   bool _openedFlag = true;
-  String _categoryId = 'food';
+  String _categoryId = ItemCategory.food;
   String? _nutriscore;
   int? _novaGroup;
   bool _loadingOff = false;
@@ -505,12 +506,12 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               // ignore: deprecated_member_use
               value: _categoryId,
               decoration: const InputDecoration(labelText: 'Kategorie'),
-              items: const [
-                DropdownMenuItem(value: 'food', child: Text('Lebensmittel')),
-                DropdownMenuItem(value: 'appliance', child: Text('Gerät / Haushalt')),
-                DropdownMenuItem(value: 'task', child: Text('Aufgabe')),
-                DropdownMenuItem(value: 'wishlist', child: Text('Wunschliste')),
-              ],
+              items: ItemCategory.allItemCategories
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(ItemCategory.labelDe(c)),
+                      ))
+                  .toList(),
               onChanged: (v) => setState(() => _categoryId = v!),
             ),
             const SizedBox(height: 12),

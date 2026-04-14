@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -21,6 +20,10 @@ final allRecipesProvider = StreamProvider<List<Recipe>>((ref) {
 // ---------------------------------------------------------------------------
 
 final recipeSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Currently selected recipe in the tablet/desktop split view. Null when
+/// nothing is selected. Mobile navigates via the router and ignores this.
+final selectedRecipeIdProvider = StateProvider<String?>((ref) => null);
 
 // ---------------------------------------------------------------------------
 // Filtered recipes
@@ -64,6 +67,17 @@ final recipeStepsProvider =
   final db = ref.watch(databaseProvider);
   if (db == null) return [];
   return db.stepsForRecipe(recipeId);
+});
+
+// ---------------------------------------------------------------------------
+// Tags for recipe (normalized via recipe_tags junction)
+// ---------------------------------------------------------------------------
+
+final recipeTagsProvider =
+    FutureProvider.family<List<String>, String>((ref, recipeId) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return [];
+  return db.tagsForRecipe(recipeId);
 });
 
 // ---------------------------------------------------------------------------
@@ -130,7 +144,6 @@ class RecipesNotifier extends AsyncNotifier<void> {
       sourceUrl: Value(sourceUrl),
       mealieSlug: Value(mealieSlug),
       imageUrl: Value(imageUrl),
-      tags: Value(tags != null ? jsonEncode(tags) : null),
       notes: Value(notes),
       caloriesPerServing: Value(caloriesPerServing),
       proteinPerServing: Value(proteinPerServing),
@@ -141,6 +154,9 @@ class RecipesNotifier extends AsyncNotifier<void> {
     ));
     await _saveIngredients(id, ingredients);
     await _saveSteps(id, steps);
+    if (tags != null) {
+      await _db.setTagsForRecipe(id, tags);
+    }
     return id;
   }
 
@@ -148,6 +164,7 @@ class RecipesNotifier extends AsyncNotifier<void> {
     Recipe recipe, {
     List<IngredientInput>? ingredients,
     List<String>? steps,
+    List<String>? tags,
   }) async {
     await _db.updateRecipe(RecipesCompanion(
       id: Value(recipe.id),
@@ -159,7 +176,6 @@ class RecipesNotifier extends AsyncNotifier<void> {
       sourceUrl: Value(recipe.sourceUrl),
       mealieSlug: Value(recipe.mealieSlug),
       imageUrl: Value(recipe.imageUrl),
-      tags: Value(recipe.tags),
       notes: Value(recipe.notes),
       caloriesPerServing: Value(recipe.caloriesPerServing),
       proteinPerServing: Value(recipe.proteinPerServing),
@@ -171,6 +187,7 @@ class RecipesNotifier extends AsyncNotifier<void> {
     ));
     if (ingredients != null) await _saveIngredients(recipe.id, ingredients);
     if (steps != null) await _saveSteps(recipe.id, steps);
+    if (tags != null) await _db.setTagsForRecipe(recipe.id, tags);
   }
 
   Future<void> deleteRecipe(String id) async {

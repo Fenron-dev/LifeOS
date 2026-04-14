@@ -4,8 +4,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'l10n/app_localizations.dart';
 
+import 'core/vault_key.dart';
 import 'core/vault_manager.dart';
+import 'core/vault_metadata.dart';
+import 'db/sql_cipher_loader.dart';
 import 'services/notification_service.dart';
+import 'providers/inventory_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/vault_provider.dart';
 import 'router.dart';
@@ -13,6 +17,7 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SqlCipherLoader.registerOpenOverride();
   await NotificationService.initialize();
   runApp(const ProviderScope(child: LifeOSApp()));
 }
@@ -39,7 +44,37 @@ class _LifeOSAppState extends ConsumerState<LifeOSApp> {
     final ok = await VaultManager.initializeVault(lastPath);
     if (!ok) return;
 
-    ref.read(vaultPathProvider.notifier).state = lastPath;
+    // Password-protected vaults need a UI prompt — let the selection screen
+    // handle them. We can only auto-open none/keystore modes (and legacy
+    // unencrypted vaults without metadata).
+    final metadata = await VaultMetadata.load(lastPath);
+    if (metadata != null &&
+        metadata.encryption == VaultEncryptionMode.password) {
+      return;
+    }
+
+    String? key;
+    try {
+      if (metadata != null) {
+        key = await VaultKeyService.resolveKey(
+          vaultPath: lastPath,
+          metadata: metadata,
+        );
+      }
+    } catch (_) {
+      return;
+    }
+
+    ref.read(openVaultProvider.notifier).state = OpenVault(
+      path: lastPath,
+      metadata: metadata ??
+          VaultMetadata(
+            version: 1,
+            encryption: VaultEncryptionMode.none,
+            createdAt: DateTime.now(),
+          ),
+      key: key,
+    );
     ref.read(recentVaultsProvider.notifier).addVault(lastPath);
   }
 
@@ -47,6 +82,8 @@ class _LifeOSAppState extends ConsumerState<LifeOSApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final settings = ref.watch(settingsProvider).valueOrNull;
+    // Keep the expiry-notification scheduler alive as long as the app runs.
+    ref.watch(expiryNotificationSchedulerProvider);
 
     return MaterialApp.router(
       title: 'LifeOS',

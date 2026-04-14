@@ -13,7 +13,6 @@ class Recipes extends Table {
   TextColumn get sourceUrl => text().nullable()(); // original web URL
   TextColumn get mealieSlug => text().nullable()(); // Mealie slug for sync
   TextColumn get imageUrl => text().nullable()(); // cover image
-  TextColumn get tags => text().nullable()(); // JSON array of tag strings
   TextColumn get notes => text().nullable()();
   // Nutrition per serving (derived from ingredients or imported)
   RealColumn get caloriesPerServing => real().nullable()();

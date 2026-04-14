@@ -3,11 +3,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../services/notification_service.dart';
 import 'vault_provider.dart';
 
 // ---------------------------------------------------------------------------
 // All item states → Map<itemId, List<ItemState>> for inventory list badges
 // ---------------------------------------------------------------------------
+
+/// Side-effect provider: watches every inventory entry with an expiry date
+/// and rebuilds the OS-level scheduled notifications on each change. The
+/// widget tree keeps it alive via `ref.watch` in the root; disposal cancels
+/// the subscription but intentionally leaves already-scheduled notifications
+/// in place (so they still fire after the app is killed).
+final expiryNotificationSchedulerProvider = Provider<void>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return;
+  final sub = db.watchExpirableInventory().listen((rows) {
+    final notices = rows
+        .map((r) => ExpiryNotice(
+              id: r.entry.id,
+              itemName: r.item.name,
+              expiryDate: r.entry.expiryDate!,
+            ))
+        .toList();
+    NotificationService.scheduleExpiryNotifications(
+      notices: notices,
+      title: 'Ablaufdatum nähert sich',
+      buildBody: (name, daysLeft) {
+        if (daysLeft <= 0) return '$name ist abgelaufen';
+        if (daysLeft == 1) return '$name läuft morgen ab';
+        return '$name läuft in $daysLeft Tagen ab';
+      },
+    );
+  });
+  ref.onDispose(sub.cancel);
+});
 
 /// Aggregated stock per item: {itemId → list of (qty, unit) entries}.
 /// Used to show stock counts on the inventory list without N individual queries.

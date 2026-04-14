@@ -1,7 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
+
+import '../core/item_categories.dart';
+
+import 'sql_cipher_loader.dart';
 
 import 'tables/items_table.dart';
 import 'tables/events_table.dart';
@@ -30,6 +37,7 @@ part 'database.g.dart';
   // Tags & photos
   TagDefinitions,
   ItemTags,
+  RecipeTags,
   EntityPhotos,
   // Recipes & meal planning
   Recipes,
@@ -53,10 +61,19 @@ part 'database.g.dart';
   BodyWeightLogs,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase(String vaultPath) : super(_openDb(vaultPath));
+  /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
+  /// SQLite (legacy vaults / unencrypted mode).
+  AppDatabase(String vaultPath, {String? encryptionKey})
+      : super(_openDb(vaultPath, encryptionKey));
+
+  /// Test-only constructor that accepts an arbitrary [QueryExecutor] — used
+  /// by the migration and smoke tests to open an in-memory database without
+  /// touching SQLCipher or the filesystem.
+  @visibleForTesting
+  AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -92,7 +109,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(recipes, recipes.sourceUrl);
             await m.addColumn(recipes, recipes.mealieSlug);
             await m.addColumn(recipes, recipes.imageUrl);
-            await m.addColumn(recipes, recipes.tags);
+            // v4 added `recipes.tags TEXT` (JSON) — v10 later normalizes it
+            // into recipe_tags and drops the column. Add via raw SQL because
+            // the column no longer exists on the Dart-side Recipes table.
+            await customStatement('ALTER TABLE recipes ADD COLUMN tags TEXT');
             await m.addColumn(recipes, recipes.fiberPerServing);
             await m.addColumn(recipes, recipes.sodiumPerServing);
             await _seedDefaultUnits();
@@ -140,6 +160,18 @@ class AppDatabase extends _$AppDatabase {
             await customStatement('PRAGMA foreign_keys = ON');
             await _createIndexes();
           }
+          if (from < 10) {
+            // Normalize recipe tags: JSON column → recipe_tags junction +
+            // tag_definitions (scope 'recipe'). Reads the old column via raw
+            // SQL before it disappears from the schema.
+            await m.createTable(recipeTags);
+            await _migrateRecipeTagsJson();
+            await customStatement('PRAGMA foreign_keys = OFF');
+            await transaction(() async {
+              await m.alterTable(TableMigration(recipes));
+            });
+            await customStatement('PRAGMA foreign_keys = ON');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -147,9 +179,24 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
-  static QueryExecutor _openDb(String vaultPath) {
+  static QueryExecutor _openDb(String vaultPath, String? encryptionKey) {
     final dbFile = File(p.join(vaultPath, 'lifeos.db'));
-    return NativeDatabase.createInBackground(dbFile);
+    return NativeDatabase.createInBackground(
+      dbFile,
+      isolateSetup: () async {
+        // Re-register the SQLCipher loader inside the Drift background isolate
+        // so the encrypted `libsqlite3` is used for actual queries.
+        SqlCipherLoader.registerOpenOverride();
+      },
+      setup: (rawDb) {
+        if (encryptionKey != null && encryptionKey.isNotEmpty) {
+          // PRAGMA key must be the very first statement — it unlocks the DB.
+          // Quotes inside the key would break the literal; the keys we generate
+          // are hex-only / PBKDF2-hex so this is safe.
+          rawDb.execute("PRAGMA key = '$encryptionKey'");
+        }
+      },
+    );
   }
 
   // ── Items ──────────────────────────────────────────────────────────────────
@@ -187,6 +234,23 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<InventoryEntry>> watchInventoryForItem(String itemId) =>
       (select(inventoryEntries)..where((e) => e.itemId.equals(itemId))).watch();
+
+  /// Streams every inventory entry with a non-null expiry date, joined with
+  /// its [Item] so callers get the display name in one query. Used by the
+  /// notification scheduler to rebuild the zoned-alert list on every change.
+  Stream<List<({InventoryEntry entry, Item item})>> watchExpirableInventory() {
+    final query = select(inventoryEntries).join([
+      innerJoin(items, items.id.equalsExp(inventoryEntries.itemId)),
+    ])..where(inventoryEntries.expiryDate.isNotNull());
+    return query.watch().map(
+          (rows) => rows
+              .map((r) => (
+                    entry: r.readTable(inventoryEntries),
+                    item: r.readTable(items),
+                  ))
+              .toList(),
+        );
+  }
 
   Future<List<InventoryEntry>> expiringWithin(int days) {
     final cutoff = DateTime.now().add(Duration(days: days));
@@ -703,4 +767,98 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteWeightLog(String id) =>
       (delete(bodyWeightLogs)..where((l) => l.id.equals(id))).go();
+
+  // ── Recipe tags ────────────────────────────────────────────────────────────
+
+  static const _uuid = Uuid();
+
+  /// Reads all tag names currently linked to a recipe, sorted alphabetically.
+  Future<List<String>> tagsForRecipe(String recipeId) async {
+    final query = select(recipeTags).join([
+      innerJoin(
+        tagDefinitions,
+        tagDefinitions.id.equalsExp(recipeTags.tagId),
+      ),
+    ])
+      ..where(recipeTags.recipeId.equals(recipeId))
+      ..orderBy([OrderingTerm.asc(tagDefinitions.name)]);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(tagDefinitions).name).toList();
+  }
+
+  /// Replaces the tag set for a recipe. Tag names are resolved against
+  /// [tagDefinitions] in the `recipe` scope — missing definitions are created
+  /// on the fly. Removes any link not in [tagNames].
+  Future<void> setTagsForRecipe(
+    String recipeId,
+    List<String> tagNames,
+  ) async {
+    final cleaned = tagNames
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList();
+
+    await transaction(() async {
+      await (delete(recipeTags)..where((t) => t.recipeId.equals(recipeId)))
+          .go();
+      for (final name in cleaned) {
+        final tagId = await _ensureRecipeTag(name);
+        // Insert-or-ignore: case-insensitive resolution above can map two
+        // inputs ('foo', 'Foo') to the same tag id. The junction key is
+        // (recipe_id, tag_id), so we keep duplicates harmless.
+        await into(recipeTags).insertOnConflictUpdate(
+          RecipeTagsCompanion.insert(recipeId: recipeId, tagId: tagId),
+        );
+      }
+    });
+  }
+
+  /// Finds or creates a [TagDefinitions] row for the recipe scope with the
+  /// given name. Case-insensitive match on the name.
+  Future<String> _ensureRecipeTag(String name) async {
+    final existing = await (select(tagDefinitions)
+          ..where((t) =>
+              t.categoryId.equals(ItemCategory.recipe) &
+              t.name.lower().equals(name.toLowerCase())))
+        .getSingleOrNull();
+    if (existing != null) return existing.id;
+    final id = _uuid.v4();
+    await into(tagDefinitions).insert(TagDefinitionsCompanion.insert(
+      id: id,
+      name: name,
+      categoryId: ItemCategory.recipe,
+    ));
+    return id;
+  }
+
+  /// v10 migration: pulls legacy `recipes.tags` JSON strings via raw SQL and
+  /// materialises them into [tagDefinitions] + [recipeTags]. Safe to run
+  /// multiple times — [_ensureRecipeTag] is idempotent.
+  Future<void> _migrateRecipeTagsJson() async {
+    final rows = await customSelect(
+      'SELECT id, tags FROM recipes WHERE tags IS NOT NULL',
+    ).get();
+    for (final row in rows) {
+      final recipeId = row.read<String>('id');
+      final raw = row.read<String?>('tags');
+      if (raw == null || raw.isEmpty) continue;
+      List<dynamic> decoded;
+      try {
+        decoded = jsonDecode(raw) as List<dynamic>;
+      } catch (_) {
+        continue;
+      }
+      final names = decoded
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      for (final name in names) {
+        final tagId = await _ensureRecipeTag(name);
+        await into(recipeTags).insertOnConflictUpdate(
+          RecipeTagsCompanion.insert(recipeId: recipeId, tagId: tagId),
+        );
+      }
+    }
+  }
 }

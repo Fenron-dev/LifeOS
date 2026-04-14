@@ -73,7 +73,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             trailing: TextButton(
               onPressed: () =>
-                  ref.read(vaultPathProvider.notifier).state = null,
+                  ref.read(openVaultProvider.notifier).state = null,
               child: const Text('Wechseln'),
             ),
           ),

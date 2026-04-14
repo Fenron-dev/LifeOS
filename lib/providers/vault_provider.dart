@@ -4,26 +4,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/vault_manager.dart';
+import '../core/vault_metadata.dart';
 import '../db/database.dart';
 
 const _kLastVaultKey = 'last_vault';
 const _kRecentVaultsKey = 'recent_vaults';
 
 // ---------------------------------------------------------------------------
-// Current vault path — drives the whole app
+// Currently open vault — path, metadata, and resolved encryption key
 // ---------------------------------------------------------------------------
 
-final vaultPathProvider = StateProvider<String?>((ref) => null);
+class OpenVault {
+  final String path;
+  final VaultMetadata metadata;
+  final String? key; // null for unencrypted vaults
+
+  const OpenVault({
+    required this.path,
+    required this.metadata,
+    required this.key,
+  });
+}
+
+final openVaultProvider = StateProvider<OpenVault?>((ref) => null);
+
+/// Convenience: bare path of the currently open vault. Many widgets only need
+/// the path, so they can watch this instead of [openVaultProvider].
+final vaultPathProvider = Provider<String?>((ref) {
+  return ref.watch(openVaultProvider)?.path;
+});
 
 // ---------------------------------------------------------------------------
-// Database — opened from current vault path
+// Database — opened from current vault path + key
 // ---------------------------------------------------------------------------
 
 final databaseProvider = Provider<AppDatabase?>((ref) {
-  final vaultPath = ref.watch(vaultPathProvider);
-  if (vaultPath == null) return null;
+  final open = ref.watch(openVaultProvider);
+  if (open == null) return null;
 
-  final db = AppDatabase(vaultPath);
+  final db = AppDatabase(open.path, encryptionKey: open.key);
   ref.onDispose(() => db.close());
   return db;
 });

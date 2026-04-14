@@ -5,14 +5,27 @@ import 'package:go_router/go_router.dart';
 import '../../db/database.dart';
 import '../../providers/recipes_provider.dart';
 import '../../widgets/adaptive_shell.dart';
+import 'recipe_detail_screen.dart';
 
 class RecipesScreen extends ConsumerWidget {
   const RecipesScreen({super.key});
+
+  static const double _splitBreakpoint = 720;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recipesAsync = ref.watch(filteredRecipesProvider);
     final query = ref.watch(recipeSearchQueryProvider);
+    final isSplit = MediaQuery.sizeOf(context).width >= _splitBreakpoint;
+    final selectedId = ref.watch(selectedRecipeIdProvider);
+
+    final listPane = recipesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Fehler: $e')),
+      data: (recipes) => recipes.isEmpty
+          ? _EmptyState(hasQuery: query.isNotEmpty)
+          : _RecipesList(recipes: recipes, splitMode: isSplit),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -48,13 +61,20 @@ class RecipesScreen extends ConsumerWidget {
           ),
         ),
       ),
-      body: recipesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
-        data: (recipes) => recipes.isEmpty
-            ? _EmptyState(hasQuery: query.isNotEmpty)
-            : _RecipesList(recipes: recipes),
-      ),
+      body: isSplit
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: 360, child: listPane),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: selectedId == null
+                      ? const _SplitPlaceholder()
+                      : RecipeSplitDetailPane(recipeId: selectedId),
+                ),
+              ],
+            )
+          : listPane,
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -77,31 +97,54 @@ class RecipesScreen extends ConsumerWidget {
   }
 }
 
-class _RecipesList extends StatelessWidget {
+class _RecipesList extends ConsumerWidget {
   final List<Recipe> recipes;
-  const _RecipesList({required this.recipes});
+  final bool splitMode;
+  const _RecipesList({required this.recipes, required this.splitMode});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedId =
+        splitMode ? ref.watch(selectedRecipeIdProvider) : null;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       itemCount: recipes.length,
-      itemBuilder: (context, i) => _RecipeCard(recipe: recipes[i]),
+      itemBuilder: (context, i) => _RecipeCard(
+        recipe: recipes[i],
+        selected: splitMode && recipes[i].id == selectedId,
+        onTap: () {
+          if (splitMode) {
+            ref.read(selectedRecipeIdProvider.notifier).state = recipes[i].id;
+          } else {
+            context.push('/recipes/${recipes[i].id}');
+          }
+        },
+      ),
     );
   }
 }
 
 class _RecipeCard extends StatelessWidget {
   final Recipe recipe;
-  const _RecipeCard({required this.recipe});
+  final bool selected;
+  final VoidCallback onTap;
+  const _RecipeCard({
+    required this.recipe,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final totalTime = (recipe.prepTimeMinutes ?? 0) + (recipe.cookTimeMinutes ?? 0);
+    final totalTime =
+        (recipe.prepTimeMinutes ?? 0) + (recipe.cookTimeMinutes ?? 0);
+    final scheme = Theme.of(context).colorScheme;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: selected ? scheme.secondaryContainer : null,
       child: ListTile(
+        selected: selected,
         leading: recipe.imageUrl != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(6),
@@ -135,7 +178,27 @@ class _RecipeCard extends StatelessWidget {
           ],
         ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.push('/recipes/${recipe.id}'),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _SplitPlaceholder extends StatelessWidget {
+  const _SplitPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.menu_book_outlined,
+              size: 64, color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 12),
+          Text('Rezept auswählen',
+              style: Theme.of(context).textTheme.titleMedium),
+        ],
       ),
     );
   }

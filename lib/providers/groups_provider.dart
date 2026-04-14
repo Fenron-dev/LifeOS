@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/item_categories.dart';
 import '../db/database.dart';
 import 'vault_provider.dart';
 
@@ -103,7 +104,7 @@ class GroupsNotifier extends AsyncNotifier<void> {
 
   Future<String> create({
     required String name,
-    String categoryId = 'food',
+    String categoryId = ItemCategory.food,
     double? minStockQuantity,
     String? minStockUnit,
     String? notes,
@@ -123,7 +124,7 @@ class GroupsNotifier extends AsyncNotifier<void> {
   Future<void> save({
     required String id,
     required String name,
-    String categoryId = 'food',
+    String categoryId = ItemCategory.food,
     double? minStockQuantity,
     String? minStockUnit,
     String? notes,

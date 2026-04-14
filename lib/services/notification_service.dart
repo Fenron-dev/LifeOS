@@ -1,12 +1,34 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 
 const _channelId = 'lifeos_expiry';
-const _channelName = 'Expiry';
+const _channelName = 'Ablaufdatum';
+const _channelDescription =
+    'Benachrichtigungen, bevor Lebensmittel ablaufen.';
 
-/// Builds the notification body for an item, given its name and the days
-/// remaining until expiry (negative or zero means already expired).
+/// Stable id range for scheduled expiry notifications. `show()` calls that
+/// bypass the scheduler use ids >= 1000 to avoid collisions.
+const _scheduledIdOffset = 100000;
+
+/// Builds the localized notification body for an entry.
 typedef ExpiryBodyBuilder = String Function(String itemName, int daysLeft);
+
+/// Plain data model for a pending expiry — kept decoupled from Drift so the
+/// service does not depend on the database layer.
+class ExpiryNotice {
+  /// Stable unique id (e.g. inventory entry id).
+  final String id;
+  final String itemName;
+  final DateTime expiryDate;
+
+  const ExpiryNotice({
+    required this.id,
+    required this.itemName,
+    required this.expiryDate,
+  });
+}
 
 class NotificationService {
   NotificationService._();
@@ -16,17 +38,20 @@ class NotificationService {
 
   static Future<void> initialize() async {
     if (_initialized) return;
+    tz_data.initializeTimeZones();
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const darwin = DarwinInitializationSettings();
+    const darwin = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
     await _plugin.initialize(
       const InitializationSettings(android: android, iOS: darwin),
     );
     _initialized = true;
   }
 
-  /// Shows a notification for an item expiring soon.
-  ///
-  /// [title] and [body] must be supplied by the caller (already localized).
+  /// Shows an instant notification. Used for in-app alerts.
   static Future<void> showExpiryWarning({
     required int id,
     required String title,
@@ -37,45 +62,81 @@ class NotificationService {
       id,
       title,
       body,
-      NotificationDetails(
+      _details(),
+    );
+  }
+
+  /// Replaces all previously scheduled expiry notifications with a fresh set
+  /// for [notices]. Each notice fires at 9:00 local time on the day that is
+  /// [warningDays] before the expiry date (or immediately if that day already
+  /// passed). Call this whenever inventory changes.
+  static Future<void> scheduleExpiryNotifications({
+    required List<ExpiryNotice> notices,
+    required String title,
+    required ExpiryBodyBuilder buildBody,
+    int warningDays = 3,
+    int hourOfDay = 9,
+  }) async {
+    if (!_initialized) await initialize();
+    await cancelAllScheduledExpiries();
+
+    final now = tz.TZDateTime.now(tz.local);
+    for (var i = 0; i < notices.length; i++) {
+      final notice = notices[i];
+      final warnDate = notice.expiryDate.subtract(Duration(days: warningDays));
+      var scheduled = tz.TZDateTime(
+        tz.local,
+        warnDate.year,
+        warnDate.month,
+        warnDate.day,
+        hourOfDay,
+      );
+      // Never schedule in the past — fall back to "in 1 minute" so the user
+      // still sees overdue items on next launch, without duplicating logic.
+      if (!scheduled.isAfter(now)) {
+        scheduled = now.add(const Duration(minutes: 1));
+      }
+
+      final daysLeft = notice.expiryDate.difference(DateTime.now()).inDays;
+      try {
+        await _plugin.zonedSchedule(
+          _scheduledIdOffset + i,
+          title,
+          buildBody(notice.itemName, daysLeft),
+          scheduled,
+          _details(),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: notice.id,
+        );
+      } catch (e) {
+        debugPrint('scheduleExpiryNotifications: $e');
+      }
+    }
+  }
+
+  /// Cancels every notification previously created by
+  /// [scheduleExpiryNotifications]. Uses the reserved id range so [show]
+  /// notifications are untouched.
+  static Future<void> cancelAllScheduledExpiries() async {
+    final pending = await _plugin.pendingNotificationRequests();
+    for (final req in pending) {
+      if (req.id >= _scheduledIdOffset) {
+        await _plugin.cancel(req.id);
+      }
+    }
+  }
+
+  static NotificationDetails _details() => const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
+          channelDescription: _channelDescription,
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
         ),
-        iOS: const DarwinNotificationDetails(),
-      ),
-    );
-  }
-
-  /// Checks the vault DB for items expiring within [warningDays] and fires
-  /// notifications. Localized strings are produced by [title] and [buildBody].
-  static Future<void> checkExpiry({
-    required Future<List<dynamic>> Function(int days) getExpiring,
-    required String Function(dynamic entry) getItemName,
-    required DateTime? Function(dynamic entry) getExpiryDate,
-    required String title,
-    required ExpiryBodyBuilder buildBody,
-    int warningDays = 3,
-  }) async {
-    try {
-      final expiring = await getExpiring(warningDays);
-      for (var i = 0; i < expiring.length; i++) {
-        final entry = expiring[i];
-        final name = getItemName(entry);
-        final expiry = getExpiryDate(entry);
-        if (expiry == null) continue;
-        final daysLeft = expiry.difference(DateTime.now()).inDays;
-        await showExpiryWarning(
-          id: i + 1000, // offset to avoid conflicts with other notifications
-          title: title,
-          body: buildBody(name, daysLeft),
-        );
-      }
-    } catch (e) {
-      debugPrint('NotificationService.checkExpiry error: $e');
-    }
-  }
+        iOS: DarwinNotificationDetails(),
+      );
 }
