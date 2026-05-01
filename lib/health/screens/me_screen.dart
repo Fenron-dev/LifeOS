@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../widgets/adaptive_shell.dart';
+import 'measurements_tab.dart';
 import 'profile_tab.dart';
 import 'weight_tab.dart';
 
@@ -24,7 +25,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
   static const _tabs = <_MeTabSpec>[
     _MeTabSpec(label: 'Tagebuch', icon: Icons.book_outlined, ready: false),
     _MeTabSpec(label: 'Gewicht', icon: Icons.monitor_weight_outlined, ready: true),
-    _MeTabSpec(label: 'Maße', icon: Icons.straighten, ready: false),
+    _MeTabSpec(label: 'Maße', icon: Icons.straighten, ready: true),
     _MeTabSpec(label: 'Fotos', icon: Icons.photo_library_outlined, ready: false),
     _MeTabSpec(label: 'Workouts', icon: Icons.fitness_center, ready: false),
     _MeTabSpec(label: 'Ziele', icon: Icons.flag_outlined, ready: false),
@@ -74,6 +75,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
           if (!t.ready) return _PlaceholderTab(label: t.label, icon: t.icon);
           return switch (t.label) {
             'Gewicht' => const WeightTab(),
+            'Maße' => const MeasurementsTab(),
             'Profil' => const ProfileTab(),
             _ => _PlaceholderTab(label: t.label, icon: t.icon),
           };

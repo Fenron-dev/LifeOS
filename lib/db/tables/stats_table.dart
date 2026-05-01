@@ -1,5 +1,27 @@
 import 'package:drift/drift.dart';
 
+/// Body measurements log — one row per measurement session. All metrics are
+/// in centimetres and nullable so the user can capture any subset (e.g. only
+/// waist and hip) without leaving other fields empty in the UI.
+class BodyMeasurements extends Table {
+  TextColumn get id => text()();
+  DateTimeColumn get loggedAt => dateTime()();
+
+  RealColumn get chestCm => real().nullable()();        // Brust
+  RealColumn get waistCm => real().nullable()();        // Taille
+  RealColumn get hipCm => real().nullable()();          // Hüfte
+  RealColumn get thighCm => real().nullable()();        // Oberschenkel
+  RealColumn get armCm => real().nullable()();          // Arm / Bizeps
+  RealColumn get neckCm => real().nullable()();         // Nacken
+
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Body weight log entries — one row per weigh-in. Also captures full
 /// body-composition data when the scale provides it (body-fat / muscle /
 /// visceral / water / bone). All extra metrics are nullable so a manual

@@ -59,6 +59,7 @@ part 'database.g.dart';
   AppSettings,
   // Stats / Health
   BodyWeightLogs,
+  BodyMeasurements,
   UserProfile,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -74,7 +75,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -182,6 +183,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(bodyWeightLogs, bodyWeightLogs.boneMassKg);
             await m.addColumn(bodyWeightLogs, bodyWeightLogs.source);
             await m.createTable(userProfile);
+          }
+          if (from < 12) {
+            // Phase 6.2 — body measurements (Körpermaße).
+            await m.createTable(bodyMeasurements);
           }
         },
         beforeOpen: (details) async {
@@ -807,6 +812,26 @@ class AppDatabase extends _$AppDatabase {
     ).getSingle();
     return rows.read<int>('c');
   }
+
+  // ── Body Measurements ──────────────────────────────────────────────────────
+
+  Stream<List<BodyMeasurement>> watchBodyMeasurements({int limit = 90}) =>
+      (select(bodyMeasurements)
+            ..orderBy([(m) => OrderingTerm.desc(m.loggedAt)])
+            ..limit(limit))
+          .watch();
+
+  Future<void> insertBodyMeasurement(BodyMeasurementsCompanion entry) =>
+      into(bodyMeasurements).insert(entry);
+
+  Future<void> deleteBodyMeasurement(String id) =>
+      (delete(bodyMeasurements)..where((m) => m.id.equals(id))).go();
+
+  Future<BodyMeasurement?> latestBodyMeasurement() =>
+      (select(bodyMeasurements)
+            ..orderBy([(m) => OrderingTerm.desc(m.loggedAt)])
+            ..limit(1))
+          .getSingleOrNull();
 
   // ── User Profile (singleton) ───────────────────────────────────────────────
 
