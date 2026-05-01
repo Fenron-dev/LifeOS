@@ -57,8 +57,9 @@ part 'database.g.dart';
   // Automation & settings
   AutomationRules,
   AppSettings,
-  // Stats
+  // Stats / Health
   BodyWeightLogs,
+  UserProfile,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -73,7 +74,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,6 +172,16 @@ class AppDatabase extends _$AppDatabase {
               await m.alterTable(TableMigration(recipes));
             });
             await customStatement('PRAGMA foreign_keys = ON');
+          }
+          if (from < 11) {
+            // Phase 6.1 — body composition + user profile.
+            await m.addColumn(bodyWeightLogs, bodyWeightLogs.bodyFatPct);
+            await m.addColumn(bodyWeightLogs, bodyWeightLogs.muscleMassPct);
+            await m.addColumn(bodyWeightLogs, bodyWeightLogs.visceralFat);
+            await m.addColumn(bodyWeightLogs, bodyWeightLogs.waterPct);
+            await m.addColumn(bodyWeightLogs, bodyWeightLogs.boneMassKg);
+            await m.addColumn(bodyWeightLogs, bodyWeightLogs.source);
+            await m.createTable(userProfile);
           }
         },
         beforeOpen: (details) async {
@@ -779,6 +790,39 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteWeightLog(String id) =>
       (delete(bodyWeightLogs)..where((l) => l.id.equals(id))).go();
+
+  /// Newest log first; used to populate the "Aktuelles Gewicht"-Karte.
+  Future<BodyWeightLog?> latestWeightLog() => (select(bodyWeightLogs)
+        ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)])
+        ..limit(1))
+      .getSingleOrNull();
+
+  /// Number of distinct calendar days within the given window that have at
+  /// least one weight log. Drives the "Erfassungsquote"-Anzeige.
+  Future<int> weightLogDaysSince(DateTime since) async {
+    final rows = await customSelect(
+      "SELECT COUNT(DISTINCT date(logged_at, 'unixepoch')) AS c "
+      "FROM body_weight_logs WHERE logged_at >= ?",
+      variables: [Variable<DateTime>(since)],
+    ).getSingle();
+    return rows.read<int>('c');
+  }
+
+  // ── User Profile (singleton) ───────────────────────────────────────────────
+
+  Stream<UserProfileData?> watchUserProfile() =>
+      (select(userProfile)..where((p) => p.id.equals(1)))
+          .watchSingleOrNull();
+
+  Future<UserProfileData?> getUserProfile() =>
+      (select(userProfile)..where((p) => p.id.equals(1)))
+          .getSingleOrNull();
+
+  Future<void> upsertUserProfile(UserProfileCompanion entry) async {
+    // Force the singleton id, regardless of what the caller passed in.
+    final fixed = entry.copyWith(id: const Value(1));
+    await into(userProfile).insertOnConflictUpdate(fixed);
+  }
 
   // ── Recipe tags ────────────────────────────────────────────────────────────
 

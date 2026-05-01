@@ -74,10 +74,10 @@ final _destinations = [
     route: '/tasks',
   ),
   const _NavDest(
-    label: 'Statistik',
-    icon: Icons.bar_chart_outlined,
-    selectedIcon: Icons.bar_chart,
-    route: '/stats',
+    label: 'Ich',
+    icon: Icons.person_outline,
+    selectedIcon: Icons.person,
+    route: '/me',
   ),
 ];
 

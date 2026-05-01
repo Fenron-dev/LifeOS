@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifeos/core/item_categories.dart';
@@ -24,10 +25,10 @@ void main() {
     await db.close();
   });
 
-  test('fresh database opens and exposes schemaVersion 10', () async {
+  test('fresh database opens and exposes schemaVersion 11', () async {
     // Triggers onCreate → createAll + seeds + _createIndexes
     await db.customSelect('SELECT 1').get();
-    expect(db.schemaVersion, 10);
+    expect(db.schemaVersion, 11);
   });
 
   test('every declared table is reachable', () async {
@@ -50,6 +51,71 @@ void main() {
     await db.select(db.unitConversions).get();
     await db.select(db.mealTypes).get();
     await db.select(db.bodyWeightLogs).get();
+    await db.select(db.userProfile).get();
+  });
+
+  test('weight log persists full body composition payload', () async {
+    await db.insertWeightLog(BodyWeightLogsCompanion.insert(
+      id: 'w1',
+      loggedAt: DateTime(2026, 5, 1, 8, 0),
+      weightKg: 78.4,
+      bodyFatPct: const Value(22.1),
+      muscleMassPct: const Value(38.5),
+      visceralFat: const Value(8.0),
+      waterPct: const Value(55.2),
+      boneMassKg: const Value(3.1),
+      source: const Value('scale'),
+    ));
+    final log = (await db.latestWeightLog())!;
+    expect(log.weightKg, 78.4);
+    expect(log.bodyFatPct, 22.1);
+    expect(log.muscleMassPct, 38.5);
+    expect(log.visceralFat, 8.0);
+    expect(log.waterPct, 55.2);
+    expect(log.boneMassKg, 3.1);
+    expect(log.source, 'scale');
+  });
+
+  test('user profile is a true singleton (id always 1)', () async {
+    await db.upsertUserProfile(UserProfileCompanion(
+      heightCm: const Value(180),
+      sex: const Value('male'),
+      birthDate: Value(DateTime(1990, 1, 1)),
+    ));
+    // Even if a caller passes a wrong id, the upsert pins id=1.
+    await db.upsertUserProfile(UserProfileCompanion(
+      id: const Value(99),
+      heightCm: const Value(181),
+    ));
+    final all = await db.select(db.userProfile).get();
+    expect(all, hasLength(1));
+    expect(all.single.id, 1);
+    expect(all.single.heightCm, 181);
+    // Sex from the first call survives — second upsert only patched height.
+    expect(all.single.sex, 'male');
+  });
+
+  test('weightLogDaysSince counts distinct days', () async {
+    // Anchor on a fixed noon so "+ 4 hours" stays on the same calendar day
+    // regardless of when the suite runs.
+    final now = DateTime.now();
+    final today =
+        DateTime(now.year, now.month, now.day, 12, 0).toUtc();
+    Future<void> add(String id, DateTime at) =>
+        db.insertWeightLog(BodyWeightLogsCompanion.insert(
+          id: id,
+          loggedAt: at,
+          weightKg: 80,
+        ));
+    await add('a', today);
+    // Same calendar day, different time — must collapse to one bucket.
+    await add('b', today.add(const Duration(hours: 4)));
+    await add('c', today.subtract(const Duration(days: 2)));
+    await add('d', today.subtract(const Duration(days: 30)));
+
+    final last7 = await db
+        .weightLogDaysSince(today.subtract(const Duration(days: 7)));
+    expect(last7, 2); // today + day-2 (day-30 is outside)
   });
 
   test('default units and meal types are seeded on create', () async {
