@@ -595,6 +595,42 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'{itemName} läuft in {days, plural, =1{1 Tag} other{{days} Tagen}} ab.'**
   String expiryNotificationBodySoon(String itemName, int days);
+
+  /// No description provided for @quickActionAddInventory.
+  ///
+  /// In de, this message translates to:
+  /// **'Einlagern'**
+  String get quickActionAddInventory;
+
+  /// No description provided for @quickActionConsumeInventory.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausbuchen'**
+  String get quickActionConsumeInventory;
+
+  /// No description provided for @quickActionAddTask.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufgabe'**
+  String get quickActionAddTask;
+
+  /// No description provided for @quickActionAddWishlist.
+  ///
+  /// In de, this message translates to:
+  /// **'Wunschliste'**
+  String get quickActionAddWishlist;
+
+  /// No description provided for @quickActionAddRecipe.
+  ///
+  /// In de, this message translates to:
+  /// **'Rezept'**
+  String get quickActionAddRecipe;
+
+  /// No description provided for @quickActionScanBarcode.
+  ///
+  /// In de, this message translates to:
+  /// **'Barcode scannen'**
+  String get quickActionScanBarcode;
 }
 
 class _AppLocalizationsDelegate

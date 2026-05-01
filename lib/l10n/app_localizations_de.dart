@@ -266,4 +266,22 @@ class AppLocalizationsDe extends AppLocalizations {
     );
     return '$itemName läuft in $_temp0 ab.';
   }
+
+  @override
+  String get quickActionAddInventory => 'Einlagern';
+
+  @override
+  String get quickActionConsumeInventory => 'Ausbuchen';
+
+  @override
+  String get quickActionAddTask => 'Aufgabe';
+
+  @override
+  String get quickActionAddWishlist => 'Wunschliste';
+
+  @override
+  String get quickActionAddRecipe => 'Rezept';
+
+  @override
+  String get quickActionScanBarcode => 'Barcode scannen';
 }

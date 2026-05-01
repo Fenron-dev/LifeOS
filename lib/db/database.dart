@@ -291,6 +291,18 @@ class AppDatabase extends _$AppDatabase {
   Future<void> upsertItemState(ItemStatesCompanion entry) =>
       into(itemStates).insertOnConflictUpdate(entry);
 
+  /// Partial update of an existing item_states row keyed by inventoryEntryId.
+  /// Use this for follow-up changes (consumption, stocktake) where the state
+  /// row already exists — `upsertItemState` would try a full INSERT first and
+  /// fail validation if non-null required columns are absent from [patch].
+  Future<int> updateItemStateByEntry(
+    String inventoryEntryId,
+    ItemStatesCompanion patch,
+  ) =>
+      (update(itemStates)
+            ..where((s) => s.inventoryEntryId.equals(inventoryEntryId)))
+          .write(patch);
+
   Future<void> deleteItemState(String inventoryEntryId) =>
       (delete(itemStates)
             ..where((s) => s.inventoryEntryId.equals(inventoryEntryId)))

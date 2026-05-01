@@ -57,11 +57,55 @@ class MealieIngredient {
   });
 }
 
+/// Result of inspecting a Mealie base URL for transport security.
+enum MealieUrlSecurity {
+  /// HTTPS — token is encrypted in transit.
+  https,
+  /// HTTP, but pointing at a LAN/loopback host. Acceptable for self-hosted
+  /// home setups; token leaks only inside the local network.
+  httpLocal,
+  /// HTTP over a non-LAN host. Token would be sent in clear over the public
+  /// internet — show a warning and recommend HTTPS.
+  httpRemoteInsecure,
+  /// URL could not be parsed at all.
+  invalid,
+}
+
 class MealieService {
   final String baseUrl;   // e.g. "http://192.168.1.5:9000"
   final String apiToken;  // Mealie API key
 
   MealieService({required this.baseUrl, required this.apiToken});
+
+  /// Classifies [url] for the connection screen so the UI can warn the user
+  /// when their Mealie token would be sent unencrypted over a non-LAN link.
+  /// LAN ranges treated as "local": 10/8, 172.16/12, 192.168/16, loopback,
+  /// link-local 169.254/16, and any *.local hostname (mDNS).
+  static MealieUrlSecurity classifyUrl(String url) {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || uri.host.isEmpty) return MealieUrlSecurity.invalid;
+    if (uri.scheme == 'https') return MealieUrlSecurity.https;
+    if (uri.scheme != 'http') return MealieUrlSecurity.invalid;
+
+    final host = uri.host.toLowerCase();
+    if (host == 'localhost' ||
+        host.endsWith('.local') ||
+        host.endsWith('.lan') ||
+        host.endsWith('.home.arpa')) {
+      return MealieUrlSecurity.httpLocal;
+    }
+    final parts = host.split('.').map(int.tryParse).toList();
+    if (parts.length == 4 && parts.every((p) => p != null && p >= 0 && p <= 255)) {
+      final a = parts[0]!;
+      final b = parts[1]!;
+      if (a == 127) return MealieUrlSecurity.httpLocal;
+      if (a == 10) return MealieUrlSecurity.httpLocal;
+      if (a == 192 && b == 168) return MealieUrlSecurity.httpLocal;
+      if (a == 172 && b >= 16 && b <= 31) return MealieUrlSecurity.httpLocal;
+      if (a == 169 && b == 254) return MealieUrlSecurity.httpLocal;
+    }
+    return MealieUrlSecurity.httpRemoteInsecure;
+  }
 
   Map<String, String> get _headers => {
         'Authorization': 'Bearer $apiToken',

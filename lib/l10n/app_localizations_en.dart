@@ -266,4 +266,22 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$itemName expires in $_temp0.';
   }
+
+  @override
+  String get quickActionAddInventory => 'Stock In';
+
+  @override
+  String get quickActionConsumeInventory => 'Stock Out';
+
+  @override
+  String get quickActionAddTask => 'Task';
+
+  @override
+  String get quickActionAddWishlist => 'Wish';
+
+  @override
+  String get quickActionAddRecipe => 'Recipe';
+
+  @override
+  String get quickActionScanBarcode => 'Scan Barcode';
 }

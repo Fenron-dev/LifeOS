@@ -111,5 +111,12 @@
       "itemName": {"type": "String"},
       "days": {"type": "int"}
     }
-  }
+  },
+
+  "quickActionAddInventory": "Einlagern",
+  "quickActionConsumeInventory": "Ausbuchen",
+  "quickActionAddTask": "Aufgabe",
+  "quickActionAddWishlist": "Wunschliste",
+  "quickActionAddRecipe": "Rezept",
+  "quickActionScanBarcode": "Barcode scannen"
 }

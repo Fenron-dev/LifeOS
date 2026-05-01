@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../services/backup_service.dart';
@@ -13,6 +14,7 @@ Future<void> _showQuickActionsConfig(BuildContext context, WidgetRef ref) async 
   final settings = ref.read(settingsProvider).valueOrNull;
   if (settings == null) return;
   final selected = Set<QuickAction>.from(settings.quickActions);
+  final l10n = AppLocalizations.of(context);
 
   await showDialog<void>(
     context: context,
@@ -26,7 +28,7 @@ Future<void> _showQuickActionsConfig(BuildContext context, WidgetRef ref) async 
             title: Row(children: [
               Icon(a.icon, size: 20),
               const SizedBox(width: 8),
-              Text(a.label),
+              Text(a.label(l10n)),
             ]),
             onChanged: (v) => setState(() {
               if (v == true) { selected.add(a); } else { selected.remove(a); }

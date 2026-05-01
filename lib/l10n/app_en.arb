@@ -97,5 +97,12 @@
 
   "expiryNotificationTitle": "Expiry",
   "expiryNotificationBodyExpired": "{itemName} has expired!",
-  "expiryNotificationBodySoon": "{itemName} expires in {days, plural, =1{1 day} other{{days} days}}."
+  "expiryNotificationBodySoon": "{itemName} expires in {days, plural, =1{1 day} other{{days} days}}.",
+
+  "quickActionAddInventory": "Stock In",
+  "quickActionConsumeInventory": "Stock Out",
+  "quickActionAddTask": "Task",
+  "quickActionAddWishlist": "Wish",
+  "quickActionAddRecipe": "Recipe",
+  "quickActionScanBarcode": "Scan Barcode"
 }

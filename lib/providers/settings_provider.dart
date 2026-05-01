@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import 'vault_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -20,13 +21,13 @@ enum QuickAction {
 
 extension QuickActionX on QuickAction {
   String get id => name;
-  String get label => switch (this) {
-        QuickAction.addInventory => 'Einlagern',
-        QuickAction.consumeInventory => 'Ausbuchen',
-        QuickAction.addTask => 'Aufgabe',
-        QuickAction.addWishlist => 'Wunschliste',
-        QuickAction.addRecipe => 'Rezept',
-        QuickAction.scanBarcode => 'Barcode scannen',
+  String label(AppLocalizations l10n) => switch (this) {
+        QuickAction.addInventory => l10n.quickActionAddInventory,
+        QuickAction.consumeInventory => l10n.quickActionConsumeInventory,
+        QuickAction.addTask => l10n.quickActionAddTask,
+        QuickAction.addWishlist => l10n.quickActionAddWishlist,
+        QuickAction.addRecipe => l10n.quickActionAddRecipe,
+        QuickAction.scanBarcode => l10n.quickActionScanBarcode,
       };
   IconData get icon => switch (this) {
         QuickAction.addInventory => Icons.add_shopping_cart,

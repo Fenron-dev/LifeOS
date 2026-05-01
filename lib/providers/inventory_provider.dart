@@ -1,9 +1,12 @@
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/notification_service.dart';
+import 'settings_provider.dart';
 import 'vault_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -18,6 +21,11 @@ import 'vault_provider.dart';
 final expiryNotificationSchedulerProvider = Provider<void>((ref) {
   final db = ref.watch(databaseProvider);
   if (db == null) return;
+  // React to locale changes so notifications switch language alongside the UI.
+  final locale = ref.watch(settingsProvider).valueOrNull?.locale ??
+      const Locale('de');
+  final l10n = lookupAppLocalizations(locale);
+
   final sub = db.watchExpirableInventory().listen((rows) {
     final notices = rows
         .map((r) => ExpiryNotice(
@@ -28,12 +36,10 @@ final expiryNotificationSchedulerProvider = Provider<void>((ref) {
         .toList();
     NotificationService.scheduleExpiryNotifications(
       notices: notices,
-      title: 'Ablaufdatum nähert sich',
-      buildBody: (name, daysLeft) {
-        if (daysLeft <= 0) return '$name ist abgelaufen';
-        if (daysLeft == 1) return '$name läuft morgen ab';
-        return '$name läuft in $daysLeft Tagen ab';
-      },
+      title: l10n.expiryNotificationTitle,
+      buildBody: (name, daysLeft) => daysLeft <= 0
+          ? l10n.expiryNotificationBodyExpired(name)
+          : l10n.expiryNotificationBodySoon(name, daysLeft),
     );
   });
   ref.onDispose(sub.cancel);
@@ -177,18 +183,21 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
       await _db.deleteInventoryEntry(inventoryEntryId);
       await _db.deleteItemState(inventoryEntryId);
     } else {
-      // Update entry + state
+      // Update entry + state. State row was created by purchase, so a partial
+      // UPDATE is correct — upsert would try INSERT first and fail validation.
       await _db.updateInventoryEntry(InventoryEntriesCompanion(
         id: Value(inventoryEntryId),
         quantity: Value(remainingQuantity),
         updatedAt: Value(now),
       ));
-      await _db.upsertItemState(ItemStatesCompanion(
-        inventoryEntryId: Value(inventoryEntryId),
-        currentQuantity: Value(remainingQuantity),
-        lastEventAt: Value(now),
-        updatedAt: Value(now),
-      ));
+      await _db.updateItemStateByEntry(
+        inventoryEntryId,
+        ItemStatesCompanion(
+          currentQuantity: Value(remainingQuantity),
+          lastEventAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
     }
   }
 
@@ -223,12 +232,14 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
         quantity: Value(newQuantity),
         updatedAt: Value(now),
       ));
-      await _db.upsertItemState(ItemStatesCompanion(
-        inventoryEntryId: Value(inventoryEntryId),
-        currentQuantity: Value(newQuantity),
-        lastEventAt: Value(now),
-        updatedAt: Value(now),
-      ));
+      await _db.updateItemStateByEntry(
+        inventoryEntryId,
+        ItemStatesCompanion(
+          currentQuantity: Value(newQuantity),
+          lastEventAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
     }
   }
 }

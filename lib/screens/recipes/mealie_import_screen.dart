@@ -38,7 +38,12 @@ class _MealieImportScreenState extends ConsumerState<MealieImportScreen> {
   @override
   void initState() {
     super.initState();
+    _urlCtrl.addListener(_onUrlChanged);
     _loadSaved();
+  }
+
+  void _onUrlChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadSaved() async {
@@ -143,6 +148,7 @@ class _MealieImportScreenState extends ConsumerState<MealieImportScreen> {
 
   @override
   void dispose() {
+    _urlCtrl.removeListener(_onUrlChanged);
     _urlCtrl.dispose();
     _tokenCtrl.dispose();
     super.dispose();
@@ -173,6 +179,36 @@ class _MealieImportScreenState extends ConsumerState<MealieImportScreen> {
                   ),
                   keyboardType: TextInputType.url,
                 ),
+                if (MealieService.classifyUrl(_urlCtrl.text) ==
+                    MealieUrlSecurity.httpRemoteInsecure) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.warning_amber_outlined,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onErrorContainer),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Diese URL ist nicht im lokalen Netzwerk und nutzt HTTP. Dein API-Token wird unverschlüsselt übertragen. Bitte HTTPS verwenden.',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 TextField(
                   controller: _tokenCtrl,
