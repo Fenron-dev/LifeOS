@@ -88,3 +88,16 @@ class UserProfile extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// Water intake log — one row per drink. All amounts in millilitres.
+class WaterLogs extends Table {
+  TextColumn get id => text()();
+  DateTimeColumn get loggedAt => dateTime()();
+  IntColumn get amountMl => integer()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

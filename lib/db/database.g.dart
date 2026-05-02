@@ -720,6 +720,18 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _nutritionRefUnitMeta = const VerificationMeta(
+    'nutritionRefUnit',
+  );
+  @override
+  late final GeneratedColumn<String> nutritionRefUnit = GeneratedColumn<String>(
+    'nutrition_ref_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('g'),
+  );
   static const VerificationMeta _stockUnitMeta = const VerificationMeta(
     'stockUnit',
   );
@@ -794,6 +806,7 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     nutriscore,
     novaGroup,
     ingredientsText,
+    nutritionRefUnit,
     stockUnit,
     defaultLocationId,
     createdAt,
@@ -982,6 +995,15 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         ),
       );
     }
+    if (data.containsKey('nutrition_ref_unit')) {
+      context.handle(
+        _nutritionRefUnitMeta,
+        nutritionRefUnit.isAcceptableOrUnknown(
+          data['nutrition_ref_unit']!,
+          _nutritionRefUnitMeta,
+        ),
+      );
+    }
     if (data.containsKey('stock_unit')) {
       context.handle(
         _stockUnitMeta,
@@ -1106,6 +1128,10 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}ingredients_text'],
       ),
+      nutritionRefUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nutrition_ref_unit'],
+      )!,
       stockUnit: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}stock_unit'],
@@ -1155,6 +1181,9 @@ class Item extends DataClass implements Insertable<Item> {
   final int? novaGroup;
   final String? ingredientsText;
 
+  /// Whether nutrition values are per 100g or per 100ml (for liquids).
+  final String nutritionRefUnit;
+
   /// The unit used for stock aggregation (e.g. 'g', 'Stück').
   /// If null, quantities are summed per unit without conversion.
   final String? stockUnit;
@@ -1186,6 +1215,7 @@ class Item extends DataClass implements Insertable<Item> {
     this.nutriscore,
     this.novaGroup,
     this.ingredientsText,
+    required this.nutritionRefUnit,
     this.stockUnit,
     this.defaultLocationId,
     required this.createdAt,
@@ -1248,6 +1278,7 @@ class Item extends DataClass implements Insertable<Item> {
     if (!nullToAbsent || ingredientsText != null) {
       map['ingredients_text'] = Variable<String>(ingredientsText);
     }
+    map['nutrition_ref_unit'] = Variable<String>(nutritionRefUnit);
     if (!nullToAbsent || stockUnit != null) {
       map['stock_unit'] = Variable<String>(stockUnit);
     }
@@ -1313,6 +1344,7 @@ class Item extends DataClass implements Insertable<Item> {
       ingredientsText: ingredientsText == null && nullToAbsent
           ? const Value.absent()
           : Value(ingredientsText),
+      nutritionRefUnit: Value(nutritionRefUnit),
       stockUnit: stockUnit == null && nullToAbsent
           ? const Value.absent()
           : Value(stockUnit),
@@ -1356,6 +1388,7 @@ class Item extends DataClass implements Insertable<Item> {
       nutriscore: serializer.fromJson<String?>(json['nutriscore']),
       novaGroup: serializer.fromJson<int?>(json['novaGroup']),
       ingredientsText: serializer.fromJson<String?>(json['ingredientsText']),
+      nutritionRefUnit: serializer.fromJson<String>(json['nutritionRefUnit']),
       stockUnit: serializer.fromJson<String?>(json['stockUnit']),
       defaultLocationId: serializer.fromJson<String?>(
         json['defaultLocationId'],
@@ -1390,6 +1423,7 @@ class Item extends DataClass implements Insertable<Item> {
       'nutriscore': serializer.toJson<String?>(nutriscore),
       'novaGroup': serializer.toJson<int?>(novaGroup),
       'ingredientsText': serializer.toJson<String?>(ingredientsText),
+      'nutritionRefUnit': serializer.toJson<String>(nutritionRefUnit),
       'stockUnit': serializer.toJson<String?>(stockUnit),
       'defaultLocationId': serializer.toJson<String?>(defaultLocationId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1420,6 +1454,7 @@ class Item extends DataClass implements Insertable<Item> {
     Value<String?> nutriscore = const Value.absent(),
     Value<int?> novaGroup = const Value.absent(),
     Value<String?> ingredientsText = const Value.absent(),
+    String? nutritionRefUnit,
     Value<String?> stockUnit = const Value.absent(),
     Value<String?> defaultLocationId = const Value.absent(),
     DateTime? createdAt,
@@ -1459,6 +1494,7 @@ class Item extends DataClass implements Insertable<Item> {
     ingredientsText: ingredientsText.present
         ? ingredientsText.value
         : this.ingredientsText,
+    nutritionRefUnit: nutritionRefUnit ?? this.nutritionRefUnit,
     stockUnit: stockUnit.present ? stockUnit.value : this.stockUnit,
     defaultLocationId: defaultLocationId.present
         ? defaultLocationId.value
@@ -1522,6 +1558,9 @@ class Item extends DataClass implements Insertable<Item> {
       ingredientsText: data.ingredientsText.present
           ? data.ingredientsText.value
           : this.ingredientsText,
+      nutritionRefUnit: data.nutritionRefUnit.present
+          ? data.nutritionRefUnit.value
+          : this.nutritionRefUnit,
       stockUnit: data.stockUnit.present ? data.stockUnit.value : this.stockUnit,
       defaultLocationId: data.defaultLocationId.present
           ? data.defaultLocationId.value
@@ -1556,6 +1595,7 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('nutriscore: $nutriscore, ')
           ..write('novaGroup: $novaGroup, ')
           ..write('ingredientsText: $ingredientsText, ')
+          ..write('nutritionRefUnit: $nutritionRefUnit, ')
           ..write('stockUnit: $stockUnit, ')
           ..write('defaultLocationId: $defaultLocationId, ')
           ..write('createdAt: $createdAt, ')
@@ -1588,6 +1628,7 @@ class Item extends DataClass implements Insertable<Item> {
     nutriscore,
     novaGroup,
     ingredientsText,
+    nutritionRefUnit,
     stockUnit,
     defaultLocationId,
     createdAt,
@@ -1619,6 +1660,7 @@ class Item extends DataClass implements Insertable<Item> {
           other.nutriscore == this.nutriscore &&
           other.novaGroup == this.novaGroup &&
           other.ingredientsText == this.ingredientsText &&
+          other.nutritionRefUnit == this.nutritionRefUnit &&
           other.stockUnit == this.stockUnit &&
           other.defaultLocationId == this.defaultLocationId &&
           other.createdAt == this.createdAt &&
@@ -1648,6 +1690,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<String?> nutriscore;
   final Value<int?> novaGroup;
   final Value<String?> ingredientsText;
+  final Value<String> nutritionRefUnit;
   final Value<String?> stockUnit;
   final Value<String?> defaultLocationId;
   final Value<DateTime> createdAt;
@@ -1676,6 +1719,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutriscore = const Value.absent(),
     this.novaGroup = const Value.absent(),
     this.ingredientsText = const Value.absent(),
+    this.nutritionRefUnit = const Value.absent(),
     this.stockUnit = const Value.absent(),
     this.defaultLocationId = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1705,6 +1749,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutriscore = const Value.absent(),
     this.novaGroup = const Value.absent(),
     this.ingredientsText = const Value.absent(),
+    this.nutritionRefUnit = const Value.absent(),
     this.stockUnit = const Value.absent(),
     this.defaultLocationId = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1736,6 +1781,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<String>? nutriscore,
     Expression<int>? novaGroup,
     Expression<String>? ingredientsText,
+    Expression<String>? nutritionRefUnit,
     Expression<String>? stockUnit,
     Expression<String>? defaultLocationId,
     Expression<DateTime>? createdAt,
@@ -1767,6 +1813,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (nutriscore != null) 'nutriscore': nutriscore,
       if (novaGroup != null) 'nova_group': novaGroup,
       if (ingredientsText != null) 'ingredients_text': ingredientsText,
+      if (nutritionRefUnit != null) 'nutrition_ref_unit': nutritionRefUnit,
       if (stockUnit != null) 'stock_unit': stockUnit,
       if (defaultLocationId != null) 'default_location_id': defaultLocationId,
       if (createdAt != null) 'created_at': createdAt,
@@ -1798,6 +1845,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<String?>? nutriscore,
     Value<int?>? novaGroup,
     Value<String?>? ingredientsText,
+    Value<String>? nutritionRefUnit,
     Value<String?>? stockUnit,
     Value<String?>? defaultLocationId,
     Value<DateTime>? createdAt,
@@ -1827,6 +1875,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       nutriscore: nutriscore ?? this.nutriscore,
       novaGroup: novaGroup ?? this.novaGroup,
       ingredientsText: ingredientsText ?? this.ingredientsText,
+      nutritionRefUnit: nutritionRefUnit ?? this.nutritionRefUnit,
       stockUnit: stockUnit ?? this.stockUnit,
       defaultLocationId: defaultLocationId ?? this.defaultLocationId,
       createdAt: createdAt ?? this.createdAt,
@@ -1906,6 +1955,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (ingredientsText.present) {
       map['ingredients_text'] = Variable<String>(ingredientsText.value);
     }
+    if (nutritionRefUnit.present) {
+      map['nutrition_ref_unit'] = Variable<String>(nutritionRefUnit.value);
+    }
     if (stockUnit.present) {
       map['stock_unit'] = Variable<String>(stockUnit.value);
     }
@@ -1949,6 +2001,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('nutriscore: $nutriscore, ')
           ..write('novaGroup: $novaGroup, ')
           ..write('ingredientsText: $ingredientsText, ')
+          ..write('nutritionRefUnit: $nutritionRefUnit, ')
           ..write('stockUnit: $stockUnit, ')
           ..write('defaultLocationId: $defaultLocationId, ')
           ..write('createdAt: $createdAt, ')
@@ -16330,6 +16383,365 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
   }
 }
 
+class $WaterLogsTable extends WaterLogs
+    with TableInfo<$WaterLogsTable, WaterLog> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WaterLogsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _loggedAtMeta = const VerificationMeta(
+    'loggedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> loggedAt = GeneratedColumn<DateTime>(
+    'logged_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _amountMlMeta = const VerificationMeta(
+    'amountMl',
+  );
+  @override
+  late final GeneratedColumn<int> amountMl = GeneratedColumn<int>(
+    'amount_ml',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    loggedAt,
+    amountMl,
+    notes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'water_logs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WaterLog> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('logged_at')) {
+      context.handle(
+        _loggedAtMeta,
+        loggedAt.isAcceptableOrUnknown(data['logged_at']!, _loggedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_loggedAtMeta);
+    }
+    if (data.containsKey('amount_ml')) {
+      context.handle(
+        _amountMlMeta,
+        amountMl.isAcceptableOrUnknown(data['amount_ml']!, _amountMlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMlMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WaterLog map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WaterLog(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      loggedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}logged_at'],
+      )!,
+      amountMl: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount_ml'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WaterLogsTable createAlias(String alias) {
+    return $WaterLogsTable(attachedDatabase, alias);
+  }
+}
+
+class WaterLog extends DataClass implements Insertable<WaterLog> {
+  final String id;
+  final DateTime loggedAt;
+  final int amountMl;
+  final String? notes;
+  final DateTime createdAt;
+  const WaterLog({
+    required this.id,
+    required this.loggedAt,
+    required this.amountMl,
+    this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['logged_at'] = Variable<DateTime>(loggedAt);
+    map['amount_ml'] = Variable<int>(amountMl);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  WaterLogsCompanion toCompanion(bool nullToAbsent) {
+    return WaterLogsCompanion(
+      id: Value(id),
+      loggedAt: Value(loggedAt),
+      amountMl: Value(amountMl),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory WaterLog.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WaterLog(
+      id: serializer.fromJson<String>(json['id']),
+      loggedAt: serializer.fromJson<DateTime>(json['loggedAt']),
+      amountMl: serializer.fromJson<int>(json['amountMl']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'loggedAt': serializer.toJson<DateTime>(loggedAt),
+      'amountMl': serializer.toJson<int>(amountMl),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  WaterLog copyWith({
+    String? id,
+    DateTime? loggedAt,
+    int? amountMl,
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+  }) => WaterLog(
+    id: id ?? this.id,
+    loggedAt: loggedAt ?? this.loggedAt,
+    amountMl: amountMl ?? this.amountMl,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  WaterLog copyWithCompanion(WaterLogsCompanion data) {
+    return WaterLog(
+      id: data.id.present ? data.id.value : this.id,
+      loggedAt: data.loggedAt.present ? data.loggedAt.value : this.loggedAt,
+      amountMl: data.amountMl.present ? data.amountMl.value : this.amountMl,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WaterLog(')
+          ..write('id: $id, ')
+          ..write('loggedAt: $loggedAt, ')
+          ..write('amountMl: $amountMl, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, loggedAt, amountMl, notes, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WaterLog &&
+          other.id == this.id &&
+          other.loggedAt == this.loggedAt &&
+          other.amountMl == this.amountMl &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class WaterLogsCompanion extends UpdateCompanion<WaterLog> {
+  final Value<String> id;
+  final Value<DateTime> loggedAt;
+  final Value<int> amountMl;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const WaterLogsCompanion({
+    this.id = const Value.absent(),
+    this.loggedAt = const Value.absent(),
+    this.amountMl = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WaterLogsCompanion.insert({
+    required String id,
+    required DateTime loggedAt,
+    required int amountMl,
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       loggedAt = Value(loggedAt),
+       amountMl = Value(amountMl);
+  static Insertable<WaterLog> custom({
+    Expression<String>? id,
+    Expression<DateTime>? loggedAt,
+    Expression<int>? amountMl,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (loggedAt != null) 'logged_at': loggedAt,
+      if (amountMl != null) 'amount_ml': amountMl,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WaterLogsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? loggedAt,
+    Value<int>? amountMl,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return WaterLogsCompanion(
+      id: id ?? this.id,
+      loggedAt: loggedAt ?? this.loggedAt,
+      amountMl: amountMl ?? this.amountMl,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (loggedAt.present) {
+      map['logged_at'] = Variable<DateTime>(loggedAt.value);
+    }
+    if (amountMl.present) {
+      map['amount_ml'] = Variable<int>(amountMl.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WaterLogsCompanion(')
+          ..write('id: $id, ')
+          ..write('loggedAt: $loggedAt, ')
+          ..write('amountMl: $amountMl, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -16377,6 +16789,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $UserProfileTable userProfile = $UserProfileTable(this);
   late final $NutritionLogsTable nutritionLogs = $NutritionLogsTable(this);
+  late final $WaterLogsTable waterLogs = $WaterLogsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -16411,6 +16824,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     bodyMeasurements,
     userProfile,
     nutritionLogs,
+    waterLogs,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -17205,6 +17619,7 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String?> nutriscore,
       Value<int?> novaGroup,
       Value<String?> ingredientsText,
+      Value<String> nutritionRefUnit,
       Value<String?> stockUnit,
       Value<String?> defaultLocationId,
       Value<DateTime> createdAt,
@@ -17235,6 +17650,7 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String?> nutriscore,
       Value<int?> novaGroup,
       Value<String?> ingredientsText,
+      Value<String> nutritionRefUnit,
       Value<String?> stockUnit,
       Value<String?> defaultLocationId,
       Value<DateTime> createdAt,
@@ -17588,6 +18004,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get ingredientsText => $composableBuilder(
     column: $table.ingredientsText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nutritionRefUnit => $composableBuilder(
+    column: $table.nutritionRefUnit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17993,6 +18414,11 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get nutritionRefUnit => $composableBuilder(
+    column: $table.nutritionRefUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get stockUnit => $composableBuilder(
     column: $table.stockUnit,
     builder: (column) => ColumnOrderings(column),
@@ -18154,6 +18580,11 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<String> get ingredientsText => $composableBuilder(
     column: $table.ingredientsText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nutritionRefUnit => $composableBuilder(
+    column: $table.nutritionRefUnit,
     builder: (column) => column,
   );
 
@@ -18503,6 +18934,7 @@ class $$ItemsTableTableManager
                 Value<String?> nutriscore = const Value.absent(),
                 Value<int?> novaGroup = const Value.absent(),
                 Value<String?> ingredientsText = const Value.absent(),
+                Value<String> nutritionRefUnit = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
                 Value<String?> defaultLocationId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -18531,6 +18963,7 @@ class $$ItemsTableTableManager
                 nutriscore: nutriscore,
                 novaGroup: novaGroup,
                 ingredientsText: ingredientsText,
+                nutritionRefUnit: nutritionRefUnit,
                 stockUnit: stockUnit,
                 defaultLocationId: defaultLocationId,
                 createdAt: createdAt,
@@ -18561,6 +18994,7 @@ class $$ItemsTableTableManager
                 Value<String?> nutriscore = const Value.absent(),
                 Value<int?> novaGroup = const Value.absent(),
                 Value<String?> ingredientsText = const Value.absent(),
+                Value<String> nutritionRefUnit = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
                 Value<String?> defaultLocationId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -18589,6 +19023,7 @@ class $$ItemsTableTableManager
                 nutriscore: nutriscore,
                 novaGroup: novaGroup,
                 ingredientsText: ingredientsText,
+                nutritionRefUnit: nutritionRefUnit,
                 stockUnit: stockUnit,
                 defaultLocationId: defaultLocationId,
                 createdAt: createdAt,
@@ -30313,6 +30748,200 @@ typedef $$NutritionLogsTableProcessedTableManager =
       NutritionLog,
       PrefetchHooks Function()
     >;
+typedef $$WaterLogsTableCreateCompanionBuilder =
+    WaterLogsCompanion Function({
+      required String id,
+      required DateTime loggedAt,
+      required int amountMl,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$WaterLogsTableUpdateCompanionBuilder =
+    WaterLogsCompanion Function({
+      Value<String> id,
+      Value<DateTime> loggedAt,
+      Value<int> amountMl,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$WaterLogsTableFilterComposer
+    extends Composer<_$AppDatabase, $WaterLogsTable> {
+  $$WaterLogsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get loggedAt => $composableBuilder(
+    column: $table.loggedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amountMl => $composableBuilder(
+    column: $table.amountMl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WaterLogsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WaterLogsTable> {
+  $$WaterLogsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get loggedAt => $composableBuilder(
+    column: $table.loggedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amountMl => $composableBuilder(
+    column: $table.amountMl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WaterLogsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WaterLogsTable> {
+  $$WaterLogsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get loggedAt =>
+      $composableBuilder(column: $table.loggedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get amountMl =>
+      $composableBuilder(column: $table.amountMl, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$WaterLogsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WaterLogsTable,
+          WaterLog,
+          $$WaterLogsTableFilterComposer,
+          $$WaterLogsTableOrderingComposer,
+          $$WaterLogsTableAnnotationComposer,
+          $$WaterLogsTableCreateCompanionBuilder,
+          $$WaterLogsTableUpdateCompanionBuilder,
+          (WaterLog, BaseReferences<_$AppDatabase, $WaterLogsTable, WaterLog>),
+          WaterLog,
+          PrefetchHooks Function()
+        > {
+  $$WaterLogsTableTableManager(_$AppDatabase db, $WaterLogsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WaterLogsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WaterLogsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WaterLogsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> loggedAt = const Value.absent(),
+                Value<int> amountMl = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WaterLogsCompanion(
+                id: id,
+                loggedAt: loggedAt,
+                amountMl: amountMl,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime loggedAt,
+                required int amountMl,
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WaterLogsCompanion.insert(
+                id: id,
+                loggedAt: loggedAt,
+                amountMl: amountMl,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WaterLogsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WaterLogsTable,
+      WaterLog,
+      $$WaterLogsTableFilterComposer,
+      $$WaterLogsTableOrderingComposer,
+      $$WaterLogsTableAnnotationComposer,
+      $$WaterLogsTableCreateCompanionBuilder,
+      $$WaterLogsTableUpdateCompanionBuilder,
+      (WaterLog, BaseReferences<_$AppDatabase, $WaterLogsTable, WaterLog>),
+      WaterLog,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -30378,4 +31007,6 @@ class $AppDatabaseManager {
       $$UserProfileTableTableManager(_db, _db.userProfile);
   $$NutritionLogsTableTableManager get nutritionLogs =>
       $$NutritionLogsTableTableManager(_db, _db.nutritionLogs);
+  $$WaterLogsTableTableManager get waterLogs =>
+      $$WaterLogsTableTableManager(_db, _db.waterLogs);
 }

@@ -96,6 +96,8 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
         // Recipe without weight data: default to 1 Portion
         _qtyController.text = '1';
         _unit = 'Portion';
+      } else if (p.nutritionRefUnit == 'ml') {
+        _unit = 'ml';
       }
     }
   }

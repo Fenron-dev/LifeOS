@@ -299,10 +299,12 @@ class _NutritionCardState extends ConsumerState<_NutritionCard> {
         ref.watch(itemConversionsProvider(item.id)).valueOrNull ?? [];
     final globalConvs = ref.watch(globalConversionsProvider).valueOrNull ?? [];
     final allConvs = [...itemConvs, ...globalConvs];
+    final refUnit = item.nutritionRefUnit; // 'g' or 'ml'
+    final ref100Label = '100 $refUnit';
     final servings = <(String, double)>[
-      ('100 g', 100.0),
+      (ref100Label, 100.0),
       if (item.servingSizeG != null)
-        ('Portion (${_fmt(item.servingSizeG!)} g)', item.servingSizeG!),
+        ('Portion (${_fmt(item.servingSizeG!)} $refUnit)', item.servingSizeG!),
       ...allConvs
           .where((c) => c.toUnit == 'g' && c.scopeId != null)
           .map((c) => ('1 ${c.fromUnit}', c.factor)),
@@ -312,10 +314,10 @@ class _NutritionCardState extends ConsumerState<_NutritionCard> {
     final uniqueServings =
         servings.where((s) => seen.add(s.$1)).toList();
 
-    final currentLabel = _servingUnit ?? '100 g';
+    final currentLabel = _servingUnit ?? ref100Label;
     final gramsPerServing =
         uniqueServings.firstWhere((s) => s.$1 == currentLabel,
-            orElse: () => ('100 g', 100.0)).$2;
+            orElse: () => (ref100Label, 100.0)).$2;
     final scale = gramsPerServing / 100.0;
 
     String nutrVal(double? per100g, String unit) {

@@ -24,6 +24,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   final _startWeight = TextEditingController();
   final _targetWeight = TextEditingController();
   final _calorieGoal = TextEditingController();
+  final _waterGoal = TextEditingController();
   final _proteinTarget = TextEditingController();
   final _carbsTarget = TextEditingController();
   final _fatTarget = TextEditingController();
@@ -53,6 +54,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     if (p.dailyCalorieGoal != null) {
       _calorieGoal.text = p.dailyCalorieGoal!.toString();
     }
+    _waterGoal.text = p.dailyWaterGoalMl.toString();
     if (p.proteinTargetG != null) {
       _proteinTarget.text =
           p.proteinTargetG!.toStringAsFixed(0);
@@ -72,6 +74,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     _startWeight.dispose();
     _targetWeight.dispose();
     _calorieGoal.dispose();
+    _waterGoal.dispose();
     _proteinTarget.dispose();
     _carbsTarget.dispose();
     _fatTarget.dispose();
@@ -100,6 +103,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     setState(() => _saving = true);
     try {
       final kcalGoalRaw = int.tryParse(_calorieGoal.text.trim());
+      final waterGoalRaw =
+          int.tryParse(_waterGoal.text.trim()) ?? 2000;
       await ref.read(profileOpsProvider.notifier).save(
             displayName: Value(_displayName.text.trim().isEmpty
                 ? null
@@ -111,6 +116,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             startWeightKg: Value(_parse(_startWeight)),
             targetWeightKg: Value(_parse(_targetWeight)),
             dailyCalorieGoal: Value(kcalGoalRaw),
+            dailyWaterGoalMl: Value(waterGoalRaw),
             proteinTargetG: Value(_parse(_proteinTarget)),
             carbsTargetG: Value(_parse(_carbsTarget)),
             fatTargetG: Value(_parse(_fatTarget)),
@@ -259,17 +265,39 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             Text('Tagesziele',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            TextField(
-              controller: _calorieGoal,
-              decoration: const InputDecoration(
-                labelText: 'Kalorienziel',
-                suffixText: 'kcal',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.local_fire_department_outlined),
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _calorieGoal,
+                    decoration: const InputDecoration(
+                      labelText: 'Kalorienziel',
+                      suffixText: 'kcal',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.local_fire_department_outlined),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _waterGoal,
+                    decoration: const InputDecoration(
+                      labelText: 'Wasserziel',
+                      suffixText: 'ml',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.water_drop_outlined),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),

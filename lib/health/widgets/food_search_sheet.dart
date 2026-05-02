@@ -27,7 +27,8 @@ class FoodSearchResult {
   final double? recipeCarbsTotal;
   final double? recipeFatTotal;
   final bool isRecipe;
-  final String source; // 'local' | 'off' | 'recipe' | 'manual'
+  final String? nutritionRefUnit; // 'g' | 'ml' for local items
+  final String source; // 'local' | 'off' | 'recipe' | 'meal' | 'manual'
 
   const FoodSearchResult({
     required this.productName,
@@ -45,6 +46,7 @@ class FoodSearchResult {
     this.recipeCarbsTotal,
     this.recipeFatTotal,
     this.isRecipe = false,
+    this.nutritionRefUnit,
     required this.source,
   });
 }
@@ -94,18 +96,20 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
       final results = await Future.wait([
         _searchLocal(db, q),
         _searchRecipes(db, q),
+        _searchMeals(db, q),
         OpenFoodFactsService.searchByName(q, pageSize: 20),
       ]);
 
       final localItems = results[0] as List<_SearchItem>;
       final recipeItems = results[1] as List<_SearchItem>;
-      final offProducts = (results[2] as List<OFFProduct>)
+      final mealItems = results[2] as List<_SearchItem>;
+      final offProducts = (results[3] as List<OFFProduct>)
           .map(_SearchItem.fromOff)
           .toList();
 
       final seen = <String>{};
       final merged = <_SearchItem>[];
-      for (final item in [...localItems, ...recipeItems, ...offProducts]) {
+      for (final item in [...localItems, ...recipeItems, ...mealItems, ...offProducts]) {
         final key = item.ean ?? '${item.source}:${item.name}';
         if (seen.add(key)) merged.add(item);
       }
@@ -133,6 +137,19 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     for (final r in recipes) {
       final nutrition = await db.computeRecipeNutrition(r.id);
       items.add(_SearchItem.fromRecipe(r, nutrition));
+    }
+    return items;
+  }
+
+  Future<List<_SearchItem>> _searchMeals(AppDatabase? db, String q) async {
+    if (db == null) return [];
+    final lower = q.toLowerCase();
+    final all = await db.watchAllMeals().first;
+    final meals = all.where((m) => m.name.toLowerCase().contains(lower)).toList();
+    final items = <_SearchItem>[];
+    for (final m in meals) {
+      final nutrition = await db.computeMealNutrition(m.id);
+      items.add(_SearchItem.fromMeal(m, nutrition));
     }
     return items;
   }
@@ -184,7 +201,8 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
       recipeProteinTotal: item.recipeProteinTotal,
       recipeCarbsTotal: item.recipeCarbsTotal,
       recipeFatTotal: item.recipeFatTotal,
-      isRecipe: item.source == 'recipe',
+      isRecipe: item.source == 'recipe' || item.source == 'meal',
+      nutritionRefUnit: item.nutritionRefUnit,
       source: item.source,
     ));
   }
@@ -316,6 +334,16 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                         ),
                         const SizedBox(width: 6),
                       ],
+                      if (_countBySource('meal') > 0) ...[
+                        _FilterChip(
+                          label: 'Gerichte (${_countBySource('meal')})',
+                          selected: _sourceFilter == 'meal',
+                          onSelected: () =>
+                              setState(() => _sourceFilter = 'meal'),
+                          cs: cs,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
                       if (_countBySource('off') > 0)
                         _FilterChip(
                           label: 'Online (${_countBySource('off')})',
@@ -347,13 +375,15 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                         final item = filtered[i];
                         final (bgColor, fgColor, icon) = switch (item.source) {
                           'recipe' => (cs.tertiaryContainer, cs.onTertiaryContainer, Icons.menu_book_outlined),
+                          'meal'   => (cs.tertiaryContainer, cs.onTertiaryContainer, Icons.dinner_dining),
                           'local'  => (cs.primaryContainer,  cs.onPrimaryContainer,  Icons.inventory_2_outlined),
                           _        => (cs.secondaryContainer, cs.onSecondaryContainer, Icons.public),
                         };
+                        final refUnit = item.nutritionRefUnit ?? 'g';
                         final subtitle = [
                           if (item.brand != null) item.brand!,
                           if (item.caloriesPer100g != null)
-                            '${item.caloriesPer100g!.toStringAsFixed(0)} kcal/100g'
+                            '${item.caloriesPer100g!.toStringAsFixed(0)} kcal/100$refUnit'
                           else if (item.recipeKcalTotal != null)
                             '${item.recipeKcalTotal!.toStringAsFixed(0)} kcal gesamt',
                         ].join(' · ');
@@ -457,6 +487,7 @@ class _SearchItem {
   final double? recipeProteinTotal;
   final double? recipeCarbsTotal;
   final double? recipeFatTotal;
+  final String? nutritionRefUnit; // 'g' | 'ml' — from local items
   final String source;
 
   const _SearchItem({
@@ -474,6 +505,7 @@ class _SearchItem {
     this.recipeProteinTotal,
     this.recipeCarbsTotal,
     this.recipeFatTotal,
+    this.nutritionRefUnit,
     required this.source,
   });
 
@@ -488,6 +520,7 @@ class _SearchItem {
         fatPer100g: item.fatPer100g,
         fiberPer100g: item.fiberPer100g,
         servingSizeG: item.servingSizeG,
+        nutritionRefUnit: item.nutritionRefUnit,
         source: 'local',
       );
 
@@ -524,6 +557,23 @@ class _SearchItem {
       recipeCarbsTotal: nutrition?.carbsG ?? r.carbsPerServing,
       recipeFatTotal: nutrition?.fatG ?? r.fatPerServing,
       source: 'recipe',
+    );
+  }
+
+  factory _SearchItem.fromMeal(StandardMeal m, RecipeNutritionData? nutrition) {
+    return _SearchItem(
+      name: m.name,
+      caloriesPer100g: nutrition?.caloriesPer100g,
+      proteinPer100g: nutrition?.proteinPer100g,
+      carbsPer100g: nutrition?.carbsPer100g,
+      fatPer100g: nutrition?.fatPer100g,
+      fiberPer100g: nutrition?.fiberPer100g,
+      servingSizeG: nutrition?.totalWeightG,
+      recipeKcalTotal: nutrition?.kcal,
+      recipeProteinTotal: nutrition?.proteinG,
+      recipeCarbsTotal: nutrition?.carbsG,
+      recipeFatTotal: nutrition?.fatG,
+      source: 'meal',
     );
   }
 }

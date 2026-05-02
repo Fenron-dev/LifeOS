@@ -64,6 +64,8 @@ part 'database.g.dart';
   UserProfile,
   // Nutrition diary
   NutritionLogs,
+  // Water tracking
+  WaterLogs,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -78,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -201,6 +203,18 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_nutr_meal_type '
               'ON nutrition_logs (meal_type_id)',
+            );
+          }
+          if (from < 14) {
+            // Per-100ml nutrition reference unit for liquid items.
+            await m.addColumn(items, items.nutritionRefUnit);
+          }
+          if (from < 15) {
+            // Phase 6.5 — water intake tracking.
+            await m.createTable(waterLogs);
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_water_logged_at '
+              'ON water_logs (logged_at)',
             );
           }
         },
@@ -867,6 +881,25 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteNutritionLog(String id) =>
       (delete(nutritionLogs)..where((l) => l.id.equals(id))).go();
 
+  // ── Water logs ────────────────────────────────────────────────────────────
+
+  Stream<List<WaterLog>> watchWaterLogsForDay(DateTime day) {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    return (select(waterLogs)
+          ..where((l) =>
+              l.loggedAt.isBiggerOrEqualValue(start) &
+              l.loggedAt.isSmallerThanValue(end))
+          ..orderBy([(l) => OrderingTerm.asc(l.loggedAt)]))
+        .watch();
+  }
+
+  Future<void> insertWaterLog(WaterLogsCompanion entry) =>
+      into(waterLogs).insert(entry);
+
+  Future<void> deleteWaterLog(String id) =>
+      (delete(waterLogs)..where((l) => l.id.equals(id))).go();
+
   /// Summed kcal / protein / carbs / fat for the calendar day of [day].
   Future<DailyNutritionTotals> dailyNutritionTotals(DateTime day) async {
     final start = DateTime(day.year, day.month, day.day);
@@ -1030,6 +1063,37 @@ class AppDatabase extends _$AppDatabase {
   /// with an [itemId] and a known per-100g value contribute.
   Future<RecipeNutritionData?> computeRecipeNutrition(String recipeId) async {
     final ingredients = await ingredientsForRecipe(recipeId);
+    double kcal = 0, protein = 0, carbs = 0, fat = 0, fiber = 0, totalG = 0;
+    bool hasAny = false;
+    for (final ing in ingredients) {
+      if (ing.itemId == null) continue;
+      final item = await itemById(ing.itemId!);
+      if (item == null) continue;
+      final qG = _unitToGrams(ing.quantity, ing.unit);
+      if (qG == null || qG <= 0) continue;
+      totalG += qG;
+      if (item.caloriesPer100g != null) {
+        kcal += item.caloriesPer100g! * qG / 100;
+        hasAny = true;
+      }
+      if (item.proteinPer100g != null) protein += item.proteinPer100g! * qG / 100;
+      if (item.carbsPer100g != null) carbs += item.carbsPer100g! * qG / 100;
+      if (item.fatPer100g != null) fat += item.fatPer100g! * qG / 100;
+      if (item.fiberPer100g != null) fiber += item.fiberPer100g! * qG / 100;
+    }
+    if (!hasAny && totalG == 0) return null;
+    return RecipeNutritionData(
+      kcal: kcal,
+      proteinG: protein,
+      carbsG: carbs,
+      fatG: fat,
+      fiberG: fiber,
+      totalWeightG: totalG,
+    );
+  }
+
+  Future<RecipeNutritionData?> computeMealNutrition(String mealId) async {
+    final ingredients = await ingredientsForMeal(mealId);
     double kcal = 0, protein = 0, carbs = 0, fat = 0, fiber = 0, totalG = 0;
     bool hasAny = false;
     for (final ing in ingredients) {

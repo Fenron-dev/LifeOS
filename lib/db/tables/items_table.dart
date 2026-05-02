@@ -37,6 +37,10 @@ class Items extends Table {
   IntColumn get novaGroup => integer().nullable()(); // 1–4
   TextColumn get ingredientsText => text().nullable()();
 
+  /// Whether nutrition values are per 100g or per 100ml (for liquids).
+  TextColumn get nutritionRefUnit =>
+      text().withDefault(const Constant('g'))();
+
   /// The unit used for stock aggregation (e.g. 'g', 'Stück').
   /// If null, quantities are summed per unit without conversion.
   TextColumn get stockUnit => text().nullable()();

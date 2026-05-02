@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../db/database.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/profile_provider.dart';
+import '../providers/water_provider.dart';
 import '../widgets/diary_entry_sheet.dart';
 import 'nutrition_history_screen.dart';
 
@@ -40,6 +42,8 @@ class _DiaryTabState extends ConsumerState<DiaryTab> {
     final totalsAsync = ref.watch(dailyTotalsProvider(_day));
     final mealTypes = ref.watch(mealTypesProvider).valueOrNull ?? [];
     final profile = ref.watch(userProfileProvider).valueOrNull;
+    final waterTotal = ref.watch(dailyWaterTotalProvider(_day));
+    final waterLogs = ref.watch(waterLogsForDayProvider(_day)).valueOrNull ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -80,6 +84,9 @@ class _DiaryTabState extends ConsumerState<DiaryTab> {
                 proteinTarget: profile?.proteinTargetG,
                 carbsTarget: profile?.carbsTargetG,
                 fatTarget: profile?.fatTargetG,
+                waterTotal: waterTotal,
+                waterGoal: profile?.dailyWaterGoalMl ?? 2000,
+                waterLogs: waterLogs,
               ),
             ),
           ),
@@ -178,6 +185,9 @@ class _DiaryBody extends ConsumerWidget {
   final double? proteinTarget;
   final double? carbsTarget;
   final double? fatTarget;
+  final int waterTotal;
+  final int waterGoal;
+  final List<WaterLog> waterLogs;
 
   const _DiaryBody({
     required this.day,
@@ -188,6 +198,9 @@ class _DiaryBody extends ConsumerWidget {
     this.proteinTarget,
     this.carbsTarget,
     this.fatTarget,
+    required this.waterTotal,
+    required this.waterGoal,
+    required this.waterLogs,
   });
 
   @override
@@ -232,6 +245,13 @@ class _DiaryBody extends ConsumerWidget {
           carbsTarget: carbsTarget,
           fatTarget: fatTarget,
         ),
+        const SizedBox(height: 12),
+        _WaterWidget(
+          day: day,
+          total: waterTotal,
+          goal: waterGoal,
+          logs: waterLogs,
+        ),
         const SizedBox(height: 16),
         if (logs.isEmpty)
           _EmptyDay(day: day)
@@ -275,6 +295,8 @@ class _DailyTotalsCard extends StatelessWidget {
     final pct =
         calorieGoal != null && calorieGoal! > 0 ? (kcal / calorieGoal!).clamp(0.0, 1.0) : null;
 
+    final hasData = protein + carbs + fat > 0;
+
     return Card(
       color: cs.primaryContainer,
       child: Padding(
@@ -282,43 +304,66 @@ class _DailyTotalsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Kcal + Donut row ─────────────────────────────────────────
             Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  fmt0.format(kcal),
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onPrimaryContainer,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            fmt0.format(kcal),
+                            style: TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onPrimaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            calorieGoal != null
+                                ? '/ ${fmt0.format(calorieGoal)} kcal'
+                                : 'kcal',
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: cs.onPrimaryContainer),
+                          ),
+                        ],
+                      ),
+                      if (pct != null) ...[
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: pct,
+                            minHeight: 6,
+                            backgroundColor:
+                                cs.onPrimaryContainer.withValues(alpha: 0.2),
+                            valueColor: AlwaysStoppedAnimation(
+                              pct >= 1.0 ? cs.error : cs.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  calorieGoal != null
-                      ? '/ ${fmt0.format(calorieGoal)} kcal'
-                      : 'kcal',
-                  style: TextStyle(
-                      fontSize: 16, color: cs.onPrimaryContainer),
-                ),
+                if (hasData) ...[
+                  const SizedBox(width: 12),
+                  _MacroDonut(
+                    protein: protein,
+                    carbs: carbs,
+                    fat: fat,
+                    cs: cs,
+                  ),
+                ],
               ],
             ),
-            if (pct != null) ...[
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  minHeight: 6,
-                  backgroundColor:
-                      cs.onPrimaryContainer.withValues(alpha: 0.2),
-                  valueColor: AlwaysStoppedAnimation(
-                    pct >= 1.0 ? cs.error : cs.onPrimaryContainer,
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 12),
             if (proteinTarget != null || carbsTarget != null || fatTarget != null)
               Column(
@@ -374,6 +419,119 @@ class _DailyTotalsCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Macro donut chart ────────────────────────────────────────────────────────
+
+class _MacroDonut extends StatelessWidget {
+  final double protein;
+  final double carbs;
+  final double fat;
+  final ColorScheme cs;
+
+  const _MacroDonut({
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final total = protein + carbs + fat;
+    if (total <= 0) return const SizedBox.shrink();
+
+    final protPct = (protein / total * 100).round();
+    final carbPct = (carbs / total * 100).round();
+    final fatPct = (fat / total * 100).round();
+
+    return SizedBox(
+      width: 80,
+      height: 80,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 26,
+              startDegreeOffset: -90,
+              sections: [
+                PieChartSectionData(
+                  value: protein,
+                  color: cs.tertiary,
+                  radius: 14,
+                  showTitle: false,
+                ),
+                PieChartSectionData(
+                  value: carbs,
+                  color: cs.secondary,
+                  radius: 14,
+                  showTitle: false,
+                ),
+                PieChartSectionData(
+                  value: fat,
+                  color: cs.error,
+                  radius: 14,
+                  showTitle: false,
+                ),
+              ],
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$carbPct%',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onPrimaryContainer),
+              ),
+              Text(
+                'KH',
+                style: TextStyle(
+                    fontSize: 8,
+                    color: cs.onPrimaryContainer.withValues(alpha: 0.8)),
+              ),
+            ],
+          ),
+          // Legend dots row below the chart
+          Positioned(
+            bottom: 0,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _Dot(cs.tertiary),
+                const SizedBox(width: 2),
+                Text('P $protPct%',
+                    style: TextStyle(
+                        fontSize: 7, color: cs.onPrimaryContainer)),
+                const SizedBox(width: 4),
+                _Dot(cs.error),
+                const SizedBox(width: 2),
+                Text('F $fatPct%',
+                    style: TextStyle(
+                        fontSize: 7, color: cs.onPrimaryContainer)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Dot extends StatelessWidget {
+  final Color color;
+  const _Dot(this.color);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
 }
 
 class _MacroProgressRow extends StatelessWidget {
@@ -626,6 +784,196 @@ class _LogTile extends ConsumerWidget {
     if (ok && context.mounted) {
       await ref.read(nutritionOpsProvider.notifier).deleteLog(log.id);
     }
+  }
+}
+
+// ─── Water tracking widget ────────────────────────────────────────────────────
+
+class _WaterWidget extends ConsumerStatefulWidget {
+  final DateTime day;
+  final int total;
+  final int goal;
+  final List<WaterLog> logs;
+
+  const _WaterWidget({
+    required this.day,
+    required this.total,
+    required this.goal,
+    required this.logs,
+  });
+
+  @override
+  ConsumerState<_WaterWidget> createState() => _WaterWidgetState();
+}
+
+class _WaterWidgetState extends ConsumerState<_WaterWidget> {
+  bool _expanded = false;
+
+  Future<void> _add(int ml) async {
+    await ref.read(waterOpsProvider.notifier).addWater(
+          DateTime.now(),
+          ml,
+        );
+  }
+
+  Future<void> _addCustom() async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wasser hinzufügen'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Menge',
+            suffixText: 'ml',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Abbrechen')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Hinzufügen')),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      final ml = int.tryParse(ctrl.text.trim());
+      if (ml != null && ml > 0) await _add(ml);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final pct = widget.goal > 0
+        ? (widget.total / widget.goal).clamp(0.0, 1.0)
+        : 0.0;
+    final done = widget.total >= widget.goal;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                Icon(Icons.water_drop_outlined,
+                    color: done ? cs.primary : cs.onSurfaceVariant, size: 20),
+                const SizedBox(width: 8),
+                Text('Wasser',
+                    style: Theme.of(context).textTheme.titleSmall),
+                const Spacer(),
+                Text(
+                  '${widget.total} / ${widget.goal} ml',
+                  style: TextStyle(
+                    color: done ? cs.primary : cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                ),
+              ],
+            ),
+            // Progress bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 5,
+                backgroundColor: cs.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation(
+                    done ? cs.primary : cs.secondary),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Quick-add buttons
+            Row(
+              children: [
+                _QuickAddBtn(label: '+200 ml', onTap: () => _add(200)),
+                const SizedBox(width: 6),
+                _QuickAddBtn(label: '+250 ml', onTap: () => _add(250)),
+                const SizedBox(width: 6),
+                _QuickAddBtn(label: '+330 ml', onTap: () => _add(330)),
+                const SizedBox(width: 6),
+                _QuickAddBtn(label: '+500 ml', onTap: () => _add(500)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline, size: 22),
+                  tooltip: 'Andere Menge',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _addCustom,
+                ),
+              ],
+            ),
+            // Expanded: individual log entries
+            if (_expanded && widget.logs.isNotEmpty) ...[
+              const Divider(height: 16),
+              ...widget.logs.map((l) => _WaterLogTile(log: l)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickAddBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _QuickAddBtn({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          textStyle: const TextStyle(fontSize: 12),
+          visualDensity: VisualDensity.compact,
+        ),
+        child: Text(label),
+      );
+}
+
+class _WaterLogTile extends ConsumerWidget {
+  final WaterLog log;
+  const _WaterLogTile({required this.log});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final time = TimeOfDay.fromDateTime(log.loggedAt);
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(Icons.water_drop_outlined,
+          size: 18, color: cs.primary),
+      title: Text('${log.amountMl} ml',
+          style: const TextStyle(fontSize: 13)),
+      subtitle: Text(time.format(context),
+          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+      trailing: IconButton(
+        icon: Icon(Icons.delete_outline, size: 18, color: cs.error),
+        visualDensity: VisualDensity.compact,
+        onPressed: () =>
+            ref.read(waterOpsProvider.notifier).deleteLog(log.id),
+      ),
+    );
   }
 }
 

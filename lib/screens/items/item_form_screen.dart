@@ -81,6 +81,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   bool _loadingNameSearch = false;
   bool _showNutrition = false;
 
+  // Nutrition reference unit: 'g' (per 100g) or 'ml' (per 100ml for liquids)
+  String _nutritionRefUnit = 'g';
+
   // Stock unit for inventory aggregation
   String? _stockUnit;
   String? _defaultLocationId;
@@ -121,6 +124,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _novaGroup = i.novaGroup;
       _stockUnit = i.stockUnit;
       _defaultLocationId = i.defaultLocationId;
+      _nutritionRefUnit = i.nutritionRefUnit;
       _showNutrition = _hasAnyNutrition(i);
     }
     // Load existing group memberships and item conversions
@@ -369,6 +373,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         ingredientsText: ingredients,
         stockUnit: _stockUnit,
         defaultLocationId: _defaultLocationId,
+        nutritionRefUnit: _nutritionRefUnit,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -394,6 +399,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         ingredientsText: Value(ingredients),
         stockUnit: Value(_stockUnit),
         defaultLocationId: Value(_defaultLocationId),
+        nutritionRefUnit: _nutritionRefUnit,
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -728,7 +734,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                     const Icon(Icons.restaurant_menu, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Nährwerte (pro 100g)',
+                      'Nährwerte (pro 100 $_nutritionRefUnit)',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const Spacer(),
@@ -742,6 +748,27 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
             if (_showNutrition) ...[
               const Divider(height: 8),
               const SizedBox(height: 8),
+              // g / ml toggle
+              Row(
+                children: [
+                  Text('Bezugsgröße:',
+                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(width: 8),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'g', label: Text('pro 100g')),
+                      ButtonSegment(value: 'ml', label: Text('pro 100ml')),
+                    ],
+                    selected: {_nutritionRefUnit},
+                    onSelectionChanged: (s) =>
+                        setState(() => _nutritionRefUnit = s.first),
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               // Nutri-Score + NOVA row
               Row(
                 children: [
