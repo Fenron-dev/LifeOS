@@ -35,6 +35,15 @@ final dailyTotalsProvider =
   return db.dailyNutritionTotals(day);
 });
 
+/// All logs within a date range [from, to) for the history/overview screen.
+final nutritionLogsForRangeProvider =
+    FutureProvider.family<List<NutritionLog>, (DateTime, DateTime)>(
+        (ref, range) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return [];
+  return db.getLogsForRange(range.$1, range.$2);
+});
+
 final nutritionOpsProvider =
     AsyncNotifierProvider<NutritionOpsNotifier, void>(
         NutritionOpsNotifier.new);

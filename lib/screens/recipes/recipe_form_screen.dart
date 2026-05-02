@@ -264,6 +264,7 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
               quantity:
                   double.tryParse(r.qtyCtrl.text.replaceAll(',', '.')) ?? 1,
               unit: r.unit,
+              itemId: r.itemId,
               optional: r.optional,
             ))
         .toList();
@@ -328,11 +329,12 @@ class _IngRow {
   final TextEditingController qtyCtrl;
   String unit;
   bool optional;
+  String? itemId; // linked inventory item
 
   _IngRow()
       : nameCtrl = TextEditingController(),
         qtyCtrl = TextEditingController(text: '1'),
-        unit = 'Stück',
+        unit = 'g',
         optional = false;
 
   _IngRow.fromDB(RecipeIngredient ing)
@@ -342,7 +344,8 @@ class _IngRow {
                 ? ing.quantity.toInt().toString()
                 : ing.quantity.toStringAsFixed(1)),
         unit = ing.unit,
-        optional = ing.optional;
+        optional = ing.optional,
+        itemId = ing.itemId;
 
   void dispose() {
     nameCtrl.dispose();
@@ -420,15 +423,56 @@ class _IngredientEditorState extends ConsumerState<_IngredientEditor> {
           Expanded(
             child: TextFormField(
               controller: row.nameCtrl,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Zutat',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                suffixIcon: row.itemId != null
+                    ? Tooltip(
+                        message: 'Verknüpfung aufheben',
+                        child: Icon(Icons.link,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                      )
+                    : null,
               ),
             ),
           ),
           const SizedBox(width: 4),
+
+          // Item link button
+          IconButton(
+            icon: Icon(
+              row.itemId != null
+                  ? Icons.link_off_outlined
+                  : Icons.link_outlined,
+              size: 18,
+              color: row.itemId != null
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            tooltip:
+                row.itemId != null ? 'Verknüpfung aufheben' : 'Artikel verknüpfen',
+            visualDensity: VisualDensity.compact,
+            onPressed: () async {
+              if (row.itemId != null) {
+                setState(() => row.itemId = null);
+              } else {
+                final item =
+                    await _pickItem(context, ref.read(databaseProvider));
+                if (item != null) {
+                  setState(() {
+                    row.itemId = item.id;
+                    if (row.nameCtrl.text.trim().isEmpty) {
+                      row.nameCtrl.text = item.name;
+                    }
+                    if (item.stockUnit != null) row.unit = item.stockUnit!;
+                  });
+                }
+              }
+            },
+          ),
 
           // Optional checkbox
           Checkbox(
@@ -499,6 +543,128 @@ class _StepEditor extends StatelessWidget {
             visualDensity: VisualDensity.compact,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Item picker helper
+// ---------------------------------------------------------------------------
+
+Future<Item?> _pickItem(BuildContext context, AppDatabase? db) {
+  return showModalBottomSheet<Item>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _ItemPickerSheet(db: db),
+  );
+}
+
+class _ItemPickerSheet extends ConsumerStatefulWidget {
+  final AppDatabase? db;
+  const _ItemPickerSheet({required this.db});
+
+  @override
+  ConsumerState<_ItemPickerSheet> createState() => _ItemPickerSheetState();
+}
+
+class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
+  final _ctrl = TextEditingController();
+  List<Item> _results = [];
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String q) async {
+    if (q.trim().isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
+    setState(() => _loading = true);
+    final rows = await widget.db?.searchItems(q.trim()).first ?? [];
+    if (mounted) setState(() { _results = rows; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inset = MediaQuery.of(context).viewInsets.bottom;
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.7,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: inset),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text('Artikel verknüpfen',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const Spacer(),
+                  TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen')),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _ctrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Artikelname suchen …',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: _search,
+                onSubmitted: _search,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _results.isEmpty
+                      ? Center(
+                          child: Text(
+                            _ctrl.text.trim().isEmpty
+                                ? 'Artikelname eintippen …'
+                                : 'Keine Artikel gefunden',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _results.length,
+                          itemBuilder: (ctx, i) {
+                            final item = _results[i];
+                            return ListTile(
+                              leading: const Icon(Icons.inventory_2_outlined),
+                              title: Text(item.name),
+                              subtitle: item.brand != null
+                                  ? Text(item.brand!)
+                                  : null,
+                              trailing: item.caloriesPer100g != null
+                                  ? Text(
+                                      '${item.caloriesPer100g!.toStringAsFixed(0)} kcal/100g',
+                                      style: Theme.of(ctx).textTheme.bodySmall)
+                                  : null,
+                              onTap: () => Navigator.of(context).pop(item),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }

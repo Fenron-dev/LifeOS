@@ -50,7 +50,15 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
 
   bool get _hasPerHundredData => _product?.caloriesPer100g != null;
 
-  bool get _showManualMacros => _product != null && !_hasPerHundredData;
+  /// Recipe selected without linked ingredients, but has stored per-serving totals.
+  bool get _hasRecipeTotals =>
+      _product != null &&
+      _product!.isRecipe &&
+      !_hasPerHundredData &&
+      _product!.recipeKcalTotal != null;
+
+  bool get _showManualMacros =>
+      _product != null && !_hasPerHundredData && !_hasRecipeTotals;
 
   @override
   void initState() {
@@ -83,6 +91,10 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       final p = _product!;
       if (p.servingSizeG != null) {
         _qtyController.text = _fmtQty(p.servingSizeG!);
+        _unit = 'Portion';
+      } else if (p.isRecipe) {
+        // Recipe without weight data: default to 1 Portion
+        _qtyController.text = '1';
         _unit = 'Portion';
       }
     }
@@ -146,6 +158,9 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       if (result.servingSizeG != null && _qtyController.text.trim().isEmpty) {
         _qtyController.text = _fmtQty(result.servingSizeG!);
         _unit = 'Portion';
+      } else if (result.isRecipe && _qtyController.text.trim().isEmpty) {
+        _qtyController.text = '1';
+        _unit = 'Portion';
       }
       if (result.caloriesPer100g != null) {
         _kcalManual.clear();
@@ -193,20 +208,33 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     }
 
     final qtyG = _toGrams(qty);
-    final kcal = _hasPerHundredData
-        ? _calcMacro(_product!.caloriesPer100g, qtyG)
-        : _manualVal(_kcalManual);
-    final protein = _hasPerHundredData
-        ? _calcMacro(_product!.proteinPer100g, qtyG)
-        : _manualVal(_proteinManual);
-    final carbs = _hasPerHundredData
-        ? _calcMacro(_product!.carbsPer100g, qtyG)
-        : _manualVal(_carbsManual);
-    final fat = _hasPerHundredData
-        ? _calcMacro(_product!.fatPer100g, qtyG)
-        : _manualVal(_fatManual);
-    final fiber =
-        _hasPerHundredData ? _calcMacro(_product!.fiberPer100g, qtyG) : null;
+    late double? kcal, protein, carbs, fat, fiber;
+    if (_hasRecipeTotals) {
+      // qty = number of servings; multiply stored per-serving totals
+      kcal = qty * _product!.recipeKcalTotal!;
+      protein = _product!.recipeProteinTotal != null
+          ? qty * _product!.recipeProteinTotal!
+          : null;
+      carbs = _product!.recipeCarbsTotal != null
+          ? qty * _product!.recipeCarbsTotal!
+          : null;
+      fat = _product!.recipeFatTotal != null
+          ? qty * _product!.recipeFatTotal!
+          : null;
+      fiber = null;
+    } else if (_hasPerHundredData) {
+      kcal = _calcMacro(_product!.caloriesPer100g, qtyG);
+      protein = _calcMacro(_product!.proteinPer100g, qtyG);
+      carbs = _calcMacro(_product!.carbsPer100g, qtyG);
+      fat = _calcMacro(_product!.fatPer100g, qtyG);
+      fiber = _calcMacro(_product!.fiberPer100g, qtyG);
+    } else {
+      kcal = _manualVal(_kcalManual);
+      protein = _manualVal(_proteinManual);
+      carbs = _manualVal(_carbsManual);
+      fat = _manualVal(_fatManual);
+      fiber = null;
+    }
     final notes = _notesController.text.trim().isEmpty
         ? null
         : _notesController.text.trim();
@@ -364,7 +392,11 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
                   product: _product!,
                   qty: _qtyController.text,
                   unit: safeUnit,
-                  servingSizeG: _product!.servingSizeG),
+                  servingSizeG: _product!.servingSizeG)
+            else if (_hasRecipeTotals)
+              _RecipeTotalsPreview(
+                  product: _product!,
+                  qty: _qtyController.text),
 
             // ── Quantity + unit ─────────────────────────────────────────────
             Row(
@@ -658,6 +690,57 @@ class _MacroCell extends StatelessWidget {
                   TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
         ],
       );
+}
+
+/// Preview shown when a recipe has stored per-serving totals but no per-100g data.
+class _RecipeTotalsPreview extends StatelessWidget {
+  final FoodSearchResult product;
+  final String qty;
+
+  const _RecipeTotalsPreview({required this.product, required this.qty});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final portions = double.tryParse(qty.replaceAll(',', '.')) ?? 0;
+    final fmt = NumberFormat.decimalPattern('de_DE')..maximumFractionDigits = 1;
+
+    String calc(double? perServing) {
+      if (perServing == null || portions <= 0) return '—';
+      return fmt.format(perServing * portions);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _MacroCell(
+              label: 'kcal',
+              value: calc(product.recipeKcalTotal),
+              cs: cs,
+              highlight: true),
+          _MacroCell(
+              label: 'Protein',
+              value: '${calc(product.recipeProteinTotal)} g',
+              cs: cs),
+          _MacroCell(
+              label: 'KH',
+              value: '${calc(product.recipeCarbsTotal)} g',
+              cs: cs),
+          _MacroCell(
+              label: 'Fett',
+              value: '${calc(product.recipeFatTotal)} g',
+              cs: cs),
+        ],
+      ),
+    );
+  }
 }
 
 class _MacroField extends StatelessWidget {

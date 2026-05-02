@@ -6,6 +6,7 @@ import '../../db/database.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/diary_entry_sheet.dart';
+import 'nutrition_history_screen.dart';
 
 /// Phase 6.4 — Ernährungstagebuch. Shows a day-picker, per-meal-slot sections
 /// and a daily macro summary. FAB and per-slot "+" buttons open
@@ -41,6 +42,20 @@ class _DiaryTabState extends ConsumerState<DiaryTab> {
     final profile = ref.watch(userProfileProvider).valueOrNull;
 
     return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('Tagebuch'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart_outlined),
+            tooltip: 'Verlauf & Übersicht',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => const NutritionHistoryScreen()),
+            ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           // ── Day navigation ───────────────────────────────────────────────

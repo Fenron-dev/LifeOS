@@ -849,6 +849,14 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Future<List<NutritionLog>> getLogsForRange(DateTime from, DateTime to) =>
+      (select(nutritionLogs)
+            ..where((l) =>
+                l.loggedAt.isBiggerOrEqualValue(from) &
+                l.loggedAt.isSmallerThanValue(to))
+            ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+          .get();
+
   Future<void> insertNutritionLog(NutritionLogsCompanion entry) =>
       into(nutritionLogs).insert(entry);
 

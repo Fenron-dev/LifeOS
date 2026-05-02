@@ -81,6 +81,19 @@ final recipeTagsProvider =
 });
 
 // ---------------------------------------------------------------------------
+// Computed nutrition from recipe ingredients (linked items only)
+// ---------------------------------------------------------------------------
+
+final recipeComputedNutritionProvider =
+    FutureProvider.family<RecipeNutritionData?, String>((ref, recipeId) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return null;
+  // Re-compute when ingredients change
+  ref.watch(recipeIngredientsProvider(recipeId));
+  return db.computeRecipeNutrition(recipeId);
+});
+
+// ---------------------------------------------------------------------------
 // Standard meals
 // ---------------------------------------------------------------------------
 

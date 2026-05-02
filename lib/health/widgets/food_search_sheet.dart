@@ -504,19 +504,26 @@ class _SearchItem {
         source: 'off',
       );
 
-  factory _SearchItem.fromRecipe(Recipe r, RecipeNutritionData? nutrition) =>
-      _SearchItem(
-        name: r.name,
-        caloriesPer100g: nutrition?.caloriesPer100g,
-        proteinPer100g: nutrition?.proteinPer100g,
-        carbsPer100g: nutrition?.carbsPer100g,
-        fatPer100g: nutrition?.fatPer100g,
-        fiberPer100g: nutrition?.fiberPer100g,
-        servingSizeG: nutrition?.totalWeightG,
-        recipeKcalTotal: nutrition?.kcal,
-        recipeProteinTotal: nutrition?.proteinG,
-        recipeCarbsTotal: nutrition?.carbsG,
-        recipeFatTotal: nutrition?.fatG,
-        source: 'recipe',
-      );
+  factory _SearchItem.fromRecipe(Recipe r, RecipeNutritionData? nutrition) {
+    final servingSizeG = (nutrition != null &&
+            nutrition.totalWeightG > 0 &&
+            r.servings > 0)
+        ? nutrition.totalWeightG / r.servings
+        : null;
+    return _SearchItem(
+      name: r.name,
+      caloriesPer100g: nutrition?.caloriesPer100g,
+      proteinPer100g: nutrition?.proteinPer100g,
+      carbsPer100g: nutrition?.carbsPer100g,
+      fatPer100g: nutrition?.fatPer100g,
+      fiberPer100g: nutrition?.fiberPer100g,
+      servingSizeG: servingSizeG,
+      // Fall back to stored per-serving values when no ingredients are linked
+      recipeKcalTotal: nutrition?.kcal ?? r.caloriesPerServing,
+      recipeProteinTotal: nutrition?.proteinG ?? r.proteinPerServing,
+      recipeCarbsTotal: nutrition?.carbsG ?? r.carbsPerServing,
+      recipeFatTotal: nutrition?.fatG ?? r.fatPerServing,
+      source: 'recipe',
+    );
+  }
 }

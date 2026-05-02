@@ -248,10 +248,28 @@ class RecipeContentView extends ConsumerWidget {
                 ),
         ),
 
-        if (recipe.caloriesPerServing != null) ...[
-          _NutritionCard(recipe: recipe),
-          const SizedBox(height: 16),
-        ],
+        Consumer(
+          builder: (context, ref, _) {
+            final nutrAsync =
+                ref.watch(recipeComputedNutritionProvider(recipe.id));
+            return nutrAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (e, s) => const SizedBox.shrink(),
+              data: (computed) {
+                final hasData = computed != null ||
+                    recipe.caloriesPerServing != null;
+                if (!hasData) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _NutritionCard(
+                    recipe: recipe,
+                    computed: computed,
+                  ),
+                );
+              },
+            );
+          },
+        ),
 
         Text('Zutaten', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -346,7 +364,8 @@ class _TagsRow extends StatelessWidget {
 
 class _NutritionCard extends StatelessWidget {
   final Recipe recipe;
-  const _NutritionCard({required this.recipe});
+  final RecipeNutritionData? computed;
+  const _NutritionCard({required this.recipe, this.computed});
 
   @override
   Widget build(BuildContext context) {
@@ -356,22 +375,65 @@ class _NutritionCard extends StatelessWidget {
             ? v.toInt().toString()
             : v.toStringAsFixed(1));
 
+    // Prefer computed-from-ingredients, fall back to stored values
+    final servings = recipe.servings > 0 ? recipe.servings.toDouble() : 1;
+    final kcal = computed != null
+        ? computed!.kcal / servings
+        : recipe.caloriesPerServing;
+    final protein = computed != null
+        ? computed!.proteinG / servings
+        : recipe.proteinPerServing;
+    final carbs = computed != null
+        ? computed!.carbsG / servings
+        : recipe.carbsPerServing;
+    final fat = computed != null
+        ? computed!.fatG / servings
+        : recipe.fatPerServing;
+    final fiber = computed != null ? computed!.fiberG / servings : null;
+    final totalG = computed?.totalWeightG;
+
+    final isComputed = computed != null;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Nährwerte pro Portion',
-                style: Theme.of(context).textTheme.titleSmall),
+            Row(
+              children: [
+                Text('Nährwerte pro Portion',
+                    style: Theme.of(context).textTheme.titleSmall),
+                if (isComputed) ...[
+                  const SizedBox(width: 6),
+                  Chip(
+                    label: const Text('berechnet'),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    labelStyle: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              ],
+            ),
+            if (totalG != null && totalG > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 4),
+                child: Text(
+                  'ca. ${(totalG / servings).toStringAsFixed(0)} g pro Portion · ${totalG.toStringAsFixed(0)} g gesamt',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline),
+                ),
+              ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _NutCol('Kalorien', '${fmt(recipe.caloriesPerServing)} kcal'),
-                _NutCol('Protein', '${fmt(recipe.proteinPerServing)} g'),
-                _NutCol('Kohlenhydrate', '${fmt(recipe.carbsPerServing)} g'),
-                _NutCol('Fett', '${fmt(recipe.fatPerServing)} g'),
+                _NutCol('Kalorien', '${fmt(kcal)} kcal'),
+                _NutCol('Protein', '${fmt(protein)} g'),
+                _NutCol('Kohlenhydrate', '${fmt(carbs)} g'),
+                _NutCol('Fett', '${fmt(fat)} g'),
+                if (fiber != null && fiber > 0)
+                  _NutCol('Ballaststoffe', '${fmt(fiber)} g'),
               ],
             ),
           ],
