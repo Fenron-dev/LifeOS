@@ -19,6 +19,7 @@ import 'tables/tags_table.dart';
 import 'tables/recipes_table.dart';
 import 'tables/tasks_table.dart';
 import 'tables/automation_table.dart';
+import 'tables/nutrition_table.dart';
 import 'tables/stats_table.dart';
 
 part 'database.g.dart';
@@ -61,6 +62,8 @@ part 'database.g.dart';
   BodyWeightLogs,
   BodyMeasurements,
   UserProfile,
+  // Nutrition diary
+  NutritionLogs,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -75,7 +78,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -187,6 +190,18 @@ class AppDatabase extends _$AppDatabase {
           if (from < 12) {
             // Phase 6.2 — body measurements (Körpermaße).
             await m.createTable(bodyMeasurements);
+          }
+          if (from < 13) {
+            // Phase 6.4 — nutrition diary.
+            await m.createTable(nutritionLogs);
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_nutr_logged_at '
+              'ON nutrition_logs (logged_at)',
+            );
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_nutr_meal_type '
+              'ON nutrition_logs (meal_type_id)',
+            );
           }
         },
         beforeOpen: (details) async {
@@ -573,6 +588,8 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_recipe_ing_recipe ON recipe_ingredients (recipe_id)',
       'CREATE INDEX IF NOT EXISTS idx_meal_ing_meal ON standard_meal_ingredients (meal_id)',
       'CREATE INDEX IF NOT EXISTS idx_mta_mealtype ON meal_type_assignments (meal_type_id)',
+      'CREATE INDEX IF NOT EXISTS idx_nutr_logged_at ON nutrition_logs (logged_at)',
+      'CREATE INDEX IF NOT EXISTS idx_nutr_meal_type ON nutrition_logs (meal_type_id)',
     ];
     for (final s in stmts) {
       await customStatement(s);
@@ -813,6 +830,49 @@ class AppDatabase extends _$AppDatabase {
     return rows.read<int>('c');
   }
 
+  // ── Nutrition Logs ─────────────────────────────────────────────────────────
+
+  /// All entries for the calendar day containing [day], ordered by meal-slot
+  /// (loggedAt asc so entries appear in time order within each slot).
+  Stream<List<NutritionLog>> watchLogsForDay(DateTime day) {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    return (select(nutritionLogs)
+          ..where((l) =>
+              l.loggedAt.isBiggerOrEqualValue(start) &
+              l.loggedAt.isSmallerThanValue(end))
+          ..orderBy([(l) => OrderingTerm.asc(l.loggedAt)]))
+        .watch();
+  }
+
+  Future<void> insertNutritionLog(NutritionLogsCompanion entry) =>
+      into(nutritionLogs).insert(entry);
+
+  Future<void> deleteNutritionLog(String id) =>
+      (delete(nutritionLogs)..where((l) => l.id.equals(id))).go();
+
+  /// Summed kcal / protein / carbs / fat for the calendar day of [day].
+  Future<DailyNutritionTotals> dailyNutritionTotals(DateTime day) async {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    final row = await customSelect(
+      'SELECT '
+      '  COALESCE(SUM(kcal), 0)      AS kcal, '
+      '  COALESCE(SUM(protein_g), 0) AS protein, '
+      '  COALESCE(SUM(carbs_g), 0)   AS carbs, '
+      '  COALESCE(SUM(fat_g), 0)     AS fat '
+      'FROM nutrition_logs '
+      'WHERE logged_at >= ? AND logged_at < ?',
+      variables: [Variable<DateTime>(start), Variable<DateTime>(end)],
+    ).getSingle();
+    return DailyNutritionTotals(
+      kcal: row.read<double>('kcal'),
+      proteinG: row.read<double>('protein'),
+      carbsG: row.read<double>('carbs'),
+      fatG: row.read<double>('fat'),
+    );
+  }
+
   // ── Body Measurements ──────────────────────────────────────────────────────
 
   Stream<List<BodyMeasurement>> watchBodyMeasurements({int limit = 90}) =>
@@ -942,4 +1002,18 @@ class AppDatabase extends _$AppDatabase {
       }
     }
   }
+}
+
+/// Aggregated nutritional totals for a single calendar day.
+class DailyNutritionTotals {
+  final double kcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  const DailyNutritionTotals({
+    required this.kcal,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatG,
+  });
 }

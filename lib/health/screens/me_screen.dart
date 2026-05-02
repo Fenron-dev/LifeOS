@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../widgets/adaptive_shell.dart';
+import 'diary_tab.dart';
 import 'measurements_tab.dart';
 import 'profile_tab.dart';
 import 'weight_tab.dart';
@@ -23,7 +24,7 @@ class MeScreen extends ConsumerStatefulWidget {
 class _MeScreenState extends ConsumerState<MeScreen>
     with SingleTickerProviderStateMixin {
   static const _tabs = <_MeTabSpec>[
-    _MeTabSpec(label: 'Tagebuch', icon: Icons.book_outlined, ready: false),
+    _MeTabSpec(label: 'Tagebuch', icon: Icons.book_outlined, ready: true),
     _MeTabSpec(label: 'Gewicht', icon: Icons.monitor_weight_outlined, ready: true),
     _MeTabSpec(label: 'Maße', icon: Icons.straighten, ready: true),
     _MeTabSpec(label: 'Fotos', icon: Icons.photo_library_outlined, ready: false),
@@ -74,6 +75,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
         children: _tabs.map((t) {
           if (!t.ready) return _PlaceholderTab(label: t.label, icon: t.icon);
           return switch (t.label) {
+            'Tagebuch' => const DiaryTab(),
             'Gewicht' => const WeightTab(),
             'Maße' => const MeasurementsTab(),
             'Profil' => const ProfileTab(),
