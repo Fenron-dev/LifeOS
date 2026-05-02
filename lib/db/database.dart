@@ -1076,7 +1076,8 @@ class AppDatabase extends _$AppDatabase {
       if (ing.itemId == null) continue;
       final item = await itemById(ing.itemId!);
       if (item == null) continue;
-      final qG = _unitToGrams(ing.quantity, ing.unit);
+      final qG = _unitToGrams(ing.quantity, ing.unit,
+          servingSizeG: item.servingSizeG);
       if (qG == null || qG <= 0) continue;
       totalG += qG;
       if (item.caloriesPer100g != null) {
@@ -1107,7 +1108,8 @@ class AppDatabase extends _$AppDatabase {
       if (ing.itemId == null) continue;
       final item = await itemById(ing.itemId!);
       if (item == null) continue;
-      final qG = _unitToGrams(ing.quantity, ing.unit);
+      final qG = _unitToGrams(ing.quantity, ing.unit,
+          servingSizeG: item.servingSizeG);
       if (qG == null || qG <= 0) continue;
       totalG += qG;
       if (item.caloriesPer100g != null) {
@@ -1130,14 +1132,25 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  static double? _unitToGrams(double qty, String unit) {
+  /// Converts [qty] in [unit] to a gram-equivalent value.
+  /// For piece/container units (Stück, Portion, Scheibe, …) [servingSizeG] is
+  /// used: 1 Stück = servingSizeG grams. Returns null when conversion is
+  /// impossible (unknown unit AND no serving size).
+  static double? _unitToGrams(double qty, String unit,
+      {double? servingSizeG}) {
     return switch (unit.toLowerCase().trim()) {
       'g' || 'gramm' || 'gr' => qty,
       'ml' || 'milliliter' => qty,
       'kg' || 'kilogramm' => qty * 1000,
       'l' || 'liter' => qty * 1000,
-      'el' => qty * 15,
-      'tl' => qty * 5,
+      'dl' => qty * 100,
+      'cl' => qty * 10,
+      'mg' => qty * 0.001,
+      'el' || 'esslöffel' => qty * 15,
+      'tl' || 'teelöffel' => qty * 5,
+      'tasse' || 'cup' => qty * 237,
+      // Piece/container units: 1 unit ≈ servingSizeG grams
+      _ when servingSizeG != null => qty * servingSizeG,
       _ => null,
     };
   }

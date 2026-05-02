@@ -981,6 +981,8 @@ enum _HistoryPeriod { week, month, year, all }
 enum _HistorySort {
   kcal('Kalorien'),
   protein('Protein'),
+  carbs('Kohlenhydrate'),
+  fat('Fett'),
   name('Name');
 
   final String label;
@@ -1076,24 +1078,27 @@ class _ConsumptionHistoryState extends ConsumerState<_ConsumptionHistory> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  // Sort chips
-                  Row(
-                    children: [
-                      Text('Sortierung:',
-                          style: Theme.of(context).textTheme.bodySmall),
-                      const SizedBox(width: 8),
-                      ..._HistorySort.values.map((f) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ChoiceChip(
-                              label: Text(f.label),
-                              selected: _sort == f,
-                              onSelected: (_) => setState(() => _sort = f),
-                              visualDensity: VisualDensity.compact,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                            ),
-                          )),
-                    ],
+                  // Sort chips (scrollable)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        Text('Sortierung:',
+                            style: Theme.of(context).textTheme.bodySmall),
+                        const SizedBox(width: 8),
+                        ..._HistorySort.values.map((f) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(f.label),
+                                selected: _sort == f,
+                                onSelected: (_) => setState(() => _sort = f),
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4),
+                              ),
+                            )),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1143,6 +1148,8 @@ class _HistoryContent extends StatelessWidget {
     list.sort((a, b) => switch (sort) {
           _HistorySort.kcal => b.kcal.compareTo(a.kcal),
           _HistorySort.protein => b.protein.compareTo(a.protein),
+          _HistorySort.carbs => b.carbs.compareTo(a.carbs),
+          _HistorySort.fat => b.fat.compareTo(a.fat),
           _HistorySort.name => a.name.compareTo(b.name),
         });
     return list;
@@ -1194,7 +1201,9 @@ class _HistoryContent extends StatelessWidget {
         ...entries.map((e) {
           final sortValue = switch (sort) {
             _HistorySort.kcal => '${fmt0.format(e.kcal)} kcal',
-            _HistorySort.protein => '${fmt1.format(e.protein)} g P',
+            _HistorySort.protein => '${fmt1.format(e.protein)} g Protein',
+            _HistorySort.carbs => '${fmt1.format(e.carbs)} g KH',
+            _HistorySort.fat => '${fmt1.format(e.fat)} g Fett',
             _HistorySort.name => '${fmt0.format(e.kcal)} kcal',
           };
           return ListTile(

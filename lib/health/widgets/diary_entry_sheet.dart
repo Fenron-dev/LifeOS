@@ -89,13 +89,14 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     } else if (widget.initialProduct != null) {
       _product = widget.initialProduct;
       final p = _product!;
-      if (p.servingSizeG != null) {
-        _qtyController.text = _fmtQty(p.servingSizeG!);
-        _unit = 'Portion';
-      } else if (p.isRecipe) {
-        // Recipe without weight data: default to 1 Portion
+      if (p.isRecipe) {
+        // Recipes & meals: qty = number of servings (1 Portion = servingSizeG grams)
         _qtyController.text = '1';
         _unit = 'Portion';
+      } else if (p.servingSizeG != null) {
+        // Regular food item with a known serving: pre-fill in grams
+        _qtyController.text = _fmtQty(p.servingSizeG!);
+        _unit = 'g';
       } else if (p.nutritionRefUnit == 'ml') {
         _unit = 'ml';
       }
@@ -157,12 +158,14 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     if (result == null) return;
     setState(() {
       _product = result;
-      if (result.servingSizeG != null && _qtyController.text.trim().isEmpty) {
-        _qtyController.text = _fmtQty(result.servingSizeG!);
-        _unit = 'Portion';
-      } else if (result.isRecipe && _qtyController.text.trim().isEmpty) {
-        _qtyController.text = '1';
-        _unit = 'Portion';
+      if (_qtyController.text.trim().isEmpty) {
+        if (result.isRecipe) {
+          _qtyController.text = '1';
+          _unit = 'Portion';
+        } else if (result.servingSizeG != null) {
+          _qtyController.text = _fmtQty(result.servingSizeG!);
+          _unit = 'g';
+        }
       }
       if (result.caloriesPer100g != null) {
         _kcalManual.clear();

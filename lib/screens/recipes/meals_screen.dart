@@ -160,16 +160,23 @@ class _MealNutritionRow extends ConsumerWidget {
   final List<StandardMealIngredient> ingredients;
   const _MealNutritionRow({required this.ingredients});
 
-  /// Grams per unit for simple conversions
-  static const Map<String, double> _toGrams = {
-    'g': 1,
-    'kg': 1000,
-    'mg': 0.001,
-    'ml': 1, // approximate water density
-    'l': 1000,
-    'dl': 100,
-    'cl': 10,
-  };
+  /// Converts qty in unit to grams; falls back to servingSizeG for piece units.
+  static double? _toGrams(double qty, String unit, {double? servingSizeG}) {
+    return switch (unit.toLowerCase().trim()) {
+      'g' || 'gramm' || 'gr' => qty,
+      'kg' || 'kilogramm' => qty * 1000,
+      'mg' => qty * 0.001,
+      'ml' || 'milliliter' => qty,
+      'l' || 'liter' => qty * 1000,
+      'dl' => qty * 100,
+      'cl' => qty * 10,
+      'el' || 'esslöffel' => qty * 15,
+      'tl' || 'teelöffel' => qty * 5,
+      'tasse' || 'cup' => qty * 237,
+      _ when servingSizeG != null => qty * servingSizeG,
+      _ => null,
+    };
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -188,11 +195,10 @@ class _MealNutritionRow extends ConsumerWidget {
       if (item == null) continue;
       if (item.caloriesPer100g == null) continue;
 
-      final gramsPerUnit =
-          _toGrams[ing.unit.toLowerCase()] ?? _toGrams[ing.unit];
-      if (gramsPerUnit == null) continue;
+      final grams = _toGrams(ing.quantity, ing.unit,
+          servingSizeG: item.servingSizeG);
+      if (grams == null || grams <= 0) continue;
 
-      final grams = ing.quantity * gramsPerUnit;
       final scale = grams / 100.0;
 
       totalKcal = (totalKcal ?? 0) + item.caloriesPer100g! * scale;
