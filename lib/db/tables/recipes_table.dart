@@ -64,6 +64,11 @@ class StandardMeals extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get notes => text().nullable()();
+  // Nutrition per serving — can be entered manually or auto-computed from linked ingredients.
+  RealColumn get kcalTotal => real().nullable()();
+  RealColumn get proteinG => real().nullable()();
+  RealColumn get carbsG => real().nullable()();
+  RealColumn get fatG => real().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

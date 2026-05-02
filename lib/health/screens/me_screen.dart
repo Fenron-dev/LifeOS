@@ -38,8 +38,8 @@ class _MeScreenState extends ConsumerState<MeScreen>
   @override
   void initState() {
     super.initState();
-    // Default to "Gewicht" — that's what's actually usable in Phase 6.1.
-    final initial = _tabs.indexWhere((t) => t.label == 'Gewicht');
+    // Default to "Tagebuch" — the daily diary is the main entry point.
+    final initial = _tabs.indexWhere((t) => t.label == 'Tagebuch');
     _controller = TabController(
       length: _tabs.length,
       vsync: this,

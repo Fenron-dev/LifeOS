@@ -259,12 +259,20 @@ class MealsNotifier extends AsyncNotifier<void> {
     required String name,
     String? notes,
     List<IngredientInput> ingredients = const [],
+    double? kcalTotal,
+    double? proteinG,
+    double? carbsG,
+    double? fatG,
   }) async {
     final id = _uuid.v4();
     await _db.insertMeal(StandardMealsCompanion.insert(
       id: id,
       name: name,
       notes: Value(notes),
+      kcalTotal: Value(kcalTotal),
+      proteinG: Value(proteinG),
+      carbsG: Value(carbsG),
+      fatG: Value(fatG),
     ));
     await _saveMealIngredients(id, ingredients);
     return id;
@@ -273,11 +281,20 @@ class MealsNotifier extends AsyncNotifier<void> {
   Future<void> updateMeal(
     StandardMeal meal, {
     List<IngredientInput>? ingredients,
+    double? kcalTotal,
+    double? proteinG,
+    double? carbsG,
+    double? fatG,
+    bool clearNutrition = false,
   }) async {
     await _db.updateMeal(StandardMealsCompanion(
       id: Value(meal.id),
       name: Value(meal.name),
       notes: Value(meal.notes),
+      kcalTotal: clearNutrition ? const Value(null) : Value(kcalTotal),
+      proteinG: clearNutrition ? const Value(null) : Value(proteinG),
+      carbsG: clearNutrition ? const Value(null) : Value(carbsG),
+      fatG: clearNutrition ? const Value(null) : Value(fatG),
     ));
     if (ingredients != null) await _saveMealIngredients(meal.id, ingredients);
   }

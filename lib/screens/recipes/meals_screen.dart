@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
@@ -314,6 +315,10 @@ class _MealForm extends ConsumerStatefulWidget {
 class _MealFormState extends ConsumerState<_MealForm> {
   final _nameCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  final _kcalCtrl = TextEditingController();
+  final _proteinCtrl = TextEditingController();
+  final _carbsCtrl = TextEditingController();
+  final _fatCtrl = TextEditingController();
   final List<_IngRow> _ingredients = [];
   bool _loading = true;
 
@@ -327,6 +332,11 @@ class _MealFormState extends ConsumerState<_MealForm> {
     if (widget.meal != null) {
       _nameCtrl.text = widget.meal!.name;
       _notesCtrl.text = widget.meal!.notes ?? '';
+      final m = widget.meal!;
+      if (m.kcalTotal != null) _kcalCtrl.text = m.kcalTotal!.toStringAsFixed(0);
+      if (m.proteinG != null) _proteinCtrl.text = m.proteinG!.toStringAsFixed(1);
+      if (m.carbsG != null) _carbsCtrl.text = m.carbsG!.toStringAsFixed(1);
+      if (m.fatG != null) _fatCtrl.text = m.fatG!.toStringAsFixed(1);
       final db = ref.read(databaseProvider);
       if (db != null) {
         final ings = await db.ingredientsForMeal(widget.meal!.id);
@@ -351,6 +361,10 @@ class _MealFormState extends ConsumerState<_MealForm> {
   void dispose() {
     _nameCtrl.dispose();
     _notesCtrl.dispose();
+    _kcalCtrl.dispose();
+    _proteinCtrl.dispose();
+    _carbsCtrl.dispose();
+    _fatCtrl.dispose();
     for (final r in _ingredients) {
       r.dispose();
     }
@@ -462,6 +476,45 @@ class _MealFormState extends ConsumerState<_MealForm> {
                     maxLines: 2,
                   ),
                   const SizedBox(height: 16),
+                  Text('Nährwerte (pro Gericht, optional)',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Wird als Fallback genutzt wenn keine verlinkten Zutaten mit Nährwerten vorhanden sind.',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NutrField(
+                            controller: _kcalCtrl, label: 'kcal gesamt'),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _NutrField(
+                            controller: _proteinCtrl, label: 'Protein (g)'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NutrField(
+                            controller: _carbsCtrl,
+                            label: 'Kohlenhydrate (g)'),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _NutrField(
+                            controller: _fatCtrl, label: 'Fett (g)'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _save,
                     child:
@@ -471,6 +524,12 @@ class _MealFormState extends ConsumerState<_MealForm> {
               ),
             ),
     );
+  }
+
+  double? _parseNutr(TextEditingController c) {
+    final v = c.text.trim().replaceAll(',', '.');
+    if (v.isEmpty) return null;
+    return double.tryParse(v);
   }
 
   Future<void> _save() async {
@@ -488,15 +547,32 @@ class _MealFormState extends ConsumerState<_MealForm> {
             ))
         .toList();
 
+    final kcal = _parseNutr(_kcalCtrl);
+    final protein = _parseNutr(_proteinCtrl);
+    final carbs = _parseNutr(_carbsCtrl);
+    final fat = _parseNutr(_fatCtrl);
+
     final notifier = ref.read(mealsNotifierProvider.notifier);
     if (widget.meal == null) {
       await notifier.createMeal(
         name: _nameCtrl.text.trim(),
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         ingredients: ings,
+        kcalTotal: kcal,
+        proteinG: protein,
+        carbsG: carbs,
+        fatG: fat,
       );
     } else {
-      await notifier.updateMeal(widget.meal!, ingredients: ings);
+      await notifier.updateMeal(
+        widget.meal!,
+        ingredients: ings,
+        kcalTotal: kcal,
+        proteinG: protein,
+        carbsG: carbs,
+        fatG: fat,
+        clearNutrition: kcal == null && protein == null && carbs == null && fat == null,
+      );
     }
     if (mounted) Navigator.of(context).pop();
   }
@@ -721,4 +797,24 @@ class _IngRow {
     nameCtrl.dispose();
     qtyCtrl.dispose();
   }
+}
+
+class _NutrField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  const _NutrField({required this.controller, required this.label});
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+        ],
+      );
 }

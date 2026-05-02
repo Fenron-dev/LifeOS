@@ -80,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -216,6 +216,13 @@ class AppDatabase extends _$AppDatabase {
               'CREATE INDEX IF NOT EXISTS idx_water_logged_at '
               'ON water_logs (logged_at)',
             );
+          }
+          if (from < 16) {
+            // Phase 6.6 — stored nutrition on StandardMeals for manual fallback.
+            await m.addColumn(standardMeals, standardMeals.kcalTotal);
+            await m.addColumn(standardMeals, standardMeals.proteinG);
+            await m.addColumn(standardMeals, standardMeals.carbsG);
+            await m.addColumn(standardMeals, standardMeals.fatG);
           }
         },
         beforeOpen: (details) async {

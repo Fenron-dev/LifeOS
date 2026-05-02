@@ -8,7 +8,6 @@ import '../providers/nutrition_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/water_provider.dart';
 import '../widgets/diary_entry_sheet.dart';
-import 'nutrition_history_screen.dart';
 
 /// Phase 6.4 — Ernährungstagebuch. Shows a day-picker, per-meal-slot sections
 /// and a daily macro summary. FAB and per-slot "+" buttons open
@@ -49,16 +48,6 @@ class _DiaryTabState extends ConsumerState<DiaryTab> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text('Tagebuch'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bar_chart_outlined),
-            tooltip: 'Verlauf & Übersicht',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (_) => const NutritionHistoryScreen()),
-            ),
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -257,6 +246,8 @@ class _DiaryBody extends ConsumerWidget {
           _EmptyDay(day: day)
         else
           ...sections,
+        const SizedBox(height: 8),
+        const _ConsumptionHistory(),
       ],
     );
   }
@@ -445,79 +436,85 @@ class _MacroDonut extends StatelessWidget {
     final carbPct = (carbs / total * 100).round();
     final fatPct = (fat / total * 100).round();
 
-    return SizedBox(
-      width: 80,
-      height: 80,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          PieChart(
-            PieChartData(
-              sectionsSpace: 2,
-              centerSpaceRadius: 26,
-              startDegreeOffset: -90,
-              sections: [
-                PieChartSectionData(
-                  value: protein,
-                  color: cs.tertiary,
-                  radius: 14,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  value: carbs,
-                  color: cs.secondary,
-                  radius: 14,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  value: fat,
-                  color: cs.error,
-                  radius: 14,
-                  showTitle: false,
-                ),
-              ],
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 80,
+          height: 80,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                '$carbPct%',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onPrimaryContainer),
+              PieChart(
+                PieChartData(
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 26,
+                  startDegreeOffset: -90,
+                  sections: [
+                    PieChartSectionData(
+                      value: protein,
+                      color: cs.tertiary,
+                      radius: 14,
+                      showTitle: false,
+                    ),
+                    PieChartSectionData(
+                      value: carbs,
+                      color: cs.secondary,
+                      radius: 14,
+                      showTitle: false,
+                    ),
+                    PieChartSectionData(
+                      value: fat,
+                      color: cs.error,
+                      radius: 14,
+                      showTitle: false,
+                    ),
+                  ],
+                ),
               ),
-              Text(
-                'KH',
-                style: TextStyle(
-                    fontSize: 8,
-                    color: cs.onPrimaryContainer.withValues(alpha: 0.8)),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$carbPct%',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onPrimaryContainer),
+                  ),
+                  Text(
+                    'KH',
+                    style: TextStyle(
+                        fontSize: 9,
+                        color: cs.onPrimaryContainer.withValues(alpha: 0.8)),
+                  ),
+                ],
               ),
             ],
           ),
-          // Legend dots row below the chart
-          Positioned(
-            bottom: 0,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _Dot(cs.tertiary),
-                const SizedBox(width: 2),
-                Text('P $protPct%',
-                    style: TextStyle(
-                        fontSize: 7, color: cs.onPrimaryContainer)),
-                const SizedBox(width: 4),
-                _Dot(cs.error),
-                const SizedBox(width: 2),
-                Text('F $fatPct%',
-                    style: TextStyle(
-                        fontSize: 7, color: cs.onPrimaryContainer)),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Dot(cs.tertiary),
+            const SizedBox(width: 3),
+            Text('P $protPct%',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onPrimaryContainer)),
+            const SizedBox(width: 8),
+            _Dot(cs.error),
+            const SizedBox(width: 3),
+            Text('F $fatPct%',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onPrimaryContainer)),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -975,6 +972,308 @@ class _WaterLogTile extends ConsumerWidget {
       ),
     );
   }
+}
+
+// ─── Consumption history (embedded in diary) ─────────────────────────────────
+
+enum _HistoryPeriod { week, month, year, all }
+
+enum _HistorySort {
+  kcal('Kalorien'),
+  protein('Protein'),
+  name('Name');
+
+  final String label;
+  const _HistorySort(this.label);
+}
+
+class _ConsumptionHistory extends ConsumerStatefulWidget {
+  const _ConsumptionHistory();
+
+  @override
+  ConsumerState<_ConsumptionHistory> createState() =>
+      _ConsumptionHistoryState();
+}
+
+class _ConsumptionHistoryState extends ConsumerState<_ConsumptionHistory> {
+  _HistoryPeriod _period = _HistoryPeriod.week;
+  _HistorySort _sort = _HistorySort.kcal;
+  bool _expanded = true;
+
+  (DateTime, DateTime) get _range {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return switch (_period) {
+      _HistoryPeriod.week => (
+          today.subtract(Duration(days: today.weekday - 1)),
+          today.add(const Duration(days: 1)),
+        ),
+      _HistoryPeriod.month => (
+          DateTime(now.year, now.month, 1),
+          today.add(const Duration(days: 1)),
+        ),
+      _HistoryPeriod.year => (
+          DateTime(now.year, 1, 1),
+          today.add(const Duration(days: 1)),
+        ),
+      _HistoryPeriod.all => (
+          DateTime(2000),
+          today.add(const Duration(days: 1)),
+        ),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final logsAsync = ref.watch(nutritionLogsForRangeProvider(_range));
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Column(
+        children: [
+          // Header
+          ListTile(
+            dense: true,
+            leading: Icon(Icons.bar_chart_outlined,
+                color: cs.onSurfaceVariant, size: 20),
+            title: const Text('Verlauf & Übersicht',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            trailing: IconButton(
+              icon: Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 20),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() => _expanded = !_expanded),
+            ),
+          ),
+          if (_expanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Period selector
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<_HistoryPeriod>(
+                      segments: const [
+                        ButtonSegment(
+                            value: _HistoryPeriod.week, label: Text('Woche')),
+                        ButtonSegment(
+                            value: _HistoryPeriod.month,
+                            label: Text('Monat')),
+                        ButtonSegment(
+                            value: _HistoryPeriod.year, label: Text('Jahr')),
+                        ButtonSegment(
+                            value: _HistoryPeriod.all,
+                            label: Text('Gesamt')),
+                      ],
+                      selected: {_period},
+                      onSelectionChanged: (s) =>
+                          setState(() => _period = s.first),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Sort chips
+                  Row(
+                    children: [
+                      Text('Sortierung:',
+                          style: Theme.of(context).textTheme.bodySmall),
+                      const SizedBox(width: 8),
+                      ..._HistorySort.values.map((f) => Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ChoiceChip(
+                              label: Text(f.label),
+                              selected: _sort == f,
+                              onSelected: (_) => setState(() => _sort = f),
+                              visualDensity: VisualDensity.compact,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                          )),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            logsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Fehler: $e'),
+              ),
+              data: (logs) => _HistoryContent(logs: logs, sort: _sort),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryContent extends StatelessWidget {
+  final List<NutritionLog> logs;
+  final _HistorySort sort;
+
+  const _HistoryContent({required this.logs, required this.sort});
+
+  List<_AggEntry> _aggregate() {
+    final map = <String, _AggEntry>{};
+    for (final l in logs) {
+      final key = l.itemId ?? l.productName;
+      final e = map.putIfAbsent(
+          key,
+          () => _AggEntry(
+                name: l.productName,
+                brand: l.brand,
+                source: l.source,
+              ));
+      e.count++;
+      e.kcal += l.kcal ?? 0;
+      e.protein += l.proteinG ?? 0;
+      e.carbs += l.carbsG ?? 0;
+      e.fat += l.fatG ?? 0;
+    }
+    final list = map.values.toList();
+    list.sort((a, b) => switch (sort) {
+          _HistorySort.kcal => b.kcal.compareTo(a.kcal),
+          _HistorySort.protein => b.protein.compareTo(a.protein),
+          _HistorySort.name => a.name.compareTo(b.name),
+        });
+    return list;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (logs.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text('Keine Einträge für diesen Zeitraum.')),
+      );
+    }
+    final entries = _aggregate();
+    final fmt0 = NumberFormat.decimalPattern('de_DE')
+      ..maximumFractionDigits = 0;
+    final fmt1 = NumberFormat.decimalPattern('de_DE')
+      ..maximumFractionDigits = 1;
+
+    final totalKcal = entries.fold(0.0, (s, e) => s + e.kcal);
+    final totalProtein = entries.fold(0.0, (s, e) => s + e.protein);
+    final totalCarbs = entries.fold(0.0, (s, e) => s + e.carbs);
+    final totalFat = entries.fold(0.0, (s, e) => s + e.fat);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Summary strip
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: cs.primaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _SummaryCell(
+                  '${fmt0.format(totalKcal)} kcal', '${logs.length}×', cs),
+              _SummaryCell('${fmt1.format(totalProtein)} g', 'Protein', cs),
+              _SummaryCell('${fmt1.format(totalCarbs)} g', 'KH', cs),
+              _SummaryCell('${fmt1.format(totalFat)} g', 'Fett', cs),
+            ],
+          ),
+        ),
+        // Food list
+        ...entries.map((e) {
+          final sortValue = switch (sort) {
+            _HistorySort.kcal => '${fmt0.format(e.kcal)} kcal',
+            _HistorySort.protein => '${fmt1.format(e.protein)} g P',
+            _HistorySort.name => '${fmt0.format(e.kcal)} kcal',
+          };
+          return ListTile(
+            dense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+            leading: CircleAvatar(
+              radius: 14,
+              backgroundColor: (e.source == 'recipe' || e.source == 'meal')
+                  ? cs.tertiaryContainer
+                  : cs.primaryContainer,
+              child: Icon(
+                (e.source == 'recipe' || e.source == 'meal')
+                    ? Icons.restaurant_outlined
+                    : Icons.fastfood_outlined,
+                size: 14,
+                color: (e.source == 'recipe' || e.source == 'meal')
+                    ? cs.onTertiaryContainer
+                    : cs.onPrimaryContainer,
+              ),
+            ),
+            title: Text(e.name,
+                style: const TextStyle(fontSize: 13),
+                overflow: TextOverflow.ellipsis),
+            subtitle: e.brand != null
+                ? Text(e.brand!,
+                    style:
+                        TextStyle(fontSize: 11, color: cs.onSurfaceVariant))
+                : null,
+            trailing: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(sortValue,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600)),
+                Text('${e.count}×',
+                    style:
+                        TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+class _SummaryCell extends StatelessWidget {
+  final String value;
+  final String label;
+  final ColorScheme cs;
+  const _SummaryCell(this.value, this.label, this.cs);
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: cs.onPrimaryContainer)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10,
+                  color: cs.onPrimaryContainer.withValues(alpha: 0.8))),
+        ],
+      );
+}
+
+class _AggEntry {
+  final String name;
+  final String? brand;
+  final String source;
+  int count = 0;
+  double kcal = 0, protein = 0, carbs = 0, fat = 0;
+  _AggEntry({required this.name, this.brand, required this.source});
 }
 
 // ─── Empty day state ──────────────────────────────────────────────────────────

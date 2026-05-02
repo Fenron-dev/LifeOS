@@ -8456,6 +8456,46 @@ class $StandardMealsTable extends StandardMeals
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _kcalTotalMeta = const VerificationMeta(
+    'kcalTotal',
+  );
+  @override
+  late final GeneratedColumn<double> kcalTotal = GeneratedColumn<double>(
+    'kcal_total',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _proteinGMeta = const VerificationMeta(
+    'proteinG',
+  );
+  @override
+  late final GeneratedColumn<double> proteinG = GeneratedColumn<double>(
+    'protein_g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _carbsGMeta = const VerificationMeta('carbsG');
+  @override
+  late final GeneratedColumn<double> carbsG = GeneratedColumn<double>(
+    'carbs_g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fatGMeta = const VerificationMeta('fatG');
+  @override
+  late final GeneratedColumn<double> fatG = GeneratedColumn<double>(
+    'fat_g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -8469,7 +8509,16 @@ class $StandardMealsTable extends StandardMeals
     defaultValue: currentDateAndTime,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, notes, createdAt];
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    notes,
+    kcalTotal,
+    proteinG,
+    carbsG,
+    fatG,
+    createdAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -8501,6 +8550,30 @@ class $StandardMealsTable extends StandardMeals
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('kcal_total')) {
+      context.handle(
+        _kcalTotalMeta,
+        kcalTotal.isAcceptableOrUnknown(data['kcal_total']!, _kcalTotalMeta),
+      );
+    }
+    if (data.containsKey('protein_g')) {
+      context.handle(
+        _proteinGMeta,
+        proteinG.isAcceptableOrUnknown(data['protein_g']!, _proteinGMeta),
+      );
+    }
+    if (data.containsKey('carbs_g')) {
+      context.handle(
+        _carbsGMeta,
+        carbsG.isAcceptableOrUnknown(data['carbs_g']!, _carbsGMeta),
+      );
+    }
+    if (data.containsKey('fat_g')) {
+      context.handle(
+        _fatGMeta,
+        fatG.isAcceptableOrUnknown(data['fat_g']!, _fatGMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -8528,6 +8601,22 @@ class $StandardMealsTable extends StandardMeals
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      kcalTotal: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}kcal_total'],
+      ),
+      proteinG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}protein_g'],
+      ),
+      carbsG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}carbs_g'],
+      ),
+      fatG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fat_g'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -8545,11 +8634,19 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
   final String id;
   final String name;
   final String? notes;
+  final double? kcalTotal;
+  final double? proteinG;
+  final double? carbsG;
+  final double? fatG;
   final DateTime createdAt;
   const StandardMeal({
     required this.id,
     required this.name,
     this.notes,
+    this.kcalTotal,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
     required this.createdAt,
   });
   @override
@@ -8559,6 +8656,18 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || kcalTotal != null) {
+      map['kcal_total'] = Variable<double>(kcalTotal);
+    }
+    if (!nullToAbsent || proteinG != null) {
+      map['protein_g'] = Variable<double>(proteinG);
+    }
+    if (!nullToAbsent || carbsG != null) {
+      map['carbs_g'] = Variable<double>(carbsG);
+    }
+    if (!nullToAbsent || fatG != null) {
+      map['fat_g'] = Variable<double>(fatG);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -8571,6 +8680,16 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      kcalTotal: kcalTotal == null && nullToAbsent
+          ? const Value.absent()
+          : Value(kcalTotal),
+      proteinG: proteinG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(proteinG),
+      carbsG: carbsG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(carbsG),
+      fatG: fatG == null && nullToAbsent ? const Value.absent() : Value(fatG),
       createdAt: Value(createdAt),
     );
   }
@@ -8584,6 +8703,10 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       notes: serializer.fromJson<String?>(json['notes']),
+      kcalTotal: serializer.fromJson<double?>(json['kcalTotal']),
+      proteinG: serializer.fromJson<double?>(json['proteinG']),
+      carbsG: serializer.fromJson<double?>(json['carbsG']),
+      fatG: serializer.fromJson<double?>(json['fatG']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -8594,6 +8717,10 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'notes': serializer.toJson<String?>(notes),
+      'kcalTotal': serializer.toJson<double?>(kcalTotal),
+      'proteinG': serializer.toJson<double?>(proteinG),
+      'carbsG': serializer.toJson<double?>(carbsG),
+      'fatG': serializer.toJson<double?>(fatG),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -8602,11 +8729,19 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     String? id,
     String? name,
     Value<String?> notes = const Value.absent(),
+    Value<double?> kcalTotal = const Value.absent(),
+    Value<double?> proteinG = const Value.absent(),
+    Value<double?> carbsG = const Value.absent(),
+    Value<double?> fatG = const Value.absent(),
     DateTime? createdAt,
   }) => StandardMeal(
     id: id ?? this.id,
     name: name ?? this.name,
     notes: notes.present ? notes.value : this.notes,
+    kcalTotal: kcalTotal.present ? kcalTotal.value : this.kcalTotal,
+    proteinG: proteinG.present ? proteinG.value : this.proteinG,
+    carbsG: carbsG.present ? carbsG.value : this.carbsG,
+    fatG: fatG.present ? fatG.value : this.fatG,
     createdAt: createdAt ?? this.createdAt,
   );
   StandardMeal copyWithCompanion(StandardMealsCompanion data) {
@@ -8614,6 +8749,10 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       notes: data.notes.present ? data.notes.value : this.notes,
+      kcalTotal: data.kcalTotal.present ? data.kcalTotal.value : this.kcalTotal,
+      proteinG: data.proteinG.present ? data.proteinG.value : this.proteinG,
+      carbsG: data.carbsG.present ? data.carbsG.value : this.carbsG,
+      fatG: data.fatG.present ? data.fatG.value : this.fatG,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -8624,13 +8763,26 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notes: $notes, ')
+          ..write('kcalTotal: $kcalTotal, ')
+          ..write('proteinG: $proteinG, ')
+          ..write('carbsG: $carbsG, ')
+          ..write('fatG: $fatG, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, notes, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    notes,
+    kcalTotal,
+    proteinG,
+    carbsG,
+    fatG,
+    createdAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -8638,6 +8790,10 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
           other.id == this.id &&
           other.name == this.name &&
           other.notes == this.notes &&
+          other.kcalTotal == this.kcalTotal &&
+          other.proteinG == this.proteinG &&
+          other.carbsG == this.carbsG &&
+          other.fatG == this.fatG &&
           other.createdAt == this.createdAt);
 }
 
@@ -8645,12 +8801,20 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
   final Value<String> id;
   final Value<String> name;
   final Value<String?> notes;
+  final Value<double?> kcalTotal;
+  final Value<double?> proteinG;
+  final Value<double?> carbsG;
+  final Value<double?> fatG;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const StandardMealsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.notes = const Value.absent(),
+    this.kcalTotal = const Value.absent(),
+    this.proteinG = const Value.absent(),
+    this.carbsG = const Value.absent(),
+    this.fatG = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -8658,6 +8822,10 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     required String id,
     required String name,
     this.notes = const Value.absent(),
+    this.kcalTotal = const Value.absent(),
+    this.proteinG = const Value.absent(),
+    this.carbsG = const Value.absent(),
+    this.fatG = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -8666,6 +8834,10 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? notes,
+    Expression<double>? kcalTotal,
+    Expression<double>? proteinG,
+    Expression<double>? carbsG,
+    Expression<double>? fatG,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -8673,6 +8845,10 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (notes != null) 'notes': notes,
+      if (kcalTotal != null) 'kcal_total': kcalTotal,
+      if (proteinG != null) 'protein_g': proteinG,
+      if (carbsG != null) 'carbs_g': carbsG,
+      if (fatG != null) 'fat_g': fatG,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -8682,6 +8858,10 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     Value<String>? id,
     Value<String>? name,
     Value<String?>? notes,
+    Value<double?>? kcalTotal,
+    Value<double?>? proteinG,
+    Value<double?>? carbsG,
+    Value<double?>? fatG,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -8689,6 +8869,10 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
       id: id ?? this.id,
       name: name ?? this.name,
       notes: notes ?? this.notes,
+      kcalTotal: kcalTotal ?? this.kcalTotal,
+      proteinG: proteinG ?? this.proteinG,
+      carbsG: carbsG ?? this.carbsG,
+      fatG: fatG ?? this.fatG,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -8706,6 +8890,18 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (kcalTotal.present) {
+      map['kcal_total'] = Variable<double>(kcalTotal.value);
+    }
+    if (proteinG.present) {
+      map['protein_g'] = Variable<double>(proteinG.value);
+    }
+    if (carbsG.present) {
+      map['carbs_g'] = Variable<double>(carbsG.value);
+    }
+    if (fatG.present) {
+      map['fat_g'] = Variable<double>(fatG.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -8721,6 +8917,10 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notes: $notes, ')
+          ..write('kcalTotal: $kcalTotal, ')
+          ..write('proteinG: $proteinG, ')
+          ..write('carbsG: $carbsG, ')
+          ..write('fatG: $fatG, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -25548,6 +25748,10 @@ typedef $$StandardMealsTableCreateCompanionBuilder =
       required String id,
       required String name,
       Value<String?> notes,
+      Value<double?> kcalTotal,
+      Value<double?> proteinG,
+      Value<double?> carbsG,
+      Value<double?> fatG,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -25556,6 +25760,10 @@ typedef $$StandardMealsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String?> notes,
+      Value<double?> kcalTotal,
+      Value<double?> proteinG,
+      Value<double?> carbsG,
+      Value<double?> fatG,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -25648,6 +25856,26 @@ class $$StandardMealsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<double> get kcalTotal => $composableBuilder(
+    column: $table.kcalTotal,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get proteinG => $composableBuilder(
+    column: $table.proteinG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get carbsG => $composableBuilder(
+    column: $table.carbsG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fatG => $composableBuilder(
+    column: $table.fatG,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
@@ -25729,6 +25957,26 @@ class $$StandardMealsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get kcalTotal => $composableBuilder(
+    column: $table.kcalTotal,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get proteinG => $composableBuilder(
+    column: $table.proteinG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get carbsG => $composableBuilder(
+    column: $table.carbsG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fatG => $composableBuilder(
+    column: $table.fatG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -25752,6 +26000,18 @@ class $$StandardMealsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<double> get kcalTotal =>
+      $composableBuilder(column: $table.kcalTotal, builder: (column) => column);
+
+  GeneratedColumn<double> get proteinG =>
+      $composableBuilder(column: $table.proteinG, builder: (column) => column);
+
+  GeneratedColumn<double> get carbsG =>
+      $composableBuilder(column: $table.carbsG, builder: (column) => column);
+
+  GeneratedColumn<double> get fatG =>
+      $composableBuilder(column: $table.fatG, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -25844,12 +26104,20 @@ class $$StandardMealsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<double?> kcalTotal = const Value.absent(),
+                Value<double?> proteinG = const Value.absent(),
+                Value<double?> carbsG = const Value.absent(),
+                Value<double?> fatG = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StandardMealsCompanion(
                 id: id,
                 name: name,
                 notes: notes,
+                kcalTotal: kcalTotal,
+                proteinG: proteinG,
+                carbsG: carbsG,
+                fatG: fatG,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -25858,12 +26126,20 @@ class $$StandardMealsTableTableManager
                 required String id,
                 required String name,
                 Value<String?> notes = const Value.absent(),
+                Value<double?> kcalTotal = const Value.absent(),
+                Value<double?> proteinG = const Value.absent(),
+                Value<double?> carbsG = const Value.absent(),
+                Value<double?> fatG = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StandardMealsCompanion.insert(
                 id: id,
                 name: name,
                 notes: notes,
+                kcalTotal: kcalTotal,
+                proteinG: proteinG,
+                carbsG: carbsG,
+                fatG: fatG,
                 createdAt: createdAt,
                 rowid: rowid,
               ),

@@ -569,10 +569,12 @@ class _SearchItem {
       fatPer100g: nutrition?.fatPer100g,
       fiberPer100g: nutrition?.fiberPer100g,
       servingSizeG: nutrition?.totalWeightG,
-      recipeKcalTotal: nutrition?.kcal,
-      recipeProteinTotal: nutrition?.proteinG,
-      recipeCarbsTotal: nutrition?.carbsG,
-      recipeFatTotal: nutrition?.fatG,
+      // Fall back to values stored on the meal row when ingredient-based
+      // computation returns nothing (no linked items, no nutrition data).
+      recipeKcalTotal: nutrition?.kcal ?? m.kcalTotal,
+      recipeProteinTotal: nutrition?.proteinG ?? m.proteinG,
+      recipeCarbsTotal: nutrition?.carbsG ?? m.carbsG,
+      recipeFatTotal: nutrition?.fatG ?? m.fatG,
       source: 'meal',
     );
   }
