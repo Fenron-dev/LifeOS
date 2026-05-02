@@ -82,8 +82,17 @@ class NutritionOpsNotifier extends AsyncNotifier<void> {
     ));
   }
 
-  Future<void> updateLog(NutritionLogsCompanion entry) =>
-      _db.updateNutritionLog(entry);
+  Future<void> updateLog(NutritionLogsCompanion entry) async {
+    await _db.updateNutritionLog(entry);
+    // Drift streams should auto-emit, but explicit invalidation ensures
+    // derived FutureProviders (dailyTotalsProvider) refresh immediately.
+    ref.invalidate(nutritionLogsForDayProvider);
+    ref.invalidate(dailyTotalsProvider);
+  }
 
-  Future<void> deleteLog(String id) => _db.deleteNutritionLog(id);
+  Future<void> deleteLog(String id) async {
+    await _db.deleteNutritionLog(id);
+    ref.invalidate(nutritionLogsForDayProvider);
+    ref.invalidate(dailyTotalsProvider);
+  }
 }

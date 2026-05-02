@@ -580,10 +580,37 @@ class _LogTile extends ConsumerWidget {
                 builder: (_) => DiaryEntrySheet(editLog: log),
               ),
             ),
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: cs.error),
+              tooltip: 'Löschen',
+              onPressed: () => _confirmDeleteLog(context, ref),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteLog(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Eintrag löschen?'),
+            content: Text('„${log.productName}" wird unwiderruflich entfernt.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Abbrechen')),
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Löschen')),
+            ],
+          ),
+        ) ??
+        false;
+    if (ok && context.mounted) {
+      await ref.read(nutritionOpsProvider.notifier).deleteLog(log.id);
+    }
   }
 }
 

@@ -5,23 +5,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
+import '../../providers/units_provider.dart';
 import '../providers/nutrition_provider.dart';
 import 'food_search_sheet.dart';
 
 /// Bottom sheet for adding / editing one food diary entry.
 ///
-/// Pass [editLog] to open in edit mode — all fields pre-fill from the log and
-/// save calls [NutritionOpsNotifier.updateLog] instead of [logFood].
+/// Pass [editLog] to open in edit mode.
+/// Pass [initialProduct] to pre-fill the food picker (e.g. from item detail).
+/// Pops with `true` on successful save, `null` on cancel.
 class DiaryEntrySheet extends ConsumerStatefulWidget {
   final String? initialMealTypeId;
   final DateTime? initialLoggedAt;
   final NutritionLog? editLog;
+  final FoodSearchResult? initialProduct;
 
   const DiaryEntrySheet({
     super.key,
     this.initialMealTypeId,
     this.initialLoggedAt,
     this.editLog,
+    this.initialProduct,
   });
 
   @override
@@ -44,17 +48,9 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
 
   bool get _isEditMode => widget.editLog != null;
 
-  // True when we have per-100g data to auto-calculate from quantity.
   bool get _hasPerHundredData => _product?.caloriesPer100g != null;
 
-  // Show manual macro fields when product has no per-100g nutritional data.
   bool get _showManualMacros => _product != null && !_hasPerHundredData;
-
-  List<String> get _availableUnits {
-    final units = ['g', 'ml'];
-    if (_product?.servingSizeG != null) units.add('Portion');
-    return units;
-  }
 
   @override
   void initState() {
@@ -69,7 +65,6 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _unit = log.displayUnit;
       _qtyController.text = _fmtQty(log.quantityG);
       _notesController.text = log.notes ?? '';
-      // Synthetic product for display; no per-100g → manual macro fields shown.
       _product = FoodSearchResult(
         productName: log.productName,
         brand: log.brand,
@@ -77,13 +72,19 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
         itemId: log.itemId,
         source: log.source,
       );
-      // Pre-fill macro fields from stored values.
       if (log.kcal != null) _kcalManual.text = log.kcal!.toStringAsFixed(0);
       if (log.proteinG != null) {
         _proteinManual.text = log.proteinG!.toStringAsFixed(1);
       }
       if (log.carbsG != null) _carbsManual.text = log.carbsG!.toStringAsFixed(1);
       if (log.fatG != null) _fatManual.text = log.fatG!.toStringAsFixed(1);
+    } else if (widget.initialProduct != null) {
+      _product = widget.initialProduct;
+      final p = _product!;
+      if (p.servingSizeG != null) {
+        _qtyController.text = _fmtQty(p.servingSizeG!);
+        _unit = 'Portion';
+      }
     }
   }
 
@@ -101,13 +102,24 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
   String _fmtQty(double v) =>
       v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
-  /// Convert user-entered quantity to grams for storage and nutrition calc.
+  /// Convert entered quantity to grams using the selected unit.
   double _toGrams(double qty) {
-    return switch (_unit) {
-      'g' || 'ml' => qty,
-      'Portion' =>
+    final lower = _unit.toLowerCase().trim();
+    return switch (lower) {
+      'g' || 'gr' || 'gramm' || 'mg' => qty,
+      'kg' || 'kilogramm' => qty * 1000,
+      'ml' || 'milliliter' => qty,
+      'cl' => qty * 10,
+      'dl' => qty * 100,
+      'l' || 'liter' => qty * 1000,
+      'el' || 'esslöffel' || 'esslöffel (us)' || 'tbsp' => qty * 15,
+      'tl' || 'teelöffel' || 'teelöffel (us)' || 'tsp' => qty * 5,
+      'tasse' => qty * 240,
+      'cup' => qty * 237,
+      'oz' || 'unze' => qty * 28.35,
+      'lb' || 'pfund' => qty * 453.6,
+      _ =>
         _product?.servingSizeG != null ? qty * _product!.servingSizeG! : qty,
-      _ => qty,
     };
   }
 
@@ -131,14 +143,10 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     if (result == null) return;
     setState(() {
       _product = result;
-      // Reset to g if current unit is no longer in the available list.
-      if (!_availableUnits.contains(_unit)) _unit = 'g';
-      // Pre-fill quantity and default to Portion when servingSizeG is present.
       if (result.servingSizeG != null && _qtyController.text.trim().isEmpty) {
         _qtyController.text = _fmtQty(result.servingSizeG!);
         _unit = 'Portion';
       }
-      // Clear stale manual macro values whenever a product with data is picked.
       if (result.caloriesPer100g != null) {
         _kcalManual.clear();
         _proteinManual.clear();
@@ -244,9 +252,33 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               notes: notes,
             );
       }
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop(true);
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eintrag löschen?'),
+        content: Text('„${widget.editLog!.productName}" wird entfernt.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Abbrechen')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Löschen')),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await ref
+          .read(nutritionOpsProvider.notifier)
+          .deleteLog(widget.editLog!.id);
+      if (mounted) Navigator.of(context).pop();
     }
   }
 
@@ -255,6 +287,11 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     final inset = MediaQuery.of(context).viewInsets.bottom;
     final cs = Theme.of(context).colorScheme;
     final mealTypes = ref.watch(mealTypesProvider).valueOrNull ?? [];
+    final allUnits = ref.watch(unitNamesProvider);
+    // Ensure 'g' is always available as fallback.
+    final units = allUnits.isEmpty ? ['g', 'ml', 'Stück', 'Portion'] : allUnits;
+    // If current unit not in list, fall back to first.
+    final safeUnit = units.contains(_unit) ? _unit : units.first;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -276,9 +313,21 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
                 ),
               ),
             ),
-            Text(
-              _isEditMode ? 'Eintrag bearbeiten' : 'Eintrag hinzufügen',
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _isEditMode ? 'Eintrag bearbeiten' : 'Eintrag hinzufügen',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                if (_isEditMode)
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, color: cs.error),
+                    tooltip: 'Eintrag löschen',
+                    onPressed: _confirmDelete,
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -309,12 +358,13 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               ),
             const SizedBox(height: 12),
 
-            // ── Live nutrition preview (per-100g data available) ───────────
+            // ── Live nutrition preview ──────────────────────────────────────
             if (_hasPerHundredData)
               _NutritionPreview(
                   product: _product!,
                   qty: _qtyController.text,
-                  unit: _unit),
+                  unit: safeUnit,
+                  servingSizeG: _product!.servingSizeG),
 
             // ── Quantity + unit ─────────────────────────────────────────────
             Row(
@@ -350,14 +400,14 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
-                        value: _availableUnits.contains(_unit)
-                            ? _unit
-                            : _availableUnits.first,
+                        value: safeUnit,
                         isDense: true,
-                        items: _availableUnits
+                        isExpanded: true,
+                        items: units
                             .map((u) => DropdownMenuItem(
                                   value: u,
-                                  child: Text(u),
+                                  child: Text(u,
+                                      overflow: TextOverflow.ellipsis),
                                 ))
                             .toList(),
                         onChanged: (v) =>
@@ -426,6 +476,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
                   child: DropdownButton<String?>(
                     value: _mealTypeId,
                     isDense: true,
+                    isExpanded: true,
                     items: [
                       const DropdownMenuItem(
                           value: null, child: Text('Keine Angabe')),
@@ -506,20 +557,38 @@ class _NutritionPreview extends StatelessWidget {
   final FoodSearchResult product;
   final String qty;
   final String unit;
+  final double? servingSizeG;
 
-  const _NutritionPreview(
-      {required this.product, required this.qty, required this.unit});
+  const _NutritionPreview({
+    required this.product,
+    required this.qty,
+    required this.unit,
+    this.servingSizeG,
+  });
+
+  double _toGrams(double raw) {
+    final lower = unit.toLowerCase().trim();
+    return switch (lower) {
+      'g' || 'gr' || 'gramm' || 'mg' => raw,
+      'kg' || 'kilogramm' => raw * 1000,
+      'ml' || 'milliliter' => raw,
+      'cl' => raw * 10,
+      'dl' => raw * 100,
+      'l' || 'liter' => raw * 1000,
+      'el' || 'esslöffel' || 'tbsp' => raw * 15,
+      'tl' || 'teelöffel' || 'tsp' => raw * 5,
+      'tasse' || 'cup' => raw * 237,
+      'oz' || 'unze' => raw * 28.35,
+      'lb' || 'pfund' => raw * 453.6,
+      _ => servingSizeG != null ? raw * servingSizeG! : raw,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final raw = double.tryParse(qty.replaceAll(',', '.')) ?? 0;
-    final g = switch (unit) {
-      'g' || 'ml' => raw,
-      'Portion' =>
-        product.servingSizeG != null ? raw * product.servingSizeG! : raw,
-      _ => raw,
-    };
+    final g = _toGrams(raw);
     final fmt =
         NumberFormat.decimalPattern('de_DE')..maximumFractionDigits = 1;
 

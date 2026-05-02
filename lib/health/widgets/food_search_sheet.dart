@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -59,15 +61,24 @@ class FoodSearchSheet extends ConsumerStatefulWidget {
 
 class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   final _controller = TextEditingController();
+  Timer? _debounce;
 
   bool _loading = false;
   List<_SearchItem> _results = [];
   String? _error;
+  // null = all sources; 'local' | 'recipe' | 'off' = filtered
+  String? _sourceFilter;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onChanged(String query) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () => _search(query));
   }
 
   Future<void> _search(String query) async {
@@ -135,14 +146,12 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     setState(() { _loading = true; _error = null; _results = []; });
     try {
       final db = ref.read(databaseProvider);
-      // First try local inventory
       final localItem = await db?.itemByEan(ean);
       if (localItem != null) {
         setState(() { _loading = false; });
         _pick(_SearchItem.fromItem(localItem));
         return;
       }
-      // Then OFF lookup
       final product = await OpenFoodFactsService.lookup(ean);
       if (!mounted) return;
       if (product != null) {
@@ -188,10 +197,19 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     ));
   }
 
+  List<_SearchItem> get _filteredResults {
+    if (_sourceFilter == null) return _results;
+    return _results.where((r) => r.source == _sourceFilter).toList();
+  }
+
+  int _countBySource(String source) =>
+      _results.where((r) => r.source == source).length;
+
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.of(context).viewInsets.bottom;
     final cs = Theme.of(context).colorScheme;
+    final filtered = _filteredResults;
 
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -251,6 +269,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                   ),
                   border: const OutlineInputBorder(),
                 ),
+                onChanged: _onChanged,
                 onSubmitted: _search,
                 textInputAction: TextInputAction.search,
               ),
@@ -261,23 +280,71 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(_error!, style: TextStyle(color: cs.error)),
               ),
+            // ── Source filter chips ───────────────────────────────────────
+            if (_results.isNotEmpty)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'Alle (${_results.length})',
+                        selected: _sourceFilter == null,
+                        onSelected: () => setState(() => _sourceFilter = null),
+                        cs: cs,
+                      ),
+                      const SizedBox(width: 6),
+                      if (_countBySource('local') > 0) ...[
+                        _FilterChip(
+                          label: 'Lokal (${_countBySource('local')})',
+                          selected: _sourceFilter == 'local',
+                          onSelected: () =>
+                              setState(() => _sourceFilter = 'local'),
+                          cs: cs,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (_countBySource('recipe') > 0) ...[
+                        _FilterChip(
+                          label: 'Rezepte (${_countBySource('recipe')})',
+                          selected: _sourceFilter == 'recipe',
+                          onSelected: () =>
+                              setState(() => _sourceFilter = 'recipe'),
+                          cs: cs,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (_countBySource('off') > 0)
+                        _FilterChip(
+                          label: 'Online (${_countBySource('off')})',
+                          selected: _sourceFilter == 'off',
+                          onSelected: () =>
+                              setState(() => _sourceFilter = 'off'),
+                          cs: cs,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             Expanded(
-              child: _results.isEmpty && !_loading
+              child: filtered.isEmpty && !_loading
                   ? _EmptyHint(
                       hasQuery: _controller.text.trim().isNotEmpty,
                       onManual: _pickManual,
                     )
                   : ListView.builder(
-                      itemCount: _results.length + 1,
+                      itemCount: filtered.length + 1,
                       itemBuilder: (ctx, i) {
-                        if (i == _results.length) {
+                        if (i == filtered.length) {
                           return ListTile(
                             leading: const Icon(Icons.edit_outlined),
                             title: const Text('Manuell eingeben'),
                             onTap: _pickManual,
                           );
                         }
-                        final item = _results[i];
+                        final item = filtered[i];
                         final (bgColor, fgColor, icon) = switch (item.source) {
                           'recipe' => (cs.tertiaryContainer, cs.onTertiaryContainer, Icons.menu_book_outlined),
                           'local'  => (cs.primaryContainer,  cs.onPrimaryContainer,  Icons.inventory_2_outlined),
@@ -312,6 +379,29 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   }
 }
 
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+  final ColorScheme cs;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) => FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onSelected(),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        visualDensity: VisualDensity.compact,
+      );
+}
+
 class _EmptyHint extends StatelessWidget {
   final bool hasQuery;
   final VoidCallback onManual;
@@ -330,8 +420,8 @@ class _EmptyHint extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               hasQuery
-                  ? 'Keine Ergebnisse — Suche starten oder manuell eingeben.'
-                  : 'Produktname eintippen und Enter drücken.',
+                  ? 'Keine Ergebnisse — Suche läuft oder manuell eingeben.'
+                  : 'Produktname eintippen …',
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurfaceVariant),
             ),
@@ -422,7 +512,6 @@ class _SearchItem {
         carbsPer100g: nutrition?.carbsPer100g,
         fatPer100g: nutrition?.fatPer100g,
         fiberPer100g: nutrition?.fiberPer100g,
-        // servingSizeG = full recipe weight → 1 serving = whole recipe
         servingSizeG: nutrition?.totalWeightG,
         recipeKcalTotal: nutrition?.kcal,
         recipeProteinTotal: nutrition?.proteinG,

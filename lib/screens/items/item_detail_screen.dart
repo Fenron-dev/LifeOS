@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
+import '../../health/widgets/diary_entry_sheet.dart';
+import '../../health/widgets/food_search_sheet.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/events_provider.dart';
@@ -46,6 +48,52 @@ class _ItemDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final entriesAsync = ref.watch(inventoryForItemProvider(item.id));
     final statesAsync = ref.watch(itemStatesForItemProvider(item.id));
+    final entries = entriesAsync.valueOrNull ?? [];
+
+    Future<void> logConsumption() async {
+      final product = FoodSearchResult(
+        productName: item.name,
+        brand: item.brand,
+        ean: item.ean,
+        itemId: item.id,
+        caloriesPer100g: item.caloriesPer100g,
+        proteinPer100g: item.proteinPer100g,
+        carbsPer100g: item.carbsPer100g,
+        fatPer100g: item.fatPer100g,
+        fiberPer100g: item.fiberPer100g,
+        servingSizeG: item.servingSizeG,
+        source: 'local',
+      );
+      final saved = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => DiaryEntrySheet(initialProduct: product),
+      );
+      if (saved != true || !context.mounted) return;
+      if (entries.isEmpty) return;
+      final reduce = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Bestand reduzieren?'),
+          content: Text(
+              'Möchtest du den Bestand von „${item.name}" auch im Inventar reduzieren?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Nein')),
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Ja')),
+          ],
+        ),
+      );
+      if (reduce == true && context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (_) => ConsumeDialog(entry: entries.first, item: item),
+        );
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -77,6 +125,15 @@ class _ItemDetailBody extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: [
           _ItemInfoCard(item: item),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: logConsumption,
+            icon: const Icon(Icons.restaurant_outlined),
+            label: const Text('Im Tagebuch erfassen'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+            ),
+          ),
           if (_hasNutrition(item)) ...[
             const SizedBox(height: 12),
             _NutritionCard(item: item),

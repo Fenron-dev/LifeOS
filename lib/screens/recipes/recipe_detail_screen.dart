@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../db/database.dart';
+import '../../health/widgets/diary_entry_sheet.dart';
+import '../../health/widgets/food_search_sheet.dart';
 import '../../providers/recipes_provider.dart';
+import '../../providers/vault_provider.dart';
 
 class RecipeDetailScreen extends ConsumerWidget {
   final String recipeId;
@@ -29,6 +32,11 @@ class RecipeDetailScreen extends ConsumerWidget {
             title: Text(recipe.name),
             actions: [
               IconButton(
+                icon: const Icon(Icons.restaurant_outlined),
+                tooltip: 'Im Tagebuch erfassen',
+                onPressed: () => _logMeal(context, ref, recipe),
+              ),
+              IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: () => context.push('/recipes/${recipe.id}/edit'),
               ),
@@ -42,6 +50,37 @@ class RecipeDetailScreen extends ConsumerWidget {
           body: RecipeContentView(recipe: recipe),
         );
       },
+    );
+  }
+
+  static Future<void> _logMeal(
+      BuildContext context, WidgetRef ref, Recipe recipe) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    RecipeNutritionData? nutr;
+    try {
+      nutr = await db.computeRecipeNutrition(recipe.id);
+    } catch (_) {}
+    if (!context.mounted) return;
+    double? servingSizeG;
+    if (nutr != null && nutr.totalWeightG > 0 && recipe.servings > 0) {
+      servingSizeG = nutr.totalWeightG / recipe.servings;
+    }
+    final product = FoodSearchResult(
+      productName: recipe.name,
+      caloriesPer100g: nutr?.caloriesPer100g,
+      proteinPer100g: nutr?.proteinPer100g,
+      carbsPer100g: nutr?.carbsPer100g,
+      fatPer100g: nutr?.fatPer100g,
+      fiberPer100g: nutr?.fiberPer100g,
+      servingSizeG: servingSizeG,
+      isRecipe: true,
+      source: 'recipe',
+    );
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => DiaryEntrySheet(initialProduct: product),
     );
   }
 
@@ -110,6 +149,12 @@ class RecipeSplitDetailPane extends ConsumerWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.restaurant_outlined),
+                      tooltip: 'Im Tagebuch erfassen',
+                      onPressed: () =>
+                          RecipeDetailScreen._logMeal(context, ref, recipe),
                     ),
                     IconButton(
                       icon: const Icon(Icons.edit_outlined),
