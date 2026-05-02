@@ -82,5 +82,8 @@ class NutritionOpsNotifier extends AsyncNotifier<void> {
     ));
   }
 
+  Future<void> updateLog(NutritionLogsCompanion entry) =>
+      _db.updateNutritionLog(entry);
+
   Future<void> deleteLog(String id) => _db.deleteNutritionLog(id);
 }

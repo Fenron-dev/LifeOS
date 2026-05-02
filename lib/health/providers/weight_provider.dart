@@ -69,5 +69,8 @@ class WeightOpsNotifier extends AsyncNotifier<void> {
     ));
   }
 
+  Future<void> updateLog(BodyWeightLogsCompanion entry) =>
+      _db.updateWeightLog(entry);
+
   Future<void> deleteLog(String id) => _db.deleteWeightLog(id);
 }

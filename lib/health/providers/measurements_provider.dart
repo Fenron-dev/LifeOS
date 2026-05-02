@@ -56,5 +56,8 @@ class MeasurementsOpsNotifier extends AsyncNotifier<void> {
     ));
   }
 
+  Future<void> updateLog(BodyMeasurementsCompanion entry) =>
+      _db.updateBodyMeasurement(entry);
+
   Future<void> deleteLog(String id) => _db.deleteBodyMeasurement(id);
 }

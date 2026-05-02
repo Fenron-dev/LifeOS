@@ -810,6 +810,10 @@ class AppDatabase extends _$AppDatabase {
   Future<void> insertWeightLog(BodyWeightLogsCompanion entry) =>
       into(bodyWeightLogs).insert(entry);
 
+  Future<void> updateWeightLog(BodyWeightLogsCompanion entry) =>
+      (update(bodyWeightLogs)..where((l) => l.id.equals(entry.id.value)))
+          .write(entry);
+
   Future<void> deleteWeightLog(String id) =>
       (delete(bodyWeightLogs)..where((l) => l.id.equals(id))).go();
 
@@ -848,6 +852,10 @@ class AppDatabase extends _$AppDatabase {
   Future<void> insertNutritionLog(NutritionLogsCompanion entry) =>
       into(nutritionLogs).insert(entry);
 
+  Future<void> updateNutritionLog(NutritionLogsCompanion entry) =>
+      (update(nutritionLogs)..where((l) => l.id.equals(entry.id.value)))
+          .write(entry);
+
   Future<void> deleteNutritionLog(String id) =>
       (delete(nutritionLogs)..where((l) => l.id.equals(id))).go();
 
@@ -883,6 +891,10 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> insertBodyMeasurement(BodyMeasurementsCompanion entry) =>
       into(bodyMeasurements).insert(entry);
+
+  Future<void> updateBodyMeasurement(BodyMeasurementsCompanion entry) =>
+      (update(bodyMeasurements)..where((m) => m.id.equals(entry.id.value)))
+          .write(entry);
 
   Future<void> deleteBodyMeasurement(String id) =>
       (delete(bodyMeasurements)..where((m) => m.id.equals(id))).go();
@@ -1002,6 +1014,54 @@ class AppDatabase extends _$AppDatabase {
       }
     }
   }
+
+  // ── Recipe nutrition ────────────────────────────────────────────────────────
+
+  /// Sums all ingredient contributions to compute the total nutrition for a
+  /// recipe (not per-100g — total for the whole recipe). Only ingredients
+  /// with an [itemId] and a known per-100g value contribute.
+  Future<RecipeNutritionData?> computeRecipeNutrition(String recipeId) async {
+    final ingredients = await ingredientsForRecipe(recipeId);
+    double kcal = 0, protein = 0, carbs = 0, fat = 0, fiber = 0, totalG = 0;
+    bool hasAny = false;
+    for (final ing in ingredients) {
+      if (ing.itemId == null) continue;
+      final item = await itemById(ing.itemId!);
+      if (item == null) continue;
+      final qG = _unitToGrams(ing.quantity, ing.unit);
+      if (qG == null || qG <= 0) continue;
+      totalG += qG;
+      if (item.caloriesPer100g != null) {
+        kcal += item.caloriesPer100g! * qG / 100;
+        hasAny = true;
+      }
+      if (item.proteinPer100g != null) protein += item.proteinPer100g! * qG / 100;
+      if (item.carbsPer100g != null) carbs += item.carbsPer100g! * qG / 100;
+      if (item.fatPer100g != null) fat += item.fatPer100g! * qG / 100;
+      if (item.fiberPer100g != null) fiber += item.fiberPer100g! * qG / 100;
+    }
+    if (!hasAny && totalG == 0) return null;
+    return RecipeNutritionData(
+      kcal: kcal,
+      proteinG: protein,
+      carbsG: carbs,
+      fatG: fat,
+      fiberG: fiber,
+      totalWeightG: totalG,
+    );
+  }
+
+  static double? _unitToGrams(double qty, String unit) {
+    return switch (unit.toLowerCase().trim()) {
+      'g' || 'gramm' || 'gr' => qty,
+      'ml' || 'milliliter' => qty,
+      'kg' || 'kilogramm' => qty * 1000,
+      'l' || 'liter' => qty * 1000,
+      'el' => qty * 15,
+      'tl' => qty * 5,
+      _ => null,
+    };
+  }
 }
 
 /// Aggregated nutritional totals for a single calendar day.
@@ -1016,4 +1076,37 @@ class DailyNutritionTotals {
     required this.carbsG,
     required this.fatG,
   });
+}
+
+/// Computed nutrition totals for an entire recipe, derived from its
+/// ingredient list. [totalWeightG] is the sum of all ingredient weights in
+/// grams (only convertible units count). Per-100g getters are available when
+/// [totalWeightG] > 0.
+class RecipeNutritionData {
+  final double kcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  final double fiberG;
+  final double totalWeightG;
+
+  const RecipeNutritionData({
+    required this.kcal,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatG,
+    required this.fiberG,
+    required this.totalWeightG,
+  });
+
+  double? get caloriesPer100g =>
+      totalWeightG > 0 ? kcal / totalWeightG * 100 : null;
+  double? get proteinPer100g =>
+      totalWeightG > 0 ? proteinG / totalWeightG * 100 : null;
+  double? get carbsPer100g =>
+      totalWeightG > 0 ? carbsG / totalWeightG * 100 : null;
+  double? get fatPer100g =>
+      totalWeightG > 0 ? fatG / totalWeightG * 100 : null;
+  double? get fiberPer100g =>
+      totalWeightG > 0 ? fiberG / totalWeightG * 100 : null;
 }

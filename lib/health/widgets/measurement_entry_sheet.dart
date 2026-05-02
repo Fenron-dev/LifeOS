@@ -1,15 +1,22 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../db/database.dart';
 import '../providers/measurements_provider.dart';
 
 /// Bottom-sheet form for a single body-measurement session. All six metrics
 /// (chest / waist / hip / thigh / arm / neck) are optional cm fields — the
 /// user can capture any subset they have available.
+///
+/// Pass [editLog] to open in edit mode — all fields pre-fill and save calls
+/// [MeasurementsOpsNotifier.updateLog] instead of [logMeasurement].
 class MeasurementEntrySheet extends ConsumerStatefulWidget {
-  const MeasurementEntrySheet({super.key});
+  final BodyMeasurement? editLog;
+
+  const MeasurementEntrySheet({super.key, this.editLog});
 
   @override
   ConsumerState<MeasurementEntrySheet> createState() =>
@@ -29,6 +36,27 @@ class _MeasurementEntrySheetState
 
   DateTime _loggedAt = DateTime.now();
   bool _saving = false;
+
+  bool get _isEditMode => widget.editLog != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final log = widget.editLog;
+    if (log != null) {
+      _loggedAt = log.loggedAt;
+      _chest.text = _fmt(log.chestCm);
+      _waist.text = _fmt(log.waistCm);
+      _hip.text = _fmt(log.hipCm);
+      _thigh.text = _fmt(log.thighCm);
+      _arm.text = _fmt(log.armCm);
+      _neck.text = _fmt(log.neckCm);
+      _notes.text = log.notes ?? '';
+    }
+  }
+
+  String _fmt(double? v) =>
+      v == null ? '' : v.toStringAsFixed(1).replaceAll('.0', '');
 
   @override
   void dispose() {
@@ -69,29 +97,46 @@ class _MeasurementEntrySheetState
   }
 
   bool get _hasAnyValue =>
-      [_chest, _waist, _hip, _thigh, _arm, _neck].any((c) => c.text.trim().isNotEmpty);
+      [_chest, _waist, _hip, _thigh, _arm, _neck]
+          .any((c) => c.text.trim().isNotEmpty);
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_hasAnyValue) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Mindestens einen Messwert eingeben.')),
+        const SnackBar(content: Text('Mindestens einen Messwert eingeben.')),
       );
       return;
     }
     setState(() => _saving = true);
     try {
-      await ref.read(measurementsOpsProvider.notifier).logMeasurement(
-            loggedAt: _loggedAt,
-            chestCm: _parse(_chest),
-            waistCm: _parse(_waist),
-            hipCm: _parse(_hip),
-            thighCm: _parse(_thigh),
-            armCm: _parse(_arm),
-            neckCm: _parse(_neck),
-            notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-          );
+      if (_isEditMode) {
+        await ref.read(measurementsOpsProvider.notifier).updateLog(
+              BodyMeasurementsCompanion(
+                id: Value(widget.editLog!.id),
+                loggedAt: Value(_loggedAt),
+                chestCm: Value(_parse(_chest)),
+                waistCm: Value(_parse(_waist)),
+                hipCm: Value(_parse(_hip)),
+                thighCm: Value(_parse(_thigh)),
+                armCm: Value(_parse(_arm)),
+                neckCm: Value(_parse(_neck)),
+                notes: Value(
+                    _notes.text.trim().isEmpty ? null : _notes.text.trim()),
+              ),
+            );
+      } else {
+        await ref.read(measurementsOpsProvider.notifier).logMeasurement(
+              loggedAt: _loggedAt,
+              chestCm: _parse(_chest),
+              waistCm: _parse(_waist),
+              hipCm: _parse(_hip),
+              thighCm: _parse(_thigh),
+              armCm: _parse(_arm),
+              neckCm: _parse(_neck),
+              notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            );
+      }
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -126,8 +171,10 @@ class _MeasurementEntrySheetState
                   ),
                 ),
               ),
-              Text('Maße erfassen',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                _isEditMode ? 'Maße bearbeiten' : 'Maße erfassen',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 16),
               InkWell(
                 onTap: _pickDateTime,
@@ -153,7 +200,8 @@ class _MeasurementEntrySheetState
               const SizedBox(height: 12),
               _CmRow(
                 left: _CmField(controller: _hip, label: 'Hüfte'),
-                right: _CmField(controller: _thigh, label: 'Oberschenkel'),
+                right:
+                    _CmField(controller: _thigh, label: 'Oberschenkel'),
               ),
               const SizedBox(height: 12),
               _CmRow(
@@ -175,8 +223,9 @@ class _MeasurementEntrySheetState
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _saving ? null : () => Navigator.of(context).pop(),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: const Text('Abbrechen'),
                     ),
                   ),
@@ -188,7 +237,8 @@ class _MeasurementEntrySheetState
                           ? const SizedBox(
                               height: 16,
                               width: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2))
                           : const Text('Speichern'),
                     ),
                   ),
@@ -230,7 +280,8 @@ class _CmField extends StatelessWidget {
           border: const OutlineInputBorder(),
           suffixText: 'cm',
         ),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        keyboardType:
+            const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [
           FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
         ],

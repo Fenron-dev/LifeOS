@@ -23,6 +23,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   final _height = TextEditingController();
   final _startWeight = TextEditingController();
   final _targetWeight = TextEditingController();
+  final _calorieGoal = TextEditingController();
+  final _proteinTarget = TextEditingController();
+  final _carbsTarget = TextEditingController();
+  final _fatTarget = TextEditingController();
 
   DateTime? _birthDate;
   String? _sex;
@@ -46,6 +50,19 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     _birthDate = p.birthDate;
     _sex = p.sex;
     _activity = p.activityLevel;
+    if (p.dailyCalorieGoal != null) {
+      _calorieGoal.text = p.dailyCalorieGoal!.toString();
+    }
+    if (p.proteinTargetG != null) {
+      _proteinTarget.text =
+          p.proteinTargetG!.toStringAsFixed(0);
+    }
+    if (p.carbsTargetG != null) {
+      _carbsTarget.text = p.carbsTargetG!.toStringAsFixed(0);
+    }
+    if (p.fatTargetG != null) {
+      _fatTarget.text = p.fatTargetG!.toStringAsFixed(0);
+    }
   }
 
   @override
@@ -54,6 +71,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     _height.dispose();
     _startWeight.dispose();
     _targetWeight.dispose();
+    _calorieGoal.dispose();
+    _proteinTarget.dispose();
+    _carbsTarget.dispose();
+    _fatTarget.dispose();
     super.dispose();
   }
 
@@ -78,6 +99,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
+      final kcalGoalRaw = int.tryParse(_calorieGoal.text.trim());
       await ref.read(profileOpsProvider.notifier).save(
             displayName: Value(_displayName.text.trim().isEmpty
                 ? null
@@ -88,6 +110,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             activityLevel: Value(_activity),
             startWeightKg: Value(_parse(_startWeight)),
             targetWeightKg: Value(_parse(_targetWeight)),
+            dailyCalorieGoal: Value(kcalGoalRaw),
+            proteinTargetG: Value(_parse(_proteinTarget)),
+            carbsTargetG: Value(_parse(_carbsTarget)),
+            fatTargetG: Value(_parse(_fatTarget)),
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -218,6 +244,75 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     decoration: const InputDecoration(
                       labelText: 'Zielgewicht',
                       suffixText: 'kg',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text('Tagesziele',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _calorieGoal,
+              decoration: const InputDecoration(
+                labelText: 'Kalorienziel',
+                suffixText: 'kcal',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.local_fire_department_outlined),
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _proteinTarget,
+                    decoration: const InputDecoration(
+                      labelText: 'Protein',
+                      suffixText: 'g',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _carbsTarget,
+                    decoration: const InputDecoration(
+                      labelText: 'Kohlenhydrate',
+                      suffixText: 'g',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _fatTarget,
+                    decoration: const InputDecoration(
+                      labelText: 'Fett',
+                      suffixText: 'g',
                       border: OutlineInputBorder(),
                     ),
                     keyboardType:

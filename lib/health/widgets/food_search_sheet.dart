@@ -3,22 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
 import '../../providers/vault_provider.dart';
+import '../../screens/scanner/barcode_scanner_screen.dart';
 import '../../services/open_food_facts_service.dart';
 
 /// The result of picking a product in [FoodSearchSheet].
-/// Carries all nutritional metadata (per 100 g) plus display fields.
 class FoodSearchResult {
   final String productName;
   final String? brand;
   final String? ean;
-  final String? itemId; // non-null when picked from local inventory
+  final String? itemId;
   final double? caloriesPer100g;
   final double? proteinPer100g;
   final double? carbsPer100g;
   final double? fatPer100g;
   final double? fiberPer100g;
+  /// For items/recipes: the default serving size in grams (pre-fills quantity).
   final double? servingSizeG;
-  final String source; // 'local' | 'off' | 'manual'
+  /// For recipes: the total nutrition for the full recipe (1 serving).
+  final double? recipeKcalTotal;
+  final double? recipeProteinTotal;
+  final double? recipeCarbsTotal;
+  final double? recipeFatTotal;
+  final bool isRecipe;
+  final String source; // 'local' | 'off' | 'recipe' | 'manual'
 
   const FoodSearchResult({
     required this.productName,
@@ -31,13 +38,18 @@ class FoodSearchResult {
     this.fatPer100g,
     this.fiberPer100g,
     this.servingSizeG,
+    this.recipeKcalTotal,
+    this.recipeProteinTotal,
+    this.recipeCarbsTotal,
+    this.recipeFatTotal,
+    this.isRecipe = false,
     required this.source,
   });
 }
 
-/// Bottom sheet for searching food products. Queries both the vault's local
-/// item catalogue and the OpenFoodFacts API in parallel. Pops with a
-/// [FoodSearchResult] when the user taps a result, or `null` on cancel.
+/// Bottom sheet for searching food. Searches local items, recipes and the
+/// OpenFoodFacts API in parallel. Also supports barcode scanning.
+/// Pops with a [FoodSearchResult] or `null` on cancel.
 class FoodSearchSheet extends ConsumerStatefulWidget {
   const FoodSearchSheet({super.key});
 
@@ -61,56 +73,90 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   Future<void> _search(String query) async {
     final q = query.trim();
     if (q.isEmpty) {
-      setState(() {
-        _results = [];
-        _error = null;
-      });
+      setState(() { _results = []; _error = null; });
       return;
     }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
 
     try {
       final db = ref.read(databaseProvider);
-      final futures = await Future.wait([
+      final results = await Future.wait([
         _searchLocal(db, q),
+        _searchRecipes(db, q),
         OpenFoodFactsService.searchByName(q, pageSize: 20),
       ]);
 
-      final localItems = futures[0] as List<_SearchItem>;
-      final offProducts = futures[1] as List<OFFProduct>;
-
-      final offItems = offProducts
-          .map((p) => _SearchItem.fromOff(p))
+      final localItems = results[0] as List<_SearchItem>;
+      final recipeItems = results[1] as List<_SearchItem>;
+      final offProducts = (results[2] as List<OFFProduct>)
+          .map(_SearchItem.fromOff)
           .toList();
 
-      // Local results first, then OFF — deduplicate by EAN.
       final seen = <String>{};
       final merged = <_SearchItem>[];
-      for (final item in [...localItems, ...offItems]) {
+      for (final item in [...localItems, ...recipeItems, ...offProducts]) {
         final key = item.ean ?? '${item.source}:${item.name}';
         if (seen.add(key)) merged.add(item);
       }
 
-      setState(() {
-        _results = merged;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Suche fehlgeschlagen';
-        _loading = false;
-      });
+      setState(() { _results = merged; _loading = false; });
+    } catch (_) {
+      setState(() { _error = 'Suche fehlgeschlagen'; _loading = false; });
     }
   }
 
   Future<List<_SearchItem>> _searchLocal(AppDatabase? db, String q) async {
     if (db == null) return [];
-    // searchItems returns a stream; .first gives the current snapshot.
     final rows = await db.searchItems(q).first;
     return rows.map(_SearchItem.fromItem).toList();
+  }
+
+  Future<List<_SearchItem>> _searchRecipes(AppDatabase? db, String q) async {
+    if (db == null) return [];
+    final lower = q.toLowerCase();
+    final all = await db.select(db.recipes).get();
+    final recipes = all
+        .where((r) => r.name.toLowerCase().contains(lower))
+        .toList();
+    final items = <_SearchItem>[];
+    for (final r in recipes) {
+      final nutrition = await db.computeRecipeNutrition(r.id);
+      items.add(_SearchItem.fromRecipe(r, nutrition));
+    }
+    return items;
+  }
+
+  Future<void> _scanBarcode() async {
+    final ean = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+    );
+    if (ean == null || !mounted) return;
+    _controller.text = ean;
+    setState(() { _loading = true; _error = null; _results = []; });
+    try {
+      final db = ref.read(databaseProvider);
+      // First try local inventory
+      final localItem = await db?.itemByEan(ean);
+      if (localItem != null) {
+        setState(() { _loading = false; });
+        _pick(_SearchItem.fromItem(localItem));
+        return;
+      }
+      // Then OFF lookup
+      final product = await OpenFoodFactsService.lookup(ean);
+      if (!mounted) return;
+      if (product != null) {
+        setState(() { _loading = false; });
+        _pick(_SearchItem.fromOff(product));
+      } else {
+        setState(() {
+          _loading = false;
+          _error = 'Produkt nicht gefunden — bitte manuell eingeben.';
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _loading = false; _error = 'Suche fehlgeschlagen'; });
+    }
   }
 
   void _pick(_SearchItem item) {
@@ -125,6 +171,11 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
       fatPer100g: item.fatPer100g,
       fiberPer100g: item.fiberPer100g,
       servingSizeG: item.servingSizeG,
+      recipeKcalTotal: item.recipeKcalTotal,
+      recipeProteinTotal: item.recipeProteinTotal,
+      recipeCarbsTotal: item.recipeCarbsTotal,
+      recipeFatTotal: item.recipeFatTotal,
+      isRecipe: item.source == 'recipe',
       source: item.source,
     ));
   }
@@ -148,11 +199,9 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
         padding: EdgeInsets.only(bottom: inset),
         child: Column(
           children: [
-            // Drag handle
             Center(
               child: Container(
-                width: 40,
-                height: 4,
+                width: 40, height: 4,
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: Theme.of(context).dividerColor,
@@ -182,16 +231,24 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                 decoration: InputDecoration(
                   hintText: 'Name oder EAN …',
                   prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _loading
-                      ? const Padding(
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_loading)
+                        const Padding(
                           padding: EdgeInsets.all(12),
                           child: SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 20, height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                        )
-                      : null,
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        tooltip: 'Barcode scannen',
+                        onPressed: _scanBarcode,
+                      ),
+                    ],
+                  ),
                   border: const OutlineInputBorder(),
                 ),
                 onSubmitted: _search,
@@ -202,8 +259,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(_error!,
-                    style: TextStyle(color: cs.error)),
+                child: Text(_error!, style: TextStyle(color: cs.error)),
               ),
             Expanded(
               child: _results.isEmpty && !_loading
@@ -222,32 +278,28 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                           );
                         }
                         final item = _results[i];
+                        final (bgColor, fgColor, icon) = switch (item.source) {
+                          'recipe' => (cs.tertiaryContainer, cs.onTertiaryContainer, Icons.menu_book_outlined),
+                          'local'  => (cs.primaryContainer,  cs.onPrimaryContainer,  Icons.inventory_2_outlined),
+                          _        => (cs.secondaryContainer, cs.onSecondaryContainer, Icons.public),
+                        };
+                        final subtitle = [
+                          if (item.brand != null) item.brand!,
+                          if (item.caloriesPer100g != null)
+                            '${item.caloriesPer100g!.toStringAsFixed(0)} kcal/100g'
+                          else if (item.recipeKcalTotal != null)
+                            '${item.recipeKcalTotal!.toStringAsFixed(0)} kcal gesamt',
+                        ].join(' · ');
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor:
-                                item.source == 'local'
-                                    ? cs.primaryContainer
-                                    : cs.secondaryContainer,
-                            child: Icon(
-                              item.source == 'local'
-                                  ? Icons.inventory_2_outlined
-                                  : Icons.public,
-                              size: 18,
-                              color: item.source == 'local'
-                                  ? cs.onPrimaryContainer
-                                  : cs.onSecondaryContainer,
-                            ),
+                            backgroundColor: bgColor,
+                            child: Icon(icon, size: 18, color: fgColor),
                           ),
                           title: Text(item.name),
-                          subtitle: Text(
-                            [
-                              if (item.brand != null) item.brand!,
-                              if (item.caloriesPer100g != null)
-                                '${item.caloriesPer100g!.toStringAsFixed(0)} kcal/100g',
-                            ].join(' · '),
-                            style:
-                                TextStyle(color: cs.onSurfaceVariant),
-                          ),
+                          subtitle: subtitle.isNotEmpty
+                              ? Text(subtitle,
+                                  style: TextStyle(color: cs.onSurfaceVariant))
+                              : null,
                           onTap: () => _pick(item),
                         );
                       },
@@ -267,23 +319,21 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search,
-                size: 48,
-                color: Theme.of(context).colorScheme.outline),
+            Icon(Icons.search, size: 48, color: cs.outline),
             const SizedBox(height: 12),
             Text(
               hasQuery
                   ? 'Keine Ergebnisse — Suche starten oder manuell eingeben.'
                   : 'Produktname eintippen und Enter drücken.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(color: cs.onSurfaceVariant),
             ),
             if (hasQuery) ...[
               const SizedBox(height: 16),
@@ -300,7 +350,7 @@ class _EmptyHint extends StatelessWidget {
   }
 }
 
-// ─── Internal search result wrapper ──────────────────────────────────────────
+// ─── Internal search result ───────────────────────────────────────────────────
 
 class _SearchItem {
   final String name;
@@ -313,7 +363,11 @@ class _SearchItem {
   final double? fatPer100g;
   final double? fiberPer100g;
   final double? servingSizeG;
-  final String source; // 'local' | 'off'
+  final double? recipeKcalTotal;
+  final double? recipeProteinTotal;
+  final double? recipeCarbsTotal;
+  final double? recipeFatTotal;
+  final String source;
 
   const _SearchItem({
     required this.name,
@@ -326,6 +380,10 @@ class _SearchItem {
     this.fatPer100g,
     this.fiberPer100g,
     this.servingSizeG,
+    this.recipeKcalTotal,
+    this.recipeProteinTotal,
+    this.recipeCarbsTotal,
+    this.recipeFatTotal,
     required this.source,
   });
 
@@ -339,6 +397,7 @@ class _SearchItem {
         carbsPer100g: item.carbsPer100g,
         fatPer100g: item.fatPer100g,
         fiberPer100g: item.fiberPer100g,
+        servingSizeG: item.servingSizeG,
         source: 'local',
       );
 
@@ -353,5 +412,22 @@ class _SearchItem {
         fiberPer100g: p.fiber,
         servingSizeG: p.servingSizeG,
         source: 'off',
+      );
+
+  factory _SearchItem.fromRecipe(Recipe r, RecipeNutritionData? nutrition) =>
+      _SearchItem(
+        name: r.name,
+        caloriesPer100g: nutrition?.caloriesPer100g,
+        proteinPer100g: nutrition?.proteinPer100g,
+        carbsPer100g: nutrition?.carbsPer100g,
+        fatPer100g: nutrition?.fatPer100g,
+        fiberPer100g: nutrition?.fiberPer100g,
+        // servingSizeG = full recipe weight → 1 serving = whole recipe
+        servingSizeG: nutrition?.totalWeightG,
+        recipeKcalTotal: nutrition?.kcal,
+        recipeProteinTotal: nutrition?.proteinG,
+        recipeCarbsTotal: nutrition?.carbsG,
+        recipeFatTotal: nutrition?.fatG,
+        source: 'recipe',
       );
 }

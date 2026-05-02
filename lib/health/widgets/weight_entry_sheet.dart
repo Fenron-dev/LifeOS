@@ -1,16 +1,22 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../db/database.dart';
 import '../providers/weight_provider.dart';
 
 /// Bottom-sheet form for a single weigh-in. Covers the full smart-scale
 /// payload (weight + body-fat / muscle / visceral / water / bone). Only the
-/// weight field is required — every extra metric is optional so a quick
-/// manual entry stays one tap and one number.
+/// weight field is required — every extra metric is optional.
+///
+/// Pass [editLog] to open in edit mode — all fields pre-fill and save calls
+/// [WeightOpsNotifier.updateLog] instead of [logWeight].
 class WeightEntrySheet extends ConsumerStatefulWidget {
-  const WeightEntrySheet({super.key});
+  final BodyWeightLog? editLog;
+
+  const WeightEntrySheet({super.key, this.editLog});
 
   @override
   ConsumerState<WeightEntrySheet> createState() => _WeightEntrySheetState();
@@ -28,6 +34,27 @@ class _WeightEntrySheetState extends ConsumerState<WeightEntrySheet> {
 
   DateTime _loggedAt = DateTime.now();
   bool _saving = false;
+
+  bool get _isEditMode => widget.editLog != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final log = widget.editLog;
+    if (log != null) {
+      _loggedAt = log.loggedAt;
+      _weight.text = log.weightKg.toStringAsFixed(1).replaceAll('.0', '');
+      _bodyFat.text = _fmt(log.bodyFatPct);
+      _muscle.text = _fmt(log.muscleMassPct);
+      _visceral.text = _fmt(log.visceralFat);
+      _water.text = _fmt(log.waterPct);
+      _bone.text = _fmt(log.boneMassKg);
+      _notes.text = log.notes ?? '';
+    }
+  }
+
+  String _fmt(double? v) =>
+      v == null ? '' : v.toStringAsFixed(1).replaceAll('.0', '');
 
   @override
   void dispose() {
@@ -56,8 +83,8 @@ class _WeightEntrySheetState extends ConsumerState<WeightEntrySheet> {
     );
     if (time == null) return;
     setState(() {
-      _loggedAt = DateTime(
-          date.year, date.month, date.day, time.hour, time.minute);
+      _loggedAt =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
     });
   }
 
@@ -71,16 +98,33 @@ class _WeightEntrySheetState extends ConsumerState<WeightEntrySheet> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await ref.read(weightOpsProvider.notifier).logWeight(
-            loggedAt: _loggedAt,
-            weightKg: _parse(_weight)!,
-            bodyFatPct: _parse(_bodyFat),
-            muscleMassPct: _parse(_muscle),
-            visceralFat: _parse(_visceral),
-            waterPct: _parse(_water),
-            boneMassKg: _parse(_bone),
-            notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-          );
+      if (_isEditMode) {
+        await ref.read(weightOpsProvider.notifier).updateLog(
+              BodyWeightLogsCompanion(
+                id: Value(widget.editLog!.id),
+                loggedAt: Value(_loggedAt),
+                weightKg: Value(_parse(_weight)!),
+                bodyFatPct: Value(_parse(_bodyFat)),
+                muscleMassPct: Value(_parse(_muscle)),
+                visceralFat: Value(_parse(_visceral)),
+                waterPct: Value(_parse(_water)),
+                boneMassKg: Value(_parse(_bone)),
+                notes: Value(
+                    _notes.text.trim().isEmpty ? null : _notes.text.trim()),
+              ),
+            );
+      } else {
+        await ref.read(weightOpsProvider.notifier).logWeight(
+              loggedAt: _loggedAt,
+              weightKg: _parse(_weight)!,
+              bodyFatPct: _parse(_bodyFat),
+              muscleMassPct: _parse(_muscle),
+              visceralFat: _parse(_visceral),
+              waterPct: _parse(_water),
+              boneMassKg: _parse(_bone),
+              notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            );
+      }
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -115,8 +159,10 @@ class _WeightEntrySheetState extends ConsumerState<WeightEntrySheet> {
                   ),
                 ),
               ),
-              Text('Wiegen erfassen',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                _isEditMode ? 'Wiegung bearbeiten' : 'Wiegen erfassen',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 16),
               InkWell(
                 onTap: _pickDateTime,
@@ -134,7 +180,7 @@ class _WeightEntrySheetState extends ConsumerState<WeightEntrySheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _weight,
-                autofocus: true,
+                autofocus: !_isEditMode,
                 decoration: const InputDecoration(
                   labelText: 'Gewicht *',
                   suffixText: 'kg',
@@ -160,28 +206,24 @@ class _WeightEntrySheetState extends ConsumerState<WeightEntrySheet> {
               const SizedBox(height: 8),
               _SmartRow(
                 left: _PctField(
-                  controller: _bodyFat,
-                  label: 'Körperfett',
-                  hint: 'KFA',
-                ),
+                    controller: _bodyFat,
+                    label: 'Körperfett',
+                    hint: 'KFA'),
                 right: _PctField(
-                  controller: _muscle,
-                  label: 'Muskelmasse',
-                  hint: 'Muskel',
-                ),
+                    controller: _muscle,
+                    label: 'Muskelmasse',
+                    hint: 'Muskel'),
               ),
               const SizedBox(height: 12),
               _SmartRow(
                 left: _NumberField(
-                  controller: _visceral,
-                  label: 'Viszeralfett',
-                  hint: 'Index',
-                ),
+                    controller: _visceral,
+                    label: 'Viszeralfett',
+                    hint: 'Index'),
                 right: _PctField(
-                  controller: _water,
-                  label: 'Wasseranteil',
-                  hint: 'Wasser',
-                ),
+                    controller: _water,
+                    label: 'Wasseranteil',
+                    hint: 'Wasser'),
               ),
               const SizedBox(height: 12),
               _NumberField(
@@ -219,8 +261,7 @@ class _WeightEntrySheetState extends ConsumerState<WeightEntrySheet> {
                           ? const SizedBox(
                               height: 16,
                               width: 16,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2))
+                              child: CircularProgressIndicator(strokeWidth: 2))
                           : const Text('Speichern'),
                     ),
                   ),

@@ -62,6 +62,9 @@ class _DiaryTabState extends ConsumerState<DiaryTab> {
                 totals: totalsAsync.valueOrNull,
                 mealTypes: mealTypes,
                 calorieGoal: profile?.dailyCalorieGoal?.toDouble(),
+                proteinTarget: profile?.proteinTargetG,
+                carbsTarget: profile?.carbsTargetG,
+                fatTarget: profile?.fatTargetG,
               ),
             ),
           ),
@@ -157,6 +160,9 @@ class _DiaryBody extends ConsumerWidget {
   final DailyNutritionTotals? totals;
   final List<MealType> mealTypes;
   final double? calorieGoal;
+  final double? proteinTarget;
+  final double? carbsTarget;
+  final double? fatTarget;
 
   const _DiaryBody({
     required this.day,
@@ -164,6 +170,9 @@ class _DiaryBody extends ConsumerWidget {
     required this.totals,
     required this.mealTypes,
     this.calorieGoal,
+    this.proteinTarget,
+    this.carbsTarget,
+    this.fatTarget,
   });
 
   @override
@@ -201,7 +210,13 @@ class _DiaryBody extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
-        _DailyTotalsCard(totals: totals, calorieGoal: calorieGoal),
+        _DailyTotalsCard(
+          totals: totals,
+          calorieGoal: calorieGoal,
+          proteinTarget: proteinTarget,
+          carbsTarget: carbsTarget,
+          fatTarget: fatTarget,
+        ),
         const SizedBox(height: 16),
         if (logs.isEmpty)
           _EmptyDay(day: day)
@@ -217,8 +232,17 @@ class _DiaryBody extends ConsumerWidget {
 class _DailyTotalsCard extends StatelessWidget {
   final DailyNutritionTotals? totals;
   final double? calorieGoal;
+  final double? proteinTarget;
+  final double? carbsTarget;
+  final double? fatTarget;
 
-  const _DailyTotalsCard({required this.totals, this.calorieGoal});
+  const _DailyTotalsCard({
+    required this.totals,
+    this.calorieGoal,
+    this.proteinTarget,
+    this.carbsTarget,
+    this.fatTarget,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -281,26 +305,114 @@ class _DailyTotalsCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _MacroCell(
+            if (proteinTarget != null || carbsTarget != null || fatTarget != null)
+              Column(
+                children: [
+                  _MacroProgressRow(
                     label: 'Protein',
-                    value: '${fmt1.format(protein)} g',
-                    cs: cs),
-                _MacroCell(
+                    value: protein,
+                    target: proteinTarget,
+                    color: cs.tertiary,
+                    onColor: cs.onPrimaryContainer,
+                    fmt: fmt1,
+                  ),
+                  const SizedBox(height: 6),
+                  _MacroProgressRow(
                     label: 'Kohlenhydrate',
-                    value: '${fmt1.format(carbs)} g',
-                    cs: cs),
-                _MacroCell(
+                    value: carbs,
+                    target: carbsTarget,
+                    color: cs.secondary,
+                    onColor: cs.onPrimaryContainer,
+                    fmt: fmt1,
+                  ),
+                  const SizedBox(height: 6),
+                  _MacroProgressRow(
                     label: 'Fett',
-                    value: '${fmt1.format(fat)} g',
-                    cs: cs),
-              ],
-            ),
+                    value: fat,
+                    target: fatTarget,
+                    color: cs.error,
+                    onColor: cs.onPrimaryContainer,
+                    fmt: fmt1,
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _MacroCell(
+                      label: 'Protein',
+                      value: '${fmt1.format(protein)} g',
+                      cs: cs),
+                  _MacroCell(
+                      label: 'Kohlenhydrate',
+                      value: '${fmt1.format(carbs)} g',
+                      cs: cs),
+                  _MacroCell(
+                      label: 'Fett',
+                      value: '${fmt1.format(fat)} g',
+                      cs: cs),
+                ],
+              ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MacroProgressRow extends StatelessWidget {
+  final String label;
+  final double value;
+  final double? target;
+  final Color color;
+  final Color onColor;
+  final NumberFormat fmt;
+
+  const _MacroProgressRow({
+    required this.label,
+    required this.value,
+    required this.target,
+    required this.color,
+    required this.onColor,
+    required this.fmt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct =
+        target != null && target! > 0 ? (value / target!).clamp(0.0, 1.0) : 0.0;
+    final targetText =
+        target != null ? '/ ${fmt.format(target!)} g' : '';
+    return Row(
+      children: [
+        SizedBox(
+          width: 96,
+          child: Text(
+            label,
+            style: TextStyle(
+                color: onColor.withValues(alpha: 0.85), fontSize: 12),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 5,
+              backgroundColor: onColor.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation(
+                pct >= 1.0 ? color.withValues(alpha: 0.6) : color,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '${fmt.format(value)} g $targetText',
+          style: TextStyle(color: onColor, fontSize: 12),
+        ),
+      ],
     );
   }
 }
@@ -451,12 +563,25 @@ class _LogTile extends ConsumerWidget {
           ].join(' · '),
           style: TextStyle(color: cs.onSurfaceVariant),
         ),
-        trailing: log.kcal != null
-            ? Text(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (log.kcal != null)
+              Text(
                 '${fmt1.format(log.kcal!)} kcal',
                 style: const TextStyle(fontWeight: FontWeight.w500),
-              )
-            : null,
+              ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Bearbeiten',
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => DiaryEntrySheet(editLog: log),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

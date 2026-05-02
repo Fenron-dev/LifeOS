@@ -508,6 +508,15 @@ class _LogList extends ConsumerWidget {
                           parts.join(' · '),
                           style: TextStyle(color: cs.onSurfaceVariant),
                         ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Bearbeiten',
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => MeasurementEntrySheet(editLog: m),
+                    ),
+                  ),
                 ),
               );
             }),
