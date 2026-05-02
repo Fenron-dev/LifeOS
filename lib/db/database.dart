@@ -1143,32 +1143,52 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Looks up a unit conversion to grams/ml in the DB.
-  /// Checks item-scoped conversions first, then global ones.
-  /// Returns null if no conversion path exists.
+  /// Checks item-scoped conversions first, then global. Handles duplicates and
+  /// one-hop conversions (e.g. Stück → Portion → g via _unitToGrams).
   Future<double?> _conversionToGrams(String unit, double qty,
       {String? itemId}) async {
     final u = unit.toLowerCase().trim();
-    // Item-specific conversion (highest priority)
+
+    // Collect item-scoped then global conversions
+    List<UnitConversion> candidates = [];
     if (itemId != null) {
-      final conv = await (select(unitConversions)
+      final rows = await (select(unitConversions)
             ..where((c) =>
-                c.scope.equals('item') &
-                c.scopeId.equals(itemId) &
-                c.fromUnit.lower().equals(u) &
-                (c.toUnit.lower().equals('g') |
-                    c.toUnit.lower().equals('ml'))))
-          .getSingleOrNull();
-      if (conv != null) return qty * conv.factor;
+                c.scope.equals('item') & c.scopeId.equals(itemId)))
+          .get();
+      candidates.addAll(rows);
     }
-    // Global conversion
     final global = await (select(unitConversions)
-          ..where((c) =>
-              c.scope.equals('global') &
-              c.fromUnit.lower().equals(u) &
-              (c.toUnit.lower().equals('g') |
-                  c.toUnit.lower().equals('ml'))))
-        .getSingleOrNull();
-    if (global != null) return qty * global.factor;
+          ..where((c) => c.scope.equals('global')))
+        .get();
+    candidates.addAll(global);
+
+    // Filter to conversions that start with our unit
+    final matching =
+        candidates.where((c) => c.fromUnit.toLowerCase().trim() == u).toList();
+
+    // Pass 1: direct → g/ml/kg/l (normalise to grams)
+    for (final c in matching) {
+      final to = c.toUnit.toLowerCase().trim();
+      final factor = switch (to) {
+        'g' || 'gramm' || 'gr' => 1.0,
+        'ml' || 'milliliter' => 1.0,
+        'kg' || 'kilogramm' => 1000.0,
+        'l' || 'liter' => 1000.0,
+        'dl' => 100.0,
+        'cl' => 10.0,
+        'mg' => 0.001,
+        _ => null,
+      };
+      if (factor != null) return qty * c.factor * factor;
+    }
+
+    // Pass 2: one-hop via _unitToGrams (e.g. Stück → Portion, then Portion → g)
+    for (final c in matching) {
+      final intermediate = _unitToGrams(qty * c.factor, c.toUnit);
+      if (intermediate != null) return intermediate;
+    }
+
     return null;
   }
 

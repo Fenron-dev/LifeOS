@@ -50,11 +50,11 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
 
   bool get _hasPerHundredData => _product?.caloriesPer100g != null;
 
-  /// Recipe selected without linked ingredients, but has stored per-serving totals.
+  /// Recipe/meal: always prefer qty × total over per-100g math (avoids
+  /// rounding errors when some ingredients lack nutrition data).
   bool get _hasRecipeTotals =>
       _product != null &&
       _product!.isRecipe &&
-      !_hasPerHundredData &&
       _product!.recipeKcalTotal != null;
 
   bool get _showManualMacros =>
@@ -392,16 +392,17 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
             const SizedBox(height: 12),
 
             // ── Live nutrition preview ──────────────────────────────────────
-            if (_hasPerHundredData)
+            // Recipes/meals: always show total × servings (not per-100g math).
+            if (_hasRecipeTotals)
+              _RecipeTotalsPreview(
+                  product: _product!,
+                  qty: _qtyController.text)
+            else if (_hasPerHundredData)
               _NutritionPreview(
                   product: _product!,
                   qty: _qtyController.text,
                   unit: safeUnit,
-                  servingSizeG: _product!.servingSizeG)
-            else if (_hasRecipeTotals)
-              _RecipeTotalsPreview(
-                  product: _product!,
-                  qty: _qtyController.text),
+                  servingSizeG: _product!.servingSizeG),
 
             // ── Quantity + unit ─────────────────────────────────────────────
             Row(
