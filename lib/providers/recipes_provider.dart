@@ -111,6 +111,15 @@ final mealIngredientsProvider =
   return db.ingredientsForMeal(mealId);
 });
 
+/// Computed nutrition for a standard meal. Re-triggers when ingredients change.
+final mealNutritionProvider =
+    FutureProvider.family<RecipeNutritionData?, String>((ref, mealId) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return null;
+  ref.watch(mealIngredientsProvider(mealId));
+  return db.computeMealNutrition(mealId);
+});
+
 // ---------------------------------------------------------------------------
 // Recipe operations
 // ---------------------------------------------------------------------------

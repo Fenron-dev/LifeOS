@@ -976,7 +976,7 @@ class _WaterLogTile extends ConsumerWidget {
 
 // ─── Consumption history (embedded in diary) ─────────────────────────────────
 
-enum _HistoryPeriod { week, month, year, all }
+enum _HistoryPeriod { today, week, month, year, all }
 
 enum _HistorySort {
   kcal('Kalorien'),
@@ -1006,6 +1006,10 @@ class _ConsumptionHistoryState extends ConsumerState<_ConsumptionHistory> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return switch (_period) {
+      _HistoryPeriod.today => (
+          today,
+          today.add(const Duration(days: 1)),
+        ),
       _HistoryPeriod.week => (
           today.subtract(Duration(days: today.weekday - 1)),
           today.add(const Duration(days: 1)),
@@ -1061,6 +1065,8 @@ class _ConsumptionHistoryState extends ConsumerState<_ConsumptionHistory> {
                     scrollDirection: Axis.horizontal,
                     child: SegmentedButton<_HistoryPeriod>(
                       segments: const [
+                        ButtonSegment(
+                            value: _HistoryPeriod.today, label: Text('Heute')),
                         ButtonSegment(
                             value: _HistoryPeriod.week, label: Text('Woche')),
                         ButtonSegment(

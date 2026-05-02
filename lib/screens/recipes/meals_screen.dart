@@ -121,7 +121,7 @@ class _MealCard extends ConsumerWidget {
                           title: Text('$qty ${ing.unit}  ${ing.name}'),
                         );
                       }),
-                      _MealNutritionRow(ingredients: ings),
+                      _MealNutritionRow(mealId: meal.id),
                     ],
                   ),
           ),
@@ -157,87 +157,42 @@ class _MealCard extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _MealNutritionRow extends ConsumerWidget {
-  final List<StandardMealIngredient> ingredients;
-  const _MealNutritionRow({required this.ingredients});
-
-  /// Converts qty in unit to grams; falls back to servingSizeG for piece units.
-  static double? _toGrams(double qty, String unit, {double? servingSizeG}) {
-    return switch (unit.toLowerCase().trim()) {
-      'g' || 'gramm' || 'gr' => qty,
-      'kg' || 'kilogramm' => qty * 1000,
-      'mg' => qty * 0.001,
-      'ml' || 'milliliter' => qty,
-      'l' || 'liter' => qty * 1000,
-      'dl' => qty * 100,
-      'cl' => qty * 10,
-      'el' || 'esslöffel' => qty * 15,
-      'tl' || 'teelöffel' => qty * 5,
-      'tasse' || 'cup' => qty * 237,
-      _ when servingSizeG != null => qty * servingSizeG,
-      _ => null,
-    };
-  }
+  final String mealId;
+  const _MealNutritionRow({required this.mealId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Only ingredients linked to an item with nutrition can contribute
-    final linked = ingredients.where((i) => i.itemId != null).toList();
-    if (linked.isEmpty) return const SizedBox.shrink();
-
-    double? totalKcal;
-    double? totalProtein;
-    double? totalCarbs;
-    double? totalFat;
-
-    for (final ing in linked) {
-      final itemAsync = ref.watch(itemByIdProvider(ing.itemId!));
-      final item = itemAsync.valueOrNull;
-      if (item == null) continue;
-      if (item.caloriesPer100g == null) continue;
-
-      final grams = _toGrams(ing.quantity, ing.unit,
-          servingSizeG: item.servingSizeG);
-      if (grams == null || grams <= 0) continue;
-
-      final scale = grams / 100.0;
-
-      totalKcal = (totalKcal ?? 0) + item.caloriesPer100g! * scale;
-      if (item.proteinPer100g != null) {
-        totalProtein = (totalProtein ?? 0) + item.proteinPer100g! * scale;
-      }
-      if (item.carbsPer100g != null) {
-        totalCarbs = (totalCarbs ?? 0) + item.carbsPer100g! * scale;
-      }
-      if (item.fatPer100g != null) {
-        totalFat = (totalFat ?? 0) + item.fatPer100g! * scale;
-      }
-    }
-
-    if (totalKcal == null) return const SizedBox.shrink();
-
-    String fmt(double? v) => v == null ? '–' : '${v.round()}';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      child: Card(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NutrCell(
-                  label: 'kcal',
-                  value: fmt(totalKcal),
-                  color: Theme.of(context).colorScheme.primary),
-              _NutrCell(label: 'Protein', value: '${fmt(totalProtein)}g'),
-              _NutrCell(label: 'Kohlenhydrate', value: '${fmt(totalCarbs)}g'),
-              _NutrCell(label: 'Fett', value: '${fmt(totalFat)}g'),
-            ],
+    final nutrAsync = ref.watch(mealNutritionProvider(mealId));
+    return nutrAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (nutr) {
+        if (nutr == null || nutr.kcal == 0) return const SizedBox.shrink();
+        String fmt(double v) => v.round().toString();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Card(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _NutrCell(
+                      label: 'kcal',
+                      value: fmt(nutr.kcal),
+                      color: Theme.of(context).colorScheme.primary),
+                  _NutrCell(label: 'Protein', value: '${fmt(nutr.proteinG)}g'),
+                  _NutrCell(
+                      label: 'Kohlenhydrate', value: '${fmt(nutr.carbsG)}g'),
+                  _NutrCell(label: 'Fett', value: '${fmt(nutr.fatG)}g'),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

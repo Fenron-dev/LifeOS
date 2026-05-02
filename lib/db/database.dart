@@ -1070,18 +1070,22 @@ class AppDatabase extends _$AppDatabase {
   /// with an [itemId] and a known per-100g value contribute.
   Future<RecipeNutritionData?> computeRecipeNutrition(String recipeId) async {
     final ingredients = await ingredientsForRecipe(recipeId);
-    double kcal = 0, protein = 0, carbs = 0, fat = 0, fiber = 0, totalG = 0;
+    double kcal = 0, protein = 0, carbs = 0, fat = 0, fiber = 0;
+    double totalG = 0; // all convertible weight (for portion sizing)
+    double nutritionG = 0; // weight only from items with nutrition (for per-100g)
     bool hasAny = false;
     for (final ing in ingredients) {
       if (ing.itemId == null) continue;
       final item = await itemById(ing.itemId!);
       if (item == null) continue;
       final qG = _unitToGrams(ing.quantity, ing.unit,
-          servingSizeG: item.servingSizeG);
+              servingSizeG: item.servingSizeG) ??
+          await _conversionToGrams(ing.unit, ing.quantity, itemId: item.id);
       if (qG == null || qG <= 0) continue;
       totalG += qG;
       if (item.caloriesPer100g != null) {
         kcal += item.caloriesPer100g! * qG / 100;
+        nutritionG += qG;
         hasAny = true;
       }
       if (item.proteinPer100g != null) protein += item.proteinPer100g! * qG / 100;
@@ -1097,23 +1101,28 @@ class AppDatabase extends _$AppDatabase {
       fatG: fat,
       fiberG: fiber,
       totalWeightG: totalG,
+      nutritionWeightG: nutritionG,
     );
   }
 
   Future<RecipeNutritionData?> computeMealNutrition(String mealId) async {
     final ingredients = await ingredientsForMeal(mealId);
-    double kcal = 0, protein = 0, carbs = 0, fat = 0, fiber = 0, totalG = 0;
+    double kcal = 0, protein = 0, carbs = 0, fat = 0, fiber = 0;
+    double totalG = 0;
+    double nutritionG = 0;
     bool hasAny = false;
     for (final ing in ingredients) {
       if (ing.itemId == null) continue;
       final item = await itemById(ing.itemId!);
       if (item == null) continue;
       final qG = _unitToGrams(ing.quantity, ing.unit,
-          servingSizeG: item.servingSizeG);
+              servingSizeG: item.servingSizeG) ??
+          await _conversionToGrams(ing.unit, ing.quantity, itemId: item.id);
       if (qG == null || qG <= 0) continue;
       totalG += qG;
       if (item.caloriesPer100g != null) {
         kcal += item.caloriesPer100g! * qG / 100;
+        nutritionG += qG;
         hasAny = true;
       }
       if (item.proteinPer100g != null) protein += item.proteinPer100g! * qG / 100;
@@ -1129,7 +1138,38 @@ class AppDatabase extends _$AppDatabase {
       fatG: fat,
       fiberG: fiber,
       totalWeightG: totalG,
+      nutritionWeightG: nutritionG,
     );
+  }
+
+  /// Looks up a unit conversion to grams/ml in the DB.
+  /// Checks item-scoped conversions first, then global ones.
+  /// Returns null if no conversion path exists.
+  Future<double?> _conversionToGrams(String unit, double qty,
+      {String? itemId}) async {
+    final u = unit.toLowerCase().trim();
+    // Item-specific conversion (highest priority)
+    if (itemId != null) {
+      final conv = await (select(unitConversions)
+            ..where((c) =>
+                c.scope.equals('item') &
+                c.scopeId.equals(itemId) &
+                c.fromUnit.lower().equals(u) &
+                (c.toUnit.lower().equals('g') |
+                    c.toUnit.lower().equals('ml'))))
+          .getSingleOrNull();
+      if (conv != null) return qty * conv.factor;
+    }
+    // Global conversion
+    final global = await (select(unitConversions)
+          ..where((c) =>
+              c.scope.equals('global') &
+              c.fromUnit.lower().equals(u) &
+              (c.toUnit.lower().equals('g') |
+                  c.toUnit.lower().equals('ml'))))
+        .getSingleOrNull();
+    if (global != null) return qty * global.factor;
+    return null;
   }
 
   /// Converts [qty] in [unit] to a gram-equivalent value.
@@ -1171,9 +1211,11 @@ class DailyNutritionTotals {
 }
 
 /// Computed nutrition totals for an entire recipe, derived from its
-/// ingredient list. [totalWeightG] is the sum of all ingredient weights in
-/// grams (only convertible units count). Per-100g getters are available when
-/// [totalWeightG] > 0.
+/// ingredient list.
+/// [totalWeightG] — all convertible ingredient weights (used for serving-size
+///   estimation, e.g. totalWeightG / servings).
+/// [nutritionWeightG] — weight of ingredients that have per-100g data (used
+///   for per-100g calculations so items without nutrition don't deflate them).
 class RecipeNutritionData {
   final double kcal;
   final double proteinG;
@@ -1181,6 +1223,7 @@ class RecipeNutritionData {
   final double fatG;
   final double fiberG;
   final double totalWeightG;
+  final double nutritionWeightG;
 
   const RecipeNutritionData({
     required this.kcal,
@@ -1189,16 +1232,17 @@ class RecipeNutritionData {
     required this.fatG,
     required this.fiberG,
     required this.totalWeightG,
+    required this.nutritionWeightG,
   });
 
   double? get caloriesPer100g =>
-      totalWeightG > 0 ? kcal / totalWeightG * 100 : null;
+      nutritionWeightG > 0 ? kcal / nutritionWeightG * 100 : null;
   double? get proteinPer100g =>
-      totalWeightG > 0 ? proteinG / totalWeightG * 100 : null;
+      nutritionWeightG > 0 ? proteinG / nutritionWeightG * 100 : null;
   double? get carbsPer100g =>
-      totalWeightG > 0 ? carbsG / totalWeightG * 100 : null;
+      nutritionWeightG > 0 ? carbsG / nutritionWeightG * 100 : null;
   double? get fatPer100g =>
-      totalWeightG > 0 ? fatG / totalWeightG * 100 : null;
+      nutritionWeightG > 0 ? fatG / nutritionWeightG * 100 : null;
   double? get fiberPer100g =>
-      totalWeightG > 0 ? fiberG / totalWeightG * 100 : null;
+      nutritionWeightG > 0 ? fiberG / nutritionWeightG * 100 : null;
 }
