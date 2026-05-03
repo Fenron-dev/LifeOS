@@ -724,62 +724,117 @@ class _LogTile extends ConsumerWidget {
       },
       onDismissed: (_) =>
           ref.read(nutritionOpsProvider.notifier).deleteLog(log.id),
-      child: ListTile(
-        title: Text(log.productName),
-        subtitle: Text(
-          [
-            '${fmt1.format(log.quantityG)} ${log.displayUnit}',
-            if (log.brand != null) log.brand!,
-          ].join(' · '),
-          style: TextStyle(color: cs.onSurfaceVariant),
+      child: InkWell(
+        onTap: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => DiaryEntrySheet(editLog: log),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (log.kcal != null)
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Row 1: name + kcal
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      log.productName,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  if (log.kcal != null)
+                    Text(
+                      '${fmt1.format(log.kcal!)} kcal',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: cs.primary,
+                        fontSize: 13,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              // Row 2: quantity + brand + macros
               Text(
-                '${fmt1.format(log.kcal!)} kcal',
-                style: const TextStyle(fontWeight: FontWeight.w500),
+                [
+                  '${fmt1.format(log.quantityG)} ${log.displayUnit}',
+                  if (log.brand != null) log.brand!,
+                  if (log.proteinG != null)
+                    '${fmt1.format(log.proteinG!)}g P',
+                  if (log.carbsG != null)
+                    '${fmt1.format(log.carbsG!)}g KH',
+                  if (log.fatG != null) '${fmt1.format(log.fatG!)}g F',
+                ].join(' · '),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
-            // Thumb up
-            IconButton(
-              icon: Icon(
-                log.thumbRating == 'up' ? Icons.thumb_up : Icons.thumb_up_outlined,
-                size: 18,
-                color: log.thumbRating == 'up' ? cs.primary : cs.onSurfaceVariant,
+              // Row 3: action buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(6),
+                    icon: Icon(
+                      log.thumbRating == 'up'
+                          ? Icons.thumb_up
+                          : Icons.thumb_up_outlined,
+                      size: 18,
+                      color: log.thumbRating == 'up'
+                          ? cs.primary
+                          : cs.onSurfaceVariant,
+                    ),
+                    tooltip: 'Daumen hoch',
+                    onPressed: () => ref
+                        .read(nutritionOpsProvider.notifier)
+                        .setThumbRating(log.id,
+                            log.thumbRating == 'up' ? null : 'up'),
+                  ),
+                  IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(6),
+                    icon: Icon(
+                      log.thumbRating == 'down'
+                          ? Icons.thumb_down
+                          : Icons.thumb_down_outlined,
+                      size: 18,
+                      color: log.thumbRating == 'down'
+                          ? cs.error
+                          : cs.onSurfaceVariant,
+                    ),
+                    tooltip: 'Daumen runter',
+                    onPressed: () => ref
+                        .read(nutritionOpsProvider.notifier)
+                        .setThumbRating(log.id,
+                            log.thumbRating == 'down' ? null : 'down'),
+                  ),
+                  IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(6),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    tooltip: 'Bearbeiten',
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => DiaryEntrySheet(editLog: log),
+                    ),
+                  ),
+                  IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(6),
+                    icon: Icon(Icons.delete_outline,
+                        size: 18, color: cs.error),
+                    tooltip: 'Löschen',
+                    onPressed: () => _confirmDeleteLog(context, ref),
+                  ),
+                ],
               ),
-              tooltip: 'Daumen hoch',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => ref.read(nutritionOpsProvider.notifier)
-                  .setThumbRating(log.id, log.thumbRating == 'up' ? null : 'up'),
-            ),
-            // Thumb down
-            IconButton(
-              icon: Icon(
-                log.thumbRating == 'down' ? Icons.thumb_down : Icons.thumb_down_outlined,
-                size: 18,
-                color: log.thumbRating == 'down' ? cs.error : cs.onSurfaceVariant,
-              ),
-              tooltip: 'Daumen runter',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => ref.read(nutritionOpsProvider.notifier)
-                  .setThumbRating(log.id, log.thumbRating == 'down' ? null : 'down'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Bearbeiten',
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => DiaryEntrySheet(editLog: log),
-              ),
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline, color: cs.error),
-              tooltip: 'Löschen',
-              onPressed: () => _confirmDeleteLog(context, ref),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

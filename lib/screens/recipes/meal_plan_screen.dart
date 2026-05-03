@@ -77,6 +77,7 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
                 mealTypes: mealTypes,
                 onAddEntry: (date, mealTypeId) =>
                     _openAddSheet(context, date, mealTypeId),
+                onDayTap: (date) => _openDayDetail(context, date),
               ),
             ),
           ),
@@ -95,6 +96,15 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
         date: date,
         initialMealTypeId: mealTypeId,
       ),
+    );
+  }
+
+  void _openDayDetail(BuildContext context, DateTime day) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _DayPlanDetailSheet(day: day),
     );
   }
 
@@ -157,12 +167,14 @@ class _WeekBody extends StatelessWidget {
   final List<MealPlanEntry> entries;
   final List<MealType> mealTypes;
   final void Function(DateTime, String?) onAddEntry;
+  final void Function(DateTime) onDayTap;
 
   const _WeekBody({
     required this.weekStart,
     required this.entries,
     required this.mealTypes,
     required this.onAddEntry,
+    required this.onDayTap,
   });
 
   @override
@@ -182,6 +194,7 @@ class _WeekBody extends StatelessWidget {
           entries: dayEntries,
           mealTypes: mealTypes,
           onAddEntry: onAddEntry,
+          onDayTap: onDayTap,
         );
       },
     );
@@ -195,12 +208,14 @@ class _DayCard extends ConsumerWidget {
   final List<MealPlanEntry> entries;
   final List<MealType> mealTypes;
   final void Function(DateTime, String?) onAddEntry;
+  final void Function(DateTime) onDayTap;
 
   const _DayCard({
     required this.day,
     required this.entries,
     required this.mealTypes,
     required this.onAddEntry,
+    required this.onDayTap,
   });
 
   String _dayLabel(DateTime d) {
@@ -241,12 +256,35 @@ class _DayCard extends ConsumerWidget {
             // Day header
             Row(
               children: [
-                Text(
-                  _dayLabel(day),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: _isToday ? cs.primary : null,
-                        fontWeight: _isToday ? FontWeight.w700 : null,
-                      ),
+                InkWell(
+                  onTap: () => onDayTap(day),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 2, horizontal: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _dayLabel(day),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(
+                                color: _isToday ? cs.primary : null,
+                                fontWeight:
+                                    _isToday ? FontWeight.w700 : null,
+                              ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.open_in_new,
+                          size: 13,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 if (_totalKcal > 0)
@@ -734,32 +772,34 @@ class _MealPlanSearchResults extends ConsumerWidget {
     final lower = q.toLowerCase().trim();
     final results = <FoodSearchResult>[];
 
-    // Recipes
+    // Recipes — compute nutrition from ingredients, fall back to stored values
     final recipes = await db.searchRecipes(lower).first;
     for (final r in recipes) {
+      final nutrition = await db.computeRecipeNutrition(r.id);
       results.add(FoodSearchResult(
         productName: r.name,
         itemId: r.id,
         source: 'recipe',
-        recipeKcalTotal: r.caloriesPerServing,
-        recipeProteinTotal: r.proteinPerServing,
-        recipeCarbsTotal: r.carbsPerServing,
-        recipeFatTotal: r.fatPerServing,
+        recipeKcalTotal: nutrition?.kcal ?? r.caloriesPerServing,
+        recipeProteinTotal: nutrition?.proteinG ?? r.proteinPerServing,
+        recipeCarbsTotal: nutrition?.carbsG ?? r.carbsPerServing,
+        recipeFatTotal: nutrition?.fatG ?? r.fatPerServing,
         servingUnit: r.servingUnit,
       ));
     }
 
-    // Standard meals
+    // Standard meals — compute nutrition from ingredients, fall back to stored values
     final meals = await db.searchMeals(lower);
     for (final m in meals) {
+      final nutrition = await db.computeMealNutrition(m.id);
       results.add(FoodSearchResult(
         productName: m.name,
         itemId: m.id,
         source: 'meal',
-        recipeKcalTotal: m.kcalTotal,
-        recipeProteinTotal: m.proteinG,
-        recipeCarbsTotal: m.carbsG,
-        recipeFatTotal: m.fatG,
+        recipeKcalTotal: nutrition?.kcal ?? m.kcalTotal,
+        recipeProteinTotal: nutrition?.proteinG ?? m.proteinG,
+        recipeCarbsTotal: nutrition?.carbsG ?? m.carbsG,
+        recipeFatTotal: nutrition?.fatG ?? m.fatG,
         servingUnit: m.servingUnit,
       ));
     }
@@ -783,6 +823,334 @@ class _MealPlanSearchResults extends ConsumerWidget {
     }
 
     return results;
+  }
+}
+
+// ── Day plan detail sheet ─────────────────────────────────────────────────────
+
+class _DayPlanDetailSheet extends ConsumerWidget {
+  final DateTime day;
+  const _DayPlanDetailSheet({required this.day});
+
+  bool get _isToday {
+    final n = DateTime.now();
+    return day.year == n.year && day.month == n.month && day.day == n.day;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dayEnd = day.add(const Duration(days: 1));
+    final entriesAsync =
+        ref.watch(mealPlanEntriesProvider((day, dayEnd)));
+    final mealTypes = ref.watch(mealTypesProvider).valueOrNull ?? [];
+    final cs = Theme.of(context).colorScheme;
+    final fmt0 = NumberFormat('##0', 'de_DE');
+    final weekdayNames = [
+      'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag',
+      'Freitag', 'Samstag', 'Sonntag'
+    ];
+    final dayLabel = _isToday
+        ? 'Heute'
+        : '${weekdayNames[day.weekday - 1]}, '
+            '${DateFormat('dd.MM.yyyy', 'de_DE').format(day)}';
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.8,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (ctx, scrollCtrl) {
+        return entriesAsync.when(
+          loading: () =>
+              const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Fehler: $e')),
+          data: (entries) {
+            final totalKcal = entries.fold(
+                0.0, (s, e) => s + (e.kcalPerServing ?? 0) * e.servings);
+            final bySlot = <String?, List<MealPlanEntry>>{};
+            for (final e in entries) {
+              bySlot.putIfAbsent(e.mealTypeId, () => []).add(e);
+            }
+
+            return Column(
+              children: [
+                // Drag handle + header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: cs.onSurfaceVariant
+                                .withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              dayLabel,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: _isToday ? cs.primary : null,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          if (totalKcal > 0)
+                            Chip(
+                              label: Text(
+                                '${fmt0.format(totalKcal)} kcal',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: cs.onPrimaryContainer),
+                              ),
+                              backgroundColor: cs.primaryContainer,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 16),
+                // Meal sections
+                Expanded(
+                  child: entries.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.calendar_today_outlined,
+                                    size: 48,
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.5)),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Noch keine Einträge für diesen Tag.',
+                                  style: TextStyle(
+                                      color: cs.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView(
+                          controller: scrollCtrl,
+                          padding: const EdgeInsets.fromLTRB(
+                              16, 0, 16, 96),
+                          children: [
+                            for (final mt in mealTypes)
+                              if (bySlot[mt.id] != null)
+                                _PlanDaySection(
+                                  label: mt.name,
+                                  entries: bySlot[mt.id]!,
+                                  mealTypeId: mt.id,
+                                  day: day,
+                                ),
+                            if (bySlot[null] != null)
+                              _PlanDaySection(
+                                label: 'Sonstiges',
+                                entries: bySlot[null]!,
+                                mealTypeId: null,
+                                day: day,
+                              ),
+                          ],
+                        ),
+                ),
+                // Add button bar
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: _PlanDayAddBar(
+                        day: day, mealTypes: mealTypes),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _PlanDaySection extends ConsumerWidget {
+  final String label;
+  final List<MealPlanEntry> entries;
+  final String? mealTypeId;
+  final DateTime day;
+
+  const _PlanDaySection({
+    required this.label,
+    required this.entries,
+    required this.mealTypeId,
+    required this.day,
+  });
+
+  String _fmt(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt0 = NumberFormat('##0', 'de_DE');
+    final totalKcal =
+        entries.fold(0.0, (s, e) => s + (e.kcalPerServing ?? 0) * e.servings);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            dense: true,
+            title: Text(label,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (totalKcal > 0)
+                  Text('${fmt0.format(totalKcal)} kcal',
+                      style: TextStyle(
+                          fontSize: 12, color: cs.onSurfaceVariant)),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                  tooltip: 'Zu $label hinzufügen',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (_) => _AddMealPlanEntrySheet(
+                      date: day,
+                      initialMealTypeId: mealTypeId,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          for (final e in entries)
+            Dismissible(
+              key: ValueKey(e.id),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                color: cs.error,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Icon(Icons.delete, color: cs.onError, size: 18),
+              ),
+              onDismissed: (_) =>
+                  ref.read(mealPlanOpsProvider.notifier).deleteEntry(e.id),
+              child: Padding(
+                padding:
+                    const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Row 1: name + kcal
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                e.recipeId != null
+                                    ? Icons.menu_book_outlined
+                                    : e.dishId != null
+                                        ? Icons.restaurant_outlined
+                                        : Icons.fastfood_outlined,
+                                size: 14,
+                                color: cs.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  e.entryName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (e.kcalPerServing != null)
+                          Text(
+                            '${fmt0.format(e.kcalPerServing! * e.servings)} kcal',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: cs.primary,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    // Row 2: servings + notes
+                    Text(
+                      '${_fmt(e.servings)} Portion'
+                      '${e.notes != null ? ' · ${e.notes}' : ''}',
+                      style: TextStyle(
+                          fontSize: 12, color: cs.onSurfaceVariant),
+                    ),
+                    // Row 3: delete action
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(6),
+                        icon: Icon(Icons.delete_outline,
+                            size: 16, color: cs.error),
+                        tooltip: 'Entfernen',
+                        onPressed: () => ref
+                            .read(mealPlanOpsProvider.notifier)
+                            .deleteEntry(e.id),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanDayAddBar extends ConsumerWidget {
+  final DateTime day;
+  final List<MealType> mealTypes;
+  const _PlanDayAddBar({required this.day, required this.mealTypes});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FilledButton.icon(
+      icon: const Icon(Icons.add),
+      label: const Text('Mahlzeit hinzufügen'),
+      onPressed: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => _AddMealPlanEntrySheet(date: day),
+      ),
+    );
   }
 }
 
