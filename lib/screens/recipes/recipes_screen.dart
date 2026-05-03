@@ -32,6 +32,11 @@ class RecipesScreen extends ConsumerWidget {
         title: const Text('Rezepte'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.calendar_month),
+            tooltip: 'Mahlzeitenplan',
+            onPressed: () => context.push('/recipes/plan'),
+          ),
+          IconButton(
             icon: const Icon(Icons.restaurant_menu),
             tooltip: 'Gerichte',
             onPressed: () => context.push('/recipes/meals'),

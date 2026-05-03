@@ -12,6 +12,7 @@ import 'screens/recipes/recipe_detail_screen.dart';
 import 'screens/recipes/recipe_form_screen.dart';
 import 'screens/recipes/mealie_import_screen.dart';
 import 'screens/recipes/meals_screen.dart';
+import 'screens/recipes/meal_plan_screen.dart';
 import 'screens/tasks/tasks_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
 import 'screens/settings/settings_screen.dart';
@@ -149,6 +150,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'meals',
                     builder: (context, state) => const MealsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'plan',
+                    builder: (context, state) => const MealPlanScreen(),
                   ),
                   GoRoute(
                     path: ':id',

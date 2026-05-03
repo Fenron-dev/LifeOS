@@ -21,6 +21,7 @@ import 'tables/tasks_table.dart';
 import 'tables/automation_table.dart';
 import 'tables/nutrition_table.dart';
 import 'tables/stats_table.dart';
+import 'tables/meal_plan_table.dart';
 
 part 'database.g.dart';
 
@@ -66,6 +67,8 @@ part 'database.g.dart';
   NutritionLogs,
   // Water tracking
   WaterLogs,
+  // Meal plan
+  MealPlanEntries,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -80,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -233,6 +236,10 @@ class AppDatabase extends _$AppDatabase {
             // Phase 6.8 — flexible serving unit for recipes and meals.
             await m.addColumn(recipes, recipes.servingUnit);
             await m.addColumn(standardMeals, standardMeals.servingUnit);
+          }
+          if (from < 20) {
+            // Phase 7.0 — meal plan.
+            await m.createTable(mealPlanEntries);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -845,6 +852,11 @@ class AppDatabase extends _$AppDatabase {
       (delete(recipeSteps)..where((s) => s.recipeId.equals(recipeId))).go();
 
   // Standard meals
+  Future<List<StandardMeal>> searchMeals(String query) {
+    final like = '%${query.toLowerCase()}%';
+    return (select(standardMeals)..where((m) => m.name.lower().like(like))).get();
+  }
+
   Stream<List<StandardMeal>> watchAllMeals() =>
       (select(standardMeals)..orderBy([(m) => OrderingTerm.asc(m.name)]))
           .watch();
@@ -1354,6 +1366,75 @@ class AppDatabase extends _$AppDatabase {
       _ when servingSizeG != null => qty * servingSizeG,
       _ => null,
     };
+  }
+
+  // ── Meal Plan ─────────────────────────────────────────────────────────────
+
+  Stream<List<MealPlanEntry>> watchPlanEntriesForRange(
+      DateTime from, DateTime to) =>
+      (select(mealPlanEntries)
+            ..where((e) =>
+                e.date.isBiggerOrEqualValue(from) &
+                e.date.isSmallerThanValue(to))
+            ..orderBy([
+              (e) => OrderingTerm.asc(e.date),
+              (e) => OrderingTerm.asc(e.createdAt),
+            ]))
+          .watch();
+
+  Future<void> insertMealPlanEntry(MealPlanEntriesCompanion entry) =>
+      into(mealPlanEntries).insert(entry);
+
+  Future<void> deleteMealPlanEntry(String id) =>
+      (delete(mealPlanEntries)..where((e) => e.id.equals(id))).go();
+
+  Future<void> updateMealPlanEntry(MealPlanEntriesCompanion entry) =>
+      (update(mealPlanEntries)
+            ..where((e) => e.id.equals(entry.id.value)))
+          .write(entry);
+
+  /// Returns aggregated ingredient needs for all plan entries in a date range.
+  /// Recipe + meal entries expand into their ingredients;
+  /// item entries contribute themselves (quantity = servings).
+  Future<List<({String? itemId, String name, double qty, String unit})>>
+      getPlanIngredientNeeds(DateTime from, DateTime to) async {
+    final entries = await (select(mealPlanEntries)
+          ..where((e) =>
+              e.date.isBiggerOrEqualValue(from) &
+              e.date.isSmallerThanValue(to)))
+        .get();
+
+    final needs = <String, ({String? itemId, String name, double qty, String unit})>{};
+
+    void addNeed(String key, String? itemId, String name, double qty, String unit) {
+      final existing = needs[key];
+      if (existing != null) {
+        needs[key] = (itemId: itemId, name: name, qty: existing.qty + qty, unit: unit);
+      } else {
+        needs[key] = (itemId: itemId, name: name, qty: qty, unit: unit);
+      }
+    }
+
+    for (final e in entries) {
+      final s = e.servings;
+      if (e.recipeId != null) {
+        final ings = await ingredientsForRecipe(e.recipeId!);
+        for (final ing in ings) {
+          if (ing.itemId == null) continue;
+          addNeed(ing.itemId!, ing.itemId, ing.name, ing.quantity * s, ing.unit);
+        }
+      } else if (e.dishId != null) {
+        final ings = await ingredientsForMeal(e.dishId!);
+        for (final ing in ings) {
+          if (ing.itemId == null) continue;
+          addNeed(ing.itemId!, ing.itemId, ing.name, ing.quantity * s, ing.unit);
+        }
+      } else if (e.itemId != null) {
+        addNeed(e.itemId!, e.itemId, e.entryName, s, 'Portion');
+      }
+    }
+
+    return needs.values.toList();
   }
 }
 
