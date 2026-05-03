@@ -80,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -234,6 +234,22 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(recipes, recipes.servingUnit);
             await m.addColumn(standardMeals, standardMeals.servingUnit);
           }
+          if (from < 19) {
+            // Phase 6.9 — ratings, consumption reasons, diary thumbs.
+            await m.addColumn(items, items.starRating);
+            await m.addColumn(items, items.isFavorite);
+            await m.addColumn(items, items.isTrashed);
+            await m.addColumn(recipes, recipes.starRating);
+            await m.addColumn(recipes, recipes.isFavorite);
+            await m.addColumn(recipes, recipes.isTrashed);
+            await m.addColumn(standardMeals, standardMeals.starRating);
+            await m.addColumn(standardMeals, standardMeals.isFavorite);
+            await m.addColumn(standardMeals, standardMeals.isTrashed);
+            await m.addColumn(itemEvents, itemEvents.consumptionReason);
+            await m.addColumn(itemEvents, itemEvents.thumbRating);
+            await m.addColumn(nutritionLogs, nutritionLogs.thumbRating);
+            await m.addColumn(nutritionLogs, nutritionLogs.inventoryDeducted);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -370,6 +386,74 @@ class AppDatabase extends _$AppDatabase {
               s.expiryDate.isBiggerOrEqualValue(today)))
         .watch();
   }
+
+  // ── Item ratings ──────────────────────────────────────────────────────────
+
+  Future<void> setItemRating(
+    String id, {
+    required int? starRating,
+    required bool isFavorite,
+    required bool isTrashed,
+  }) =>
+      (update(items)..where((i) => i.id.equals(id))).write(
+        ItemsCompanion(
+          starRating: Value(starRating),
+          isFavorite: Value(isFavorite),
+          isTrashed: Value(isTrashed),
+        ),
+      );
+
+  Future<void> setRecipeRating(
+    String id, {
+    required int? starRating,
+    required bool isFavorite,
+    required bool isTrashed,
+  }) =>
+      (update(recipes)..where((r) => r.id.equals(id))).write(
+        RecipesCompanion(
+          starRating: Value(starRating),
+          isFavorite: Value(isFavorite),
+          isTrashed: Value(isTrashed),
+        ),
+      );
+
+  Future<void> setMealRating(
+    String id, {
+    required int? starRating,
+    required bool isFavorite,
+    required bool isTrashed,
+  }) =>
+      (update(standardMeals)..where((m) => m.id.equals(id))).write(
+        StandardMealsCompanion(
+          starRating: Value(starRating),
+          isFavorite: Value(isFavorite),
+          isTrashed: Value(isTrashed),
+        ),
+      );
+
+  /// Returns cumulative thumbs-up / thumbs-down count for a given item
+  /// by aggregating over nutrition_logs entries referencing that item.
+  Future<({int up, int down, int total})> getNutritionLogStats(
+      String itemId) async {
+    final rows = await (select(nutritionLogs)
+          ..where((l) => l.itemId.equals(itemId)))
+        .get();
+    final up = rows.where((l) => l.thumbRating == 'up').length;
+    final down = rows.where((l) => l.thumbRating == 'down').length;
+    return (up: up, down: down, total: rows.length);
+  }
+
+  // ── Nutrition log rating helpers ──────────────────────────────────────────
+
+  Future<void> setNutritionLogThumb(String id, String? thumbRating) =>
+      (update(nutritionLogs)..where((l) => l.id.equals(id))).write(
+        NutritionLogsCompanion(thumbRating: Value(thumbRating)),
+      );
+
+  Future<void> setNutritionLogDeducted(String id, bool deducted) =>
+      (update(nutritionLogs)..where((l) => l.id.equals(id))).write(
+        NutritionLogsCompanion(inventoryDeducted: Value(deducted)),
+      );
 
   Future<void> insertInventoryEntry(InventoryEntriesCompanion entry) =>
       into(inventoryEntries).insert(entry);

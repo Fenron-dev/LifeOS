@@ -54,7 +54,8 @@ class NutritionOpsNotifier extends AsyncNotifier<void> {
 
   AppDatabase get _db => ref.read(databaseProvider)!;
 
-  Future<void> logFood({
+  Future<String> logFood({
+    String? id,
     required DateTime loggedAt,
     required String productName,
     String? brand,
@@ -71,8 +72,9 @@ class NutritionOpsNotifier extends AsyncNotifier<void> {
     String source = 'manual',
     String? notes,
   }) async {
+    final logId = id ?? _uuid.v4();
     await _db.insertNutritionLog(NutritionLogsCompanion.insert(
-      id: _uuid.v4(),
+      id: logId,
       loggedAt: loggedAt,
       productName: productName,
       quantityG: quantityG,
@@ -89,6 +91,17 @@ class NutritionOpsNotifier extends AsyncNotifier<void> {
       source: Value(source),
       notes: Value(notes),
     ));
+    return logId;
+  }
+
+  Future<void> setThumbRating(String logId, String? thumbRating) async {
+    await _db.setNutritionLogThumb(logId, thumbRating);
+    ref.invalidate(nutritionLogsForDayProvider);
+  }
+
+  Future<void> setInventoryDeducted(String logId, bool deducted) async {
+    await _db.setNutritionLogDeducted(logId, deducted);
+    ref.invalidate(nutritionLogsForDayProvider);
   }
 
   Future<void> updateLog(NutritionLogsCompanion entry) async {

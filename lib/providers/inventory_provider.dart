@@ -161,6 +161,8 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
     required double quantity,
     required String unit,
     required double remainingQuantity,
+    String consumptionReason = 'consumed',
+    String? thumbRating,
     String? notes,
   }) async {
     final now = DateTime.now();
@@ -174,6 +176,8 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
       inventoryEntryId: Value(inventoryEntryId),
       quantity: Value(quantity),
       unit: Value(unit),
+      consumptionReason: Value(consumptionReason),
+      thumbRating: Value(thumbRating),
       deviceId: deviceId,
       notes: Value(notes),
     ));

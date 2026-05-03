@@ -395,7 +395,8 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               ),
             );
       } else {
-        await ref.read(nutritionOpsProvider.notifier).logFood(
+        final src = _product!.source;
+        final savedId = await ref.read(nutritionOpsProvider.notifier).logFood(
               loggedAt: _loggedAt,
               productName: _product!.productName,
               brand: _product!.brand,
@@ -409,17 +410,16 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               carbsG: carbs,
               fatG: fat,
               fiberG: fiber,
-              source: _product!.source,
+              source: src,
               notes: notes,
             );
         // Offer inventory deduction for local items and meals/recipes with
-        // linked inventory items. Build a minimal log object from saved values.
-        final src = _product!.source;
+        // linked inventory items.
         final hasDeductable = _product!.itemId != null &&
             (src == 'local' || src == 'meal' || src == 'recipe');
         if (hasDeductable && mounted) {
           final logForDeduct = NutritionLog(
-            id: '',
+            id: savedId,
             loggedAt: _loggedAt,
             productName: _product!.productName,
             brand: _product!.brand,
@@ -435,6 +435,8 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
             fiberG: fiber,
             source: src,
             notes: notes,
+            thumbRating: null,
+            inventoryDeducted: false,
             createdAt: DateTime.now(),
           );
           await showModalBottomSheet<bool>(

@@ -34,6 +34,12 @@ class ItemEvents extends Table {
   // For container linking
   TextColumn get containerId => text().nullable()(); // FK → Items
 
+  // For consumption events
+  // Reason: consumed | expired | discarded | gifted
+  TextColumn get consumptionReason => text().nullable()();
+  // Thumb rating for this consumption: up | down
+  TextColumn get thumbRating => text().nullable()();
+
   // Sync metadata
   TextColumn get deviceId => text()();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))(); // pending | synced | conflict

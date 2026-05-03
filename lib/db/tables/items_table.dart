@@ -52,6 +52,11 @@ class Items extends Table {
       .nullable()
       .references(Locations, #id, onDelete: KeyAction.setNull)();
 
+  // User ratings
+  IntColumn get starRating => integer().nullable()(); // 1–5
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
+  BoolColumn get isTrashed => boolean().withDefault(const Constant(false))();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

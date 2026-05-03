@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../db/database.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../providers/nutrition_provider.dart';
 
 /// Data for one ingredient/food that may be deducted from inventory.
 class _DeductRow {
@@ -55,6 +56,7 @@ class _InventoryDeductSheetState
   List<_DeductRow> _rows = [];
   bool _loading = true;
   bool _saving = false;
+  String _consumptionReason = 'consumed';
 
   @override
   void initState() {
@@ -168,7 +170,13 @@ class _InventoryDeductSheetState
           quantity: deductNative,
           unit: entry.unit,
           remainingQuantity: remaining,
+          consumptionReason: _consumptionReason,
         );
+      }
+      // Mark the diary log as deducted if it has a real ID
+      if (widget.log.id.isNotEmpty) {
+        await ref.read(nutritionOpsProvider.notifier)
+            .setInventoryDeducted(widget.log.id, true);
       }
       if (mounted) Navigator.of(context).pop(true);
     } finally {
@@ -228,6 +236,22 @@ class _InventoryDeductSheetState
             Text(
               'Sollen die verbrauchten Mengen aus deinem Inventar ausgebucht werden?',
               style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            // Consumption reason selector
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'consumed', label: Text('Konsumiert'), icon: Icon(Icons.restaurant, size: 14)),
+                ButtonSegment(value: 'expired', label: Text('Abgelaufen'), icon: Icon(Icons.event_busy, size: 14)),
+                ButtonSegment(value: 'discarded', label: Text('Weggeworfen'), icon: Icon(Icons.delete_outline, size: 14)),
+                ButtonSegment(value: 'gifted', label: Text('Verschenkt'), icon: Icon(Icons.card_giftcard, size: 14)),
+              ],
+              selected: {_consumptionReason},
+              onSelectionChanged: (s) => setState(() => _consumptionReason = s.first),
+              style: ButtonStyle(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
             ),
             const SizedBox(height: 12),
 

@@ -24,6 +24,10 @@ class Recipes extends Table {
   RealColumn get fatPerServing => real().nullable()();
   RealColumn get fiberPerServing => real().nullable()();
   RealColumn get sodiumPerServing => real().nullable()();
+  // User ratings
+  IntColumn get starRating => integer().nullable()(); // 1–5
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
+  BoolColumn get isTrashed => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -75,6 +79,10 @@ class StandardMeals extends Table {
   RealColumn get proteinG => real().nullable()();
   RealColumn get carbsG => real().nullable()();
   RealColumn get fatG => real().nullable()();
+  // User ratings
+  IntColumn get starRating => integer().nullable()(); // 1–5
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
+  BoolColumn get isTrashed => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

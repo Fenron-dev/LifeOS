@@ -39,6 +39,12 @@ class NutritionLogs extends Table {
   TextColumn get source =>
       text().withDefault(const Constant('manual'))();
 
+  // User thumb rating for this consumption: up | down (null = not rated)
+  TextColumn get thumbRating => text().nullable()();
+  // Whether inventory was already deducted for this entry
+  BoolColumn get inventoryDeducted =>
+      boolean().withDefault(const Constant(false))();
+
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();

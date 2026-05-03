@@ -48,7 +48,6 @@ class _ItemDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final entriesAsync = ref.watch(inventoryForItemProvider(item.id));
     final statesAsync = ref.watch(itemStatesForItemProvider(item.id));
-    final entries = entriesAsync.valueOrNull ?? [];
 
     Future<void> logConsumption() async {
       final product = FoodSearchResult(
@@ -64,35 +63,12 @@ class _ItemDetailBody extends ConsumerWidget {
         servingSizeG: item.servingSizeG,
         source: 'local',
       );
-      final saved = await showModalBottomSheet<bool>(
+      // DiaryEntrySheet shows InventoryDeductSheet internally after save.
+      await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         builder: (_) => DiaryEntrySheet(initialProduct: product),
       );
-      if (saved != true || !context.mounted) return;
-      if (entries.isEmpty) return;
-      final reduce = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Bestand reduzieren?'),
-          content: Text(
-              'Möchtest du den Bestand von „${item.name}" auch im Inventar reduzieren?'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Nein')),
-            FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Ja')),
-          ],
-        ),
-      );
-      if (reduce == true && context.mounted) {
-        await showDialog(
-          context: context,
-          builder: (_) => ConsumeDialog(entry: entries.first, item: item),
-        );
-      }
     }
 
     return Scaffold(
@@ -205,13 +181,17 @@ bool _hasNutrition(Item item) =>
 
 // ── Item info card ──────────────────────────────────────────────────────────
 
-class _ItemInfoCard extends StatelessWidget {
+class _ItemInfoCard extends ConsumerWidget {
   final Item item;
   const _ItemInfoCard({required this.item});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statsAsync = ref.watch(_itemStatsProvider(item.id));
+    final stats = statsAsync.valueOrNull;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -239,19 +219,97 @@ class _ItemInfoCard extends StatelessWidget {
             if (item.brand != null) ...[
               const SizedBox(height: 4),
               Text(item.brand!, style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: cs.onSurfaceVariant,
               )),
             ],
             if (item.notes != null) ...[
               const SizedBox(height: 8),
               Text(item.notes!, style: theme.textTheme.bodySmall),
             ],
+            const SizedBox(height: 12),
+            // ── Ratings row ────────────────────────────────────────────
+            Row(
+              children: [
+                // 5-star rating
+                ...List.generate(5, (i) {
+                  final filled = (item.starRating ?? 0) > i;
+                  return GestureDetector(
+                    onTap: () {
+                      final newRating = (item.starRating == i + 1) ? null : i + 1;
+                      ref.read(databaseProvider)?.setItemRating(
+                        item.id,
+                        starRating: newRating,
+                        isFavorite: item.isFavorite,
+                        isTrashed: item.isTrashed,
+                      );
+                    },
+                    child: Icon(
+                      filled ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                      size: 22,
+                    ),
+                  );
+                }),
+                const SizedBox(width: 8),
+                // Favorite toggle
+                GestureDetector(
+                  onTap: () => ref.read(databaseProvider)?.setItemRating(
+                    item.id,
+                    starRating: item.starRating,
+                    isFavorite: !item.isFavorite,
+                    isTrashed: item.isTrashed,
+                  ),
+                  child: Icon(
+                    item.isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: item.isFavorite ? Colors.red : cs.onSurfaceVariant,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Trash/dislike toggle
+                GestureDetector(
+                  onTap: () => ref.read(databaseProvider)?.setItemRating(
+                    item.id,
+                    starRating: item.starRating,
+                    isFavorite: item.isFavorite,
+                    isTrashed: !item.isTrashed,
+                  ),
+                  child: Icon(
+                    item.isTrashed ? Icons.delete : Icons.delete_outline,
+                    color: item.isTrashed ? cs.error : cs.onSurfaceVariant,
+                    size: 22,
+                  ),
+                ),
+                const Spacer(),
+                // Thumbs up/down counts
+                if (stats != null) ...[
+                  Icon(Icons.thumb_up_outlined, size: 14, color: cs.primary),
+                  const SizedBox(width: 3),
+                  Text('${stats.up}', style: TextStyle(fontSize: 12, color: cs.primary)),
+                  const SizedBox(width: 8),
+                  Icon(Icons.thumb_down_outlined, size: 14, color: cs.error),
+                  const SizedBox(width: 3),
+                  Text('${stats.down}', style: TextStyle(fontSize: 12, color: cs.error)),
+                  const SizedBox(width: 6),
+                  Text('${stats.total}×', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                ],
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+// Provider for item consumption stats (total logs, thumbs up/down)
+final _itemStatsProvider = FutureProvider.family<({int up, int down, int total}), String>(
+  (ref, itemId) async {
+    final db = ref.watch(databaseProvider);
+    if (db == null) return (up: 0, down: 0, total: 0);
+    return db.getNutritionLogStats(itemId);
+  },
+);
 
 class _ProductTypeChip extends StatelessWidget {
   final String type;
@@ -1300,8 +1358,8 @@ class ConsumeDialog extends ConsumerStatefulWidget {
 
 class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
   late final TextEditingController _qtyCtrl;
-  // unit in which the user entered the quantity
   late String _selectedUnit;
+  String _consumptionReason = 'consumed';
   bool _saving = false;
 
   @override
@@ -1348,6 +1406,7 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
         quantity: nativeQty,
         unit: widget.entry.unit,
         remainingQuantity: remaining,
+        consumptionReason: _consumptionReason,
       );
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -1364,6 +1423,7 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
         quantity: widget.entry.quantity,
         unit: widget.entry.unit,
         remainingQuantity: 0,
+        consumptionReason: _consumptionReason,
       );
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -1457,6 +1517,24 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
               );
             }),
           ],
+          const SizedBox(height: 12),
+          // Consumption reason
+          DropdownButtonFormField<String>(
+            initialValue: _consumptionReason,
+            decoration: const InputDecoration(
+              labelText: 'Grund',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'consumed', child: Text('Konsumiert')),
+              DropdownMenuItem(value: 'expired', child: Text('Abgelaufen')),
+              DropdownMenuItem(value: 'discarded', child: Text('Weggeworfen')),
+              DropdownMenuItem(value: 'gifted', child: Text('Verschenkt')),
+            ],
+            onChanged: (v) => setState(() => _consumptionReason = v ?? _consumptionReason),
+          ),
         ],
       ),
       actions: [

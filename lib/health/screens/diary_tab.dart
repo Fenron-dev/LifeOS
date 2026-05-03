@@ -741,6 +741,30 @@ class _LogTile extends ConsumerWidget {
                 '${fmt1.format(log.kcal!)} kcal',
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
+            // Thumb up
+            IconButton(
+              icon: Icon(
+                log.thumbRating == 'up' ? Icons.thumb_up : Icons.thumb_up_outlined,
+                size: 18,
+                color: log.thumbRating == 'up' ? cs.primary : cs.onSurfaceVariant,
+              ),
+              tooltip: 'Daumen hoch',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => ref.read(nutritionOpsProvider.notifier)
+                  .setThumbRating(log.id, log.thumbRating == 'up' ? null : 'up'),
+            ),
+            // Thumb down
+            IconButton(
+              icon: Icon(
+                log.thumbRating == 'down' ? Icons.thumb_down : Icons.thumb_down_outlined,
+                size: 18,
+                color: log.thumbRating == 'down' ? cs.error : cs.onSurfaceVariant,
+              ),
+              tooltip: 'Daumen runter',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => ref.read(nutritionOpsProvider.notifier)
+                  .setThumbRating(log.id, log.thumbRating == 'down' ? null : 'down'),
+            ),
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Bearbeiten',

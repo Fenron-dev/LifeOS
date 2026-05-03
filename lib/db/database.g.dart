@@ -769,6 +769,47 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
           'REFERENCES locations (id) ON DELETE SET NULL',
         ),
       );
+  static const VerificationMeta _starRatingMeta = const VerificationMeta(
+    'starRating',
+  );
+  @override
+  late final GeneratedColumn<int> starRating = GeneratedColumn<int>(
+    'star_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isTrashedMeta = const VerificationMeta(
+    'isTrashed',
+  );
+  @override
+  late final GeneratedColumn<bool> isTrashed = GeneratedColumn<bool>(
+    'is_trashed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_trashed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -821,6 +862,9 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     nutritionRefUnit,
     stockUnit,
     defaultLocationId,
+    starRating,
+    isFavorite,
+    isTrashed,
     createdAt,
     updatedAt,
   ];
@@ -1040,6 +1084,24 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         ),
       );
     }
+    if (data.containsKey('star_rating')) {
+      context.handle(
+        _starRatingMeta,
+        starRating.isAcceptableOrUnknown(data['star_rating']!, _starRatingMeta),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
+      );
+    }
+    if (data.containsKey('is_trashed')) {
+      context.handle(
+        _isTrashedMeta,
+        isTrashed.isAcceptableOrUnknown(data['is_trashed']!, _isTrashedMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1165,6 +1227,18 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}default_location_id'],
       ),
+      starRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}star_rating'],
+      ),
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
+      isTrashed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_trashed'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1216,6 +1290,9 @@ class Item extends DataClass implements Insertable<Item> {
 
   /// Default location for new inventory entries (pre-selects in AddStockSheet).
   final String? defaultLocationId;
+  final int? starRating;
+  final bool isFavorite;
+  final bool isTrashed;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Item({
@@ -1245,6 +1322,9 @@ class Item extends DataClass implements Insertable<Item> {
     required this.nutritionRefUnit,
     this.stockUnit,
     this.defaultLocationId,
+    this.starRating,
+    required this.isFavorite,
+    required this.isTrashed,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1315,6 +1395,11 @@ class Item extends DataClass implements Insertable<Item> {
     if (!nullToAbsent || defaultLocationId != null) {
       map['default_location_id'] = Variable<String>(defaultLocationId);
     }
+    if (!nullToAbsent || starRating != null) {
+      map['star_rating'] = Variable<int>(starRating);
+    }
+    map['is_favorite'] = Variable<bool>(isFavorite);
+    map['is_trashed'] = Variable<bool>(isTrashed);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1384,6 +1469,11 @@ class Item extends DataClass implements Insertable<Item> {
       defaultLocationId: defaultLocationId == null && nullToAbsent
           ? const Value.absent()
           : Value(defaultLocationId),
+      starRating: starRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(starRating),
+      isFavorite: Value(isFavorite),
+      isTrashed: Value(isTrashed),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1427,6 +1517,9 @@ class Item extends DataClass implements Insertable<Item> {
       defaultLocationId: serializer.fromJson<String?>(
         json['defaultLocationId'],
       ),
+      starRating: serializer.fromJson<int?>(json['starRating']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
+      isTrashed: serializer.fromJson<bool>(json['isTrashed']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1461,6 +1554,9 @@ class Item extends DataClass implements Insertable<Item> {
       'nutritionRefUnit': serializer.toJson<String>(nutritionRefUnit),
       'stockUnit': serializer.toJson<String?>(stockUnit),
       'defaultLocationId': serializer.toJson<String?>(defaultLocationId),
+      'starRating': serializer.toJson<int?>(starRating),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
+      'isTrashed': serializer.toJson<bool>(isTrashed),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -1493,6 +1589,9 @@ class Item extends DataClass implements Insertable<Item> {
     String? nutritionRefUnit,
     Value<String?> stockUnit = const Value.absent(),
     Value<String?> defaultLocationId = const Value.absent(),
+    Value<int?> starRating = const Value.absent(),
+    bool? isFavorite,
+    bool? isTrashed,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Item(
@@ -1538,6 +1637,9 @@ class Item extends DataClass implements Insertable<Item> {
     defaultLocationId: defaultLocationId.present
         ? defaultLocationId.value
         : this.defaultLocationId,
+    starRating: starRating.present ? starRating.value : this.starRating,
+    isFavorite: isFavorite ?? this.isFavorite,
+    isTrashed: isTrashed ?? this.isTrashed,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -1607,6 +1709,13 @@ class Item extends DataClass implements Insertable<Item> {
       defaultLocationId: data.defaultLocationId.present
           ? data.defaultLocationId.value
           : this.defaultLocationId,
+      starRating: data.starRating.present
+          ? data.starRating.value
+          : this.starRating,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
+      isTrashed: data.isTrashed.present ? data.isTrashed.value : this.isTrashed,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1641,6 +1750,9 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('nutritionRefUnit: $nutritionRefUnit, ')
           ..write('stockUnit: $stockUnit, ')
           ..write('defaultLocationId: $defaultLocationId, ')
+          ..write('starRating: $starRating, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('isTrashed: $isTrashed, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1675,6 +1787,9 @@ class Item extends DataClass implements Insertable<Item> {
     nutritionRefUnit,
     stockUnit,
     defaultLocationId,
+    starRating,
+    isFavorite,
+    isTrashed,
     createdAt,
     updatedAt,
   ]);
@@ -1708,6 +1823,9 @@ class Item extends DataClass implements Insertable<Item> {
           other.nutritionRefUnit == this.nutritionRefUnit &&
           other.stockUnit == this.stockUnit &&
           other.defaultLocationId == this.defaultLocationId &&
+          other.starRating == this.starRating &&
+          other.isFavorite == this.isFavorite &&
+          other.isTrashed == this.isTrashed &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1739,6 +1857,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<String> nutritionRefUnit;
   final Value<String?> stockUnit;
   final Value<String?> defaultLocationId;
+  final Value<int?> starRating;
+  final Value<bool> isFavorite;
+  final Value<bool> isTrashed;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -1769,6 +1890,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutritionRefUnit = const Value.absent(),
     this.stockUnit = const Value.absent(),
     this.defaultLocationId = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.isTrashed = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1800,6 +1924,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutritionRefUnit = const Value.absent(),
     this.stockUnit = const Value.absent(),
     this.defaultLocationId = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.isTrashed = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1833,6 +1960,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<String>? nutritionRefUnit,
     Expression<String>? stockUnit,
     Expression<String>? defaultLocationId,
+    Expression<int>? starRating,
+    Expression<bool>? isFavorite,
+    Expression<bool>? isTrashed,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -1866,6 +1996,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (nutritionRefUnit != null) 'nutrition_ref_unit': nutritionRefUnit,
       if (stockUnit != null) 'stock_unit': stockUnit,
       if (defaultLocationId != null) 'default_location_id': defaultLocationId,
+      if (starRating != null) 'star_rating': starRating,
+      if (isFavorite != null) 'is_favorite': isFavorite,
+      if (isTrashed != null) 'is_trashed': isTrashed,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1899,6 +2032,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<String>? nutritionRefUnit,
     Value<String?>? stockUnit,
     Value<String?>? defaultLocationId,
+    Value<int?>? starRating,
+    Value<bool>? isFavorite,
+    Value<bool>? isTrashed,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -1930,6 +2066,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       nutritionRefUnit: nutritionRefUnit ?? this.nutritionRefUnit,
       stockUnit: stockUnit ?? this.stockUnit,
       defaultLocationId: defaultLocationId ?? this.defaultLocationId,
+      starRating: starRating ?? this.starRating,
+      isFavorite: isFavorite ?? this.isFavorite,
+      isTrashed: isTrashed ?? this.isTrashed,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2019,6 +2158,15 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (defaultLocationId.present) {
       map['default_location_id'] = Variable<String>(defaultLocationId.value);
     }
+    if (starRating.present) {
+      map['star_rating'] = Variable<int>(starRating.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
+    if (isTrashed.present) {
+      map['is_trashed'] = Variable<bool>(isTrashed.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2060,6 +2208,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('nutritionRefUnit: $nutritionRefUnit, ')
           ..write('stockUnit: $stockUnit, ')
           ..write('defaultLocationId: $defaultLocationId, ')
+          ..write('starRating: $starRating, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('isTrashed: $isTrashed, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -3771,6 +3922,29 @@ class $ItemEventsTable extends ItemEvents
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _consumptionReasonMeta = const VerificationMeta(
+    'consumptionReason',
+  );
+  @override
+  late final GeneratedColumn<String> consumptionReason =
+      GeneratedColumn<String>(
+        'consumption_reason',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _thumbRatingMeta = const VerificationMeta(
+    'thumbRating',
+  );
+  @override
+  late final GeneratedColumn<String> thumbRating = GeneratedColumn<String>(
+    'thumb_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _deviceIdMeta = const VerificationMeta(
     'deviceId',
   );
@@ -3841,6 +4015,8 @@ class $ItemEventsTable extends ItemEvents
     fromState,
     toState,
     containerId,
+    consumptionReason,
+    thumbRating,
     deviceId,
     syncStatus,
     syncedAt,
@@ -3952,6 +4128,24 @@ class $ItemEventsTable extends ItemEvents
         ),
       );
     }
+    if (data.containsKey('consumption_reason')) {
+      context.handle(
+        _consumptionReasonMeta,
+        consumptionReason.isAcceptableOrUnknown(
+          data['consumption_reason']!,
+          _consumptionReasonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('thumb_rating')) {
+      context.handle(
+        _thumbRatingMeta,
+        thumbRating.isAcceptableOrUnknown(
+          data['thumb_rating']!,
+          _thumbRatingMeta,
+        ),
+      );
+    }
     if (data.containsKey('device_id')) {
       context.handle(
         _deviceIdMeta,
@@ -4045,6 +4239,14 @@ class $ItemEventsTable extends ItemEvents
         DriftSqlType.string,
         data['${effectivePrefix}container_id'],
       ),
+      consumptionReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}consumption_reason'],
+      ),
+      thumbRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thumb_rating'],
+      ),
       deviceId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}device_id'],
@@ -4088,6 +4290,8 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
   final String? fromState;
   final String? toState;
   final String? containerId;
+  final String? consumptionReason;
+  final String? thumbRating;
   final String deviceId;
   final String syncStatus;
   final DateTime? syncedAt;
@@ -4107,6 +4311,8 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
     this.fromState,
     this.toState,
     this.containerId,
+    this.consumptionReason,
+    this.thumbRating,
     required this.deviceId,
     required this.syncStatus,
     this.syncedAt,
@@ -4148,6 +4354,12 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
     }
     if (!nullToAbsent || containerId != null) {
       map['container_id'] = Variable<String>(containerId);
+    }
+    if (!nullToAbsent || consumptionReason != null) {
+      map['consumption_reason'] = Variable<String>(consumptionReason);
+    }
+    if (!nullToAbsent || thumbRating != null) {
+      map['thumb_rating'] = Variable<String>(thumbRating);
     }
     map['device_id'] = Variable<String>(deviceId);
     map['sync_status'] = Variable<String>(syncStatus);
@@ -4194,6 +4406,12 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
       containerId: containerId == null && nullToAbsent
           ? const Value.absent()
           : Value(containerId),
+      consumptionReason: consumptionReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consumptionReason),
+      thumbRating: thumbRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbRating),
       deviceId: Value(deviceId),
       syncStatus: Value(syncStatus),
       syncedAt: syncedAt == null && nullToAbsent
@@ -4225,6 +4443,10 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
       fromState: serializer.fromJson<String?>(json['fromState']),
       toState: serializer.fromJson<String?>(json['toState']),
       containerId: serializer.fromJson<String?>(json['containerId']),
+      consumptionReason: serializer.fromJson<String?>(
+        json['consumptionReason'],
+      ),
+      thumbRating: serializer.fromJson<String?>(json['thumbRating']),
       deviceId: serializer.fromJson<String>(json['deviceId']),
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
@@ -4249,6 +4471,8 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
       'fromState': serializer.toJson<String?>(fromState),
       'toState': serializer.toJson<String?>(toState),
       'containerId': serializer.toJson<String?>(containerId),
+      'consumptionReason': serializer.toJson<String?>(consumptionReason),
+      'thumbRating': serializer.toJson<String?>(thumbRating),
       'deviceId': serializer.toJson<String>(deviceId),
       'syncStatus': serializer.toJson<String>(syncStatus),
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
@@ -4271,6 +4495,8 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
     Value<String?> fromState = const Value.absent(),
     Value<String?> toState = const Value.absent(),
     Value<String?> containerId = const Value.absent(),
+    Value<String?> consumptionReason = const Value.absent(),
+    Value<String?> thumbRating = const Value.absent(),
     String? deviceId,
     String? syncStatus,
     Value<DateTime?> syncedAt = const Value.absent(),
@@ -4294,6 +4520,10 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
     fromState: fromState.present ? fromState.value : this.fromState,
     toState: toState.present ? toState.value : this.toState,
     containerId: containerId.present ? containerId.value : this.containerId,
+    consumptionReason: consumptionReason.present
+        ? consumptionReason.value
+        : this.consumptionReason,
+    thumbRating: thumbRating.present ? thumbRating.value : this.thumbRating,
     deviceId: deviceId ?? this.deviceId,
     syncStatus: syncStatus ?? this.syncStatus,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -4323,6 +4553,12 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
       containerId: data.containerId.present
           ? data.containerId.value
           : this.containerId,
+      consumptionReason: data.consumptionReason.present
+          ? data.consumptionReason.value
+          : this.consumptionReason,
+      thumbRating: data.thumbRating.present
+          ? data.thumbRating.value
+          : this.thumbRating,
       deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
       syncStatus: data.syncStatus.present
           ? data.syncStatus.value
@@ -4349,6 +4585,8 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
           ..write('fromState: $fromState, ')
           ..write('toState: $toState, ')
           ..write('containerId: $containerId, ')
+          ..write('consumptionReason: $consumptionReason, ')
+          ..write('thumbRating: $thumbRating, ')
           ..write('deviceId: $deviceId, ')
           ..write('syncStatus: $syncStatus, ')
           ..write('syncedAt: $syncedAt, ')
@@ -4373,6 +4611,8 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
     fromState,
     toState,
     containerId,
+    consumptionReason,
+    thumbRating,
     deviceId,
     syncStatus,
     syncedAt,
@@ -4396,6 +4636,8 @@ class ItemEvent extends DataClass implements Insertable<ItemEvent> {
           other.fromState == this.fromState &&
           other.toState == this.toState &&
           other.containerId == this.containerId &&
+          other.consumptionReason == this.consumptionReason &&
+          other.thumbRating == this.thumbRating &&
           other.deviceId == this.deviceId &&
           other.syncStatus == this.syncStatus &&
           other.syncedAt == this.syncedAt &&
@@ -4417,6 +4659,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
   final Value<String?> fromState;
   final Value<String?> toState;
   final Value<String?> containerId;
+  final Value<String?> consumptionReason;
+  final Value<String?> thumbRating;
   final Value<String> deviceId;
   final Value<String> syncStatus;
   final Value<DateTime?> syncedAt;
@@ -4437,6 +4681,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
     this.fromState = const Value.absent(),
     this.toState = const Value.absent(),
     this.containerId = const Value.absent(),
+    this.consumptionReason = const Value.absent(),
+    this.thumbRating = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -4458,6 +4704,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
     this.fromState = const Value.absent(),
     this.toState = const Value.absent(),
     this.containerId = const Value.absent(),
+    this.consumptionReason = const Value.absent(),
+    this.thumbRating = const Value.absent(),
     required String deviceId,
     this.syncStatus = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -4482,6 +4730,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
     Expression<String>? fromState,
     Expression<String>? toState,
     Expression<String>? containerId,
+    Expression<String>? consumptionReason,
+    Expression<String>? thumbRating,
     Expression<String>? deviceId,
     Expression<String>? syncStatus,
     Expression<DateTime>? syncedAt,
@@ -4503,6 +4753,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
       if (fromState != null) 'from_state': fromState,
       if (toState != null) 'to_state': toState,
       if (containerId != null) 'container_id': containerId,
+      if (consumptionReason != null) 'consumption_reason': consumptionReason,
+      if (thumbRating != null) 'thumb_rating': thumbRating,
       if (deviceId != null) 'device_id': deviceId,
       if (syncStatus != null) 'sync_status': syncStatus,
       if (syncedAt != null) 'synced_at': syncedAt,
@@ -4526,6 +4778,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
     Value<String?>? fromState,
     Value<String?>? toState,
     Value<String?>? containerId,
+    Value<String?>? consumptionReason,
+    Value<String?>? thumbRating,
     Value<String>? deviceId,
     Value<String>? syncStatus,
     Value<DateTime?>? syncedAt,
@@ -4547,6 +4801,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
       fromState: fromState ?? this.fromState,
       toState: toState ?? this.toState,
       containerId: containerId ?? this.containerId,
+      consumptionReason: consumptionReason ?? this.consumptionReason,
+      thumbRating: thumbRating ?? this.thumbRating,
       deviceId: deviceId ?? this.deviceId,
       syncStatus: syncStatus ?? this.syncStatus,
       syncedAt: syncedAt ?? this.syncedAt,
@@ -4598,6 +4854,12 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
     if (containerId.present) {
       map['container_id'] = Variable<String>(containerId.value);
     }
+    if (consumptionReason.present) {
+      map['consumption_reason'] = Variable<String>(consumptionReason.value);
+    }
+    if (thumbRating.present) {
+      map['thumb_rating'] = Variable<String>(thumbRating.value);
+    }
     if (deviceId.present) {
       map['device_id'] = Variable<String>(deviceId.value);
     }
@@ -4635,6 +4897,8 @@ class ItemEventsCompanion extends UpdateCompanion<ItemEvent> {
           ..write('fromState: $fromState, ')
           ..write('toState: $toState, ')
           ..write('containerId: $containerId, ')
+          ..write('consumptionReason: $consumptionReason, ')
+          ..write('thumbRating: $thumbRating, ')
           ..write('deviceId: $deviceId, ')
           ..write('syncStatus: $syncStatus, ')
           ..write('syncedAt: $syncedAt, ')
@@ -6097,6 +6361,47 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _starRatingMeta = const VerificationMeta(
+    'starRating',
+  );
+  @override
+  late final GeneratedColumn<int> starRating = GeneratedColumn<int>(
+    'star_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isTrashedMeta = const VerificationMeta(
+    'isTrashed',
+  );
+  @override
+  late final GeneratedColumn<bool> isTrashed = GeneratedColumn<bool>(
+    'is_trashed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_trashed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -6141,6 +6446,9 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
     fatPerServing,
     fiberPerServing,
     sodiumPerServing,
+    starRating,
+    isFavorite,
+    isTrashed,
     createdAt,
     updatedAt,
   ];
@@ -6295,6 +6603,24 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
         ),
       );
     }
+    if (data.containsKey('star_rating')) {
+      context.handle(
+        _starRatingMeta,
+        starRating.isAcceptableOrUnknown(data['star_rating']!, _starRatingMeta),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
+      );
+    }
+    if (data.containsKey('is_trashed')) {
+      context.handle(
+        _isTrashedMeta,
+        isTrashed.isAcceptableOrUnknown(data['is_trashed']!, _isTrashedMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -6388,6 +6714,18 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
         DriftSqlType.double,
         data['${effectivePrefix}sodium_per_serving'],
       ),
+      starRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}star_rating'],
+      ),
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
+      isTrashed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_trashed'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -6426,6 +6764,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
   final double? fatPerServing;
   final double? fiberPerServing;
   final double? sodiumPerServing;
+  final int? starRating;
+  final bool isFavorite;
+  final bool isTrashed;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Recipe({
@@ -6447,6 +6788,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     this.fatPerServing,
     this.fiberPerServing,
     this.sodiumPerServing,
+    this.starRating,
+    required this.isFavorite,
+    required this.isTrashed,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -6499,6 +6843,11 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     if (!nullToAbsent || sodiumPerServing != null) {
       map['sodium_per_serving'] = Variable<double>(sodiumPerServing);
     }
+    if (!nullToAbsent || starRating != null) {
+      map['star_rating'] = Variable<int>(starRating);
+    }
+    map['is_favorite'] = Variable<bool>(isFavorite);
+    map['is_trashed'] = Variable<bool>(isTrashed);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -6552,6 +6901,11 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       sodiumPerServing: sodiumPerServing == null && nullToAbsent
           ? const Value.absent()
           : Value(sodiumPerServing),
+      starRating: starRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(starRating),
+      isFavorite: Value(isFavorite),
+      isTrashed: Value(isTrashed),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -6585,6 +6939,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       fatPerServing: serializer.fromJson<double?>(json['fatPerServing']),
       fiberPerServing: serializer.fromJson<double?>(json['fiberPerServing']),
       sodiumPerServing: serializer.fromJson<double?>(json['sodiumPerServing']),
+      starRating: serializer.fromJson<int?>(json['starRating']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
+      isTrashed: serializer.fromJson<bool>(json['isTrashed']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -6611,6 +6968,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       'fatPerServing': serializer.toJson<double?>(fatPerServing),
       'fiberPerServing': serializer.toJson<double?>(fiberPerServing),
       'sodiumPerServing': serializer.toJson<double?>(sodiumPerServing),
+      'starRating': serializer.toJson<int?>(starRating),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
+      'isTrashed': serializer.toJson<bool>(isTrashed),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -6635,6 +6995,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     Value<double?> fatPerServing = const Value.absent(),
     Value<double?> fiberPerServing = const Value.absent(),
     Value<double?> sodiumPerServing = const Value.absent(),
+    Value<int?> starRating = const Value.absent(),
+    bool? isFavorite,
+    bool? isTrashed,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Recipe(
@@ -6672,6 +7035,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     sodiumPerServing: sodiumPerServing.present
         ? sodiumPerServing.value
         : this.sodiumPerServing,
+    starRating: starRating.present ? starRating.value : this.starRating,
+    isFavorite: isFavorite ?? this.isFavorite,
+    isTrashed: isTrashed ?? this.isTrashed,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -6717,6 +7083,13 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       sodiumPerServing: data.sodiumPerServing.present
           ? data.sodiumPerServing.value
           : this.sodiumPerServing,
+      starRating: data.starRating.present
+          ? data.starRating.value
+          : this.starRating,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
+      isTrashed: data.isTrashed.present ? data.isTrashed.value : this.isTrashed,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -6743,6 +7116,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           ..write('fatPerServing: $fatPerServing, ')
           ..write('fiberPerServing: $fiberPerServing, ')
           ..write('sodiumPerServing: $sodiumPerServing, ')
+          ..write('starRating: $starRating, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('isTrashed: $isTrashed, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -6750,7 +7126,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     name,
     description,
@@ -6769,9 +7145,12 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     fatPerServing,
     fiberPerServing,
     sodiumPerServing,
+    starRating,
+    isFavorite,
+    isTrashed,
     createdAt,
     updatedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6794,6 +7173,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           other.fatPerServing == this.fatPerServing &&
           other.fiberPerServing == this.fiberPerServing &&
           other.sodiumPerServing == this.sodiumPerServing &&
+          other.starRating == this.starRating &&
+          other.isFavorite == this.isFavorite &&
+          other.isTrashed == this.isTrashed &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -6817,6 +7199,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
   final Value<double?> fatPerServing;
   final Value<double?> fiberPerServing;
   final Value<double?> sodiumPerServing;
+  final Value<int?> starRating;
+  final Value<bool> isFavorite;
+  final Value<bool> isTrashed;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -6839,6 +7224,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     this.fatPerServing = const Value.absent(),
     this.fiberPerServing = const Value.absent(),
     this.sodiumPerServing = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.isTrashed = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -6862,6 +7250,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     this.fatPerServing = const Value.absent(),
     this.fiberPerServing = const Value.absent(),
     this.sodiumPerServing = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.isTrashed = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -6886,6 +7277,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     Expression<double>? fatPerServing,
     Expression<double>? fiberPerServing,
     Expression<double>? sodiumPerServing,
+    Expression<int>? starRating,
+    Expression<bool>? isFavorite,
+    Expression<bool>? isTrashed,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -6910,6 +7304,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
       if (fatPerServing != null) 'fat_per_serving': fatPerServing,
       if (fiberPerServing != null) 'fiber_per_serving': fiberPerServing,
       if (sodiumPerServing != null) 'sodium_per_serving': sodiumPerServing,
+      if (starRating != null) 'star_rating': starRating,
+      if (isFavorite != null) 'is_favorite': isFavorite,
+      if (isTrashed != null) 'is_trashed': isTrashed,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -6935,6 +7332,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     Value<double?>? fatPerServing,
     Value<double?>? fiberPerServing,
     Value<double?>? sodiumPerServing,
+    Value<int?>? starRating,
+    Value<bool>? isFavorite,
+    Value<bool>? isTrashed,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -6958,6 +7358,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
       fatPerServing: fatPerServing ?? this.fatPerServing,
       fiberPerServing: fiberPerServing ?? this.fiberPerServing,
       sodiumPerServing: sodiumPerServing ?? this.sodiumPerServing,
+      starRating: starRating ?? this.starRating,
+      isFavorite: isFavorite ?? this.isFavorite,
+      isTrashed: isTrashed ?? this.isTrashed,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -7021,6 +7424,15 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     if (sodiumPerServing.present) {
       map['sodium_per_serving'] = Variable<double>(sodiumPerServing.value);
     }
+    if (starRating.present) {
+      map['star_rating'] = Variable<int>(starRating.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
+    if (isTrashed.present) {
+      map['is_trashed'] = Variable<bool>(isTrashed.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -7054,6 +7466,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
           ..write('fatPerServing: $fatPerServing, ')
           ..write('fiberPerServing: $fiberPerServing, ')
           ..write('sodiumPerServing: $sodiumPerServing, ')
+          ..write('starRating: $starRating, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('isTrashed: $isTrashed, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -8666,6 +9081,47 @@ class $StandardMealsTable extends StandardMeals
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _starRatingMeta = const VerificationMeta(
+    'starRating',
+  );
+  @override
+  late final GeneratedColumn<int> starRating = GeneratedColumn<int>(
+    'star_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isTrashedMeta = const VerificationMeta(
+    'isTrashed',
+  );
+  @override
+  late final GeneratedColumn<bool> isTrashed = GeneratedColumn<bool>(
+    'is_trashed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_trashed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -8688,6 +9144,9 @@ class $StandardMealsTable extends StandardMeals
     proteinG,
     carbsG,
     fatG,
+    starRating,
+    isFavorite,
+    isTrashed,
     createdAt,
   ];
   @override
@@ -8754,6 +9213,24 @@ class $StandardMealsTable extends StandardMeals
         fatG.isAcceptableOrUnknown(data['fat_g']!, _fatGMeta),
       );
     }
+    if (data.containsKey('star_rating')) {
+      context.handle(
+        _starRatingMeta,
+        starRating.isAcceptableOrUnknown(data['star_rating']!, _starRatingMeta),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
+      );
+    }
+    if (data.containsKey('is_trashed')) {
+      context.handle(
+        _isTrashedMeta,
+        isTrashed.isAcceptableOrUnknown(data['is_trashed']!, _isTrashedMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -8801,6 +9278,18 @@ class $StandardMealsTable extends StandardMeals
         DriftSqlType.double,
         data['${effectivePrefix}fat_g'],
       ),
+      starRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}star_rating'],
+      ),
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
+      isTrashed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_trashed'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -8825,6 +9314,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
   final double? proteinG;
   final double? carbsG;
   final double? fatG;
+  final int? starRating;
+  final bool isFavorite;
+  final bool isTrashed;
   final DateTime createdAt;
   const StandardMeal({
     required this.id,
@@ -8835,6 +9327,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     this.proteinG,
     this.carbsG,
     this.fatG,
+    this.starRating,
+    required this.isFavorite,
+    required this.isTrashed,
     required this.createdAt,
   });
   @override
@@ -8858,6 +9353,11 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     if (!nullToAbsent || fatG != null) {
       map['fat_g'] = Variable<double>(fatG);
     }
+    if (!nullToAbsent || starRating != null) {
+      map['star_rating'] = Variable<int>(starRating);
+    }
+    map['is_favorite'] = Variable<bool>(isFavorite);
+    map['is_trashed'] = Variable<bool>(isTrashed);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -8880,6 +9380,11 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
           ? const Value.absent()
           : Value(carbsG),
       fatG: fatG == null && nullToAbsent ? const Value.absent() : Value(fatG),
+      starRating: starRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(starRating),
+      isFavorite: Value(isFavorite),
+      isTrashed: Value(isTrashed),
       createdAt: Value(createdAt),
     );
   }
@@ -8898,6 +9403,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       proteinG: serializer.fromJson<double?>(json['proteinG']),
       carbsG: serializer.fromJson<double?>(json['carbsG']),
       fatG: serializer.fromJson<double?>(json['fatG']),
+      starRating: serializer.fromJson<int?>(json['starRating']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
+      isTrashed: serializer.fromJson<bool>(json['isTrashed']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -8913,6 +9421,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       'proteinG': serializer.toJson<double?>(proteinG),
       'carbsG': serializer.toJson<double?>(carbsG),
       'fatG': serializer.toJson<double?>(fatG),
+      'starRating': serializer.toJson<int?>(starRating),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
+      'isTrashed': serializer.toJson<bool>(isTrashed),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -8926,6 +9437,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     Value<double?> proteinG = const Value.absent(),
     Value<double?> carbsG = const Value.absent(),
     Value<double?> fatG = const Value.absent(),
+    Value<int?> starRating = const Value.absent(),
+    bool? isFavorite,
+    bool? isTrashed,
     DateTime? createdAt,
   }) => StandardMeal(
     id: id ?? this.id,
@@ -8936,6 +9450,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     proteinG: proteinG.present ? proteinG.value : this.proteinG,
     carbsG: carbsG.present ? carbsG.value : this.carbsG,
     fatG: fatG.present ? fatG.value : this.fatG,
+    starRating: starRating.present ? starRating.value : this.starRating,
+    isFavorite: isFavorite ?? this.isFavorite,
+    isTrashed: isTrashed ?? this.isTrashed,
     createdAt: createdAt ?? this.createdAt,
   );
   StandardMeal copyWithCompanion(StandardMealsCompanion data) {
@@ -8950,6 +9467,13 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       proteinG: data.proteinG.present ? data.proteinG.value : this.proteinG,
       carbsG: data.carbsG.present ? data.carbsG.value : this.carbsG,
       fatG: data.fatG.present ? data.fatG.value : this.fatG,
+      starRating: data.starRating.present
+          ? data.starRating.value
+          : this.starRating,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
+      isTrashed: data.isTrashed.present ? data.isTrashed.value : this.isTrashed,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -8965,6 +9489,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
           ..write('proteinG: $proteinG, ')
           ..write('carbsG: $carbsG, ')
           ..write('fatG: $fatG, ')
+          ..write('starRating: $starRating, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('isTrashed: $isTrashed, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -8980,6 +9507,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     proteinG,
     carbsG,
     fatG,
+    starRating,
+    isFavorite,
+    isTrashed,
     createdAt,
   );
   @override
@@ -8994,6 +9524,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
           other.proteinG == this.proteinG &&
           other.carbsG == this.carbsG &&
           other.fatG == this.fatG &&
+          other.starRating == this.starRating &&
+          other.isFavorite == this.isFavorite &&
+          other.isTrashed == this.isTrashed &&
           other.createdAt == this.createdAt);
 }
 
@@ -9006,6 +9539,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
   final Value<double?> proteinG;
   final Value<double?> carbsG;
   final Value<double?> fatG;
+  final Value<int?> starRating;
+  final Value<bool> isFavorite;
+  final Value<bool> isTrashed;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const StandardMealsCompanion({
@@ -9017,6 +9553,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     this.proteinG = const Value.absent(),
     this.carbsG = const Value.absent(),
     this.fatG = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.isTrashed = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -9029,6 +9568,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     this.proteinG = const Value.absent(),
     this.carbsG = const Value.absent(),
     this.fatG = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.isTrashed = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -9042,6 +9584,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     Expression<double>? proteinG,
     Expression<double>? carbsG,
     Expression<double>? fatG,
+    Expression<int>? starRating,
+    Expression<bool>? isFavorite,
+    Expression<bool>? isTrashed,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -9054,6 +9599,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
       if (proteinG != null) 'protein_g': proteinG,
       if (carbsG != null) 'carbs_g': carbsG,
       if (fatG != null) 'fat_g': fatG,
+      if (starRating != null) 'star_rating': starRating,
+      if (isFavorite != null) 'is_favorite': isFavorite,
+      if (isTrashed != null) 'is_trashed': isTrashed,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -9068,6 +9616,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     Value<double?>? proteinG,
     Value<double?>? carbsG,
     Value<double?>? fatG,
+    Value<int?>? starRating,
+    Value<bool>? isFavorite,
+    Value<bool>? isTrashed,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -9080,6 +9631,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
       proteinG: proteinG ?? this.proteinG,
       carbsG: carbsG ?? this.carbsG,
       fatG: fatG ?? this.fatG,
+      starRating: starRating ?? this.starRating,
+      isFavorite: isFavorite ?? this.isFavorite,
+      isTrashed: isTrashed ?? this.isTrashed,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -9112,6 +9666,15 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     if (fatG.present) {
       map['fat_g'] = Variable<double>(fatG.value);
     }
+    if (starRating.present) {
+      map['star_rating'] = Variable<int>(starRating.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
+    if (isTrashed.present) {
+      map['is_trashed'] = Variable<bool>(isTrashed.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -9132,6 +9695,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
           ..write('proteinG: $proteinG, ')
           ..write('carbsG: $carbsG, ')
           ..write('fatG: $fatG, ')
+          ..write('starRating: $starRating, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('isTrashed: $isTrashed, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -16010,6 +16576,32 @@ class $NutritionLogsTable extends NutritionLogs
     requiredDuringInsert: false,
     defaultValue: const Constant('manual'),
   );
+  static const VerificationMeta _thumbRatingMeta = const VerificationMeta(
+    'thumbRating',
+  );
+  @override
+  late final GeneratedColumn<String> thumbRating = GeneratedColumn<String>(
+    'thumb_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _inventoryDeductedMeta = const VerificationMeta(
+    'inventoryDeducted',
+  );
+  @override
+  late final GeneratedColumn<bool> inventoryDeducted = GeneratedColumn<bool>(
+    'inventory_deducted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("inventory_deducted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -16048,6 +16640,8 @@ class $NutritionLogsTable extends NutritionLogs
     fatG,
     fiberG,
     source,
+    thumbRating,
+    inventoryDeducted,
     notes,
     createdAt,
   ];
@@ -16167,6 +16761,24 @@ class $NutritionLogsTable extends NutritionLogs
         source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
       );
     }
+    if (data.containsKey('thumb_rating')) {
+      context.handle(
+        _thumbRatingMeta,
+        thumbRating.isAcceptableOrUnknown(
+          data['thumb_rating']!,
+          _thumbRatingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('inventory_deducted')) {
+      context.handle(
+        _inventoryDeductedMeta,
+        inventoryDeducted.isAcceptableOrUnknown(
+          data['inventory_deducted']!,
+          _inventoryDeductedMeta,
+        ),
+      );
+    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
@@ -16248,6 +16860,14 @@ class $NutritionLogsTable extends NutritionLogs
         DriftSqlType.string,
         data['${effectivePrefix}source'],
       )!,
+      thumbRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thumb_rating'],
+      ),
+      inventoryDeducted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}inventory_deducted'],
+      )!,
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -16281,6 +16901,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
   final double? fatG;
   final double? fiberG;
   final String source;
+  final String? thumbRating;
+  final bool inventoryDeducted;
   final String? notes;
   final DateTime createdAt;
   const NutritionLog({
@@ -16299,6 +16921,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
     this.fatG,
     this.fiberG,
     required this.source,
+    this.thumbRating,
+    required this.inventoryDeducted,
     this.notes,
     required this.createdAt,
   });
@@ -16338,6 +16962,10 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
       map['fiber_g'] = Variable<double>(fiberG);
     }
     map['source'] = Variable<String>(source);
+    if (!nullToAbsent || thumbRating != null) {
+      map['thumb_rating'] = Variable<String>(thumbRating);
+    }
+    map['inventory_deducted'] = Variable<bool>(inventoryDeducted);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
@@ -16374,6 +17002,10 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
           ? const Value.absent()
           : Value(fiberG),
       source: Value(source),
+      thumbRating: thumbRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbRating),
+      inventoryDeducted: Value(inventoryDeducted),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -16402,6 +17034,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
       fatG: serializer.fromJson<double?>(json['fatG']),
       fiberG: serializer.fromJson<double?>(json['fiberG']),
       source: serializer.fromJson<String>(json['source']),
+      thumbRating: serializer.fromJson<String?>(json['thumbRating']),
+      inventoryDeducted: serializer.fromJson<bool>(json['inventoryDeducted']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -16425,6 +17059,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
       'fatG': serializer.toJson<double?>(fatG),
       'fiberG': serializer.toJson<double?>(fiberG),
       'source': serializer.toJson<String>(source),
+      'thumbRating': serializer.toJson<String?>(thumbRating),
+      'inventoryDeducted': serializer.toJson<bool>(inventoryDeducted),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -16446,6 +17082,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
     Value<double?> fatG = const Value.absent(),
     Value<double?> fiberG = const Value.absent(),
     String? source,
+    Value<String?> thumbRating = const Value.absent(),
+    bool? inventoryDeducted,
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
   }) => NutritionLog(
@@ -16464,6 +17102,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
     fatG: fatG.present ? fatG.value : this.fatG,
     fiberG: fiberG.present ? fiberG.value : this.fiberG,
     source: source ?? this.source,
+    thumbRating: thumbRating.present ? thumbRating.value : this.thumbRating,
+    inventoryDeducted: inventoryDeducted ?? this.inventoryDeducted,
     notes: notes.present ? notes.value : this.notes,
     createdAt: createdAt ?? this.createdAt,
   );
@@ -16490,6 +17130,12 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
       fatG: data.fatG.present ? data.fatG.value : this.fatG,
       fiberG: data.fiberG.present ? data.fiberG.value : this.fiberG,
       source: data.source.present ? data.source.value : this.source,
+      thumbRating: data.thumbRating.present
+          ? data.thumbRating.value
+          : this.thumbRating,
+      inventoryDeducted: data.inventoryDeducted.present
+          ? data.inventoryDeducted.value
+          : this.inventoryDeducted,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -16513,6 +17159,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
           ..write('fatG: $fatG, ')
           ..write('fiberG: $fiberG, ')
           ..write('source: $source, ')
+          ..write('thumbRating: $thumbRating, ')
+          ..write('inventoryDeducted: $inventoryDeducted, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -16536,6 +17184,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
     fatG,
     fiberG,
     source,
+    thumbRating,
+    inventoryDeducted,
     notes,
     createdAt,
   );
@@ -16558,6 +17208,8 @@ class NutritionLog extends DataClass implements Insertable<NutritionLog> {
           other.fatG == this.fatG &&
           other.fiberG == this.fiberG &&
           other.source == this.source &&
+          other.thumbRating == this.thumbRating &&
+          other.inventoryDeducted == this.inventoryDeducted &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt);
 }
@@ -16578,6 +17230,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
   final Value<double?> fatG;
   final Value<double?> fiberG;
   final Value<String> source;
+  final Value<String?> thumbRating;
+  final Value<bool> inventoryDeducted;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
@@ -16597,6 +17251,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
     this.fatG = const Value.absent(),
     this.fiberG = const Value.absent(),
     this.source = const Value.absent(),
+    this.thumbRating = const Value.absent(),
+    this.inventoryDeducted = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -16617,6 +17273,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
     this.fatG = const Value.absent(),
     this.fiberG = const Value.absent(),
     this.source = const Value.absent(),
+    this.thumbRating = const Value.absent(),
+    this.inventoryDeducted = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -16640,6 +17298,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
     Expression<double>? fatG,
     Expression<double>? fiberG,
     Expression<String>? source,
+    Expression<String>? thumbRating,
+    Expression<bool>? inventoryDeducted,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
@@ -16660,6 +17320,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
       if (fatG != null) 'fat_g': fatG,
       if (fiberG != null) 'fiber_g': fiberG,
       if (source != null) 'source': source,
+      if (thumbRating != null) 'thumb_rating': thumbRating,
+      if (inventoryDeducted != null) 'inventory_deducted': inventoryDeducted,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
@@ -16682,6 +17344,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
     Value<double?>? fatG,
     Value<double?>? fiberG,
     Value<String>? source,
+    Value<String?>? thumbRating,
+    Value<bool>? inventoryDeducted,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
@@ -16702,6 +17366,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
       fatG: fatG ?? this.fatG,
       fiberG: fiberG ?? this.fiberG,
       source: source ?? this.source,
+      thumbRating: thumbRating ?? this.thumbRating,
+      inventoryDeducted: inventoryDeducted ?? this.inventoryDeducted,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
@@ -16756,6 +17422,12 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
     if (source.present) {
       map['source'] = Variable<String>(source.value);
     }
+    if (thumbRating.present) {
+      map['thumb_rating'] = Variable<String>(thumbRating.value);
+    }
+    if (inventoryDeducted.present) {
+      map['inventory_deducted'] = Variable<bool>(inventoryDeducted.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -16786,6 +17458,8 @@ class NutritionLogsCompanion extends UpdateCompanion<NutritionLog> {
           ..write('fatG: $fatG, ')
           ..write('fiberG: $fiberG, ')
           ..write('source: $source, ')
+          ..write('thumbRating: $thumbRating, ')
+          ..write('inventoryDeducted: $inventoryDeducted, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
@@ -18034,6 +18708,9 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String> nutritionRefUnit,
       Value<String?> stockUnit,
       Value<String?> defaultLocationId,
+      Value<int?> starRating,
+      Value<bool> isFavorite,
+      Value<bool> isTrashed,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -18066,6 +18743,9 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String> nutritionRefUnit,
       Value<String?> stockUnit,
       Value<String?> defaultLocationId,
+      Value<int?> starRating,
+      Value<bool> isFavorite,
+      Value<bool> isTrashed,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -18432,6 +19112,21 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get stockUnit => $composableBuilder(
     column: $table.stockUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isTrashed => $composableBuilder(
+    column: $table.isTrashed,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18847,6 +19542,21 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isTrashed => $composableBuilder(
+    column: $table.isTrashed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -19018,6 +19728,19 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<String> get stockUnit =>
       $composableBuilder(column: $table.stockUnit, builder: (column) => column);
+
+  GeneratedColumn<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isTrashed =>
+      $composableBuilder(column: $table.isTrashed, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -19366,6 +20089,9 @@ class $$ItemsTableTableManager
                 Value<String> nutritionRefUnit = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
                 Value<String?> defaultLocationId = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<bool> isTrashed = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -19396,6 +20122,9 @@ class $$ItemsTableTableManager
                 nutritionRefUnit: nutritionRefUnit,
                 stockUnit: stockUnit,
                 defaultLocationId: defaultLocationId,
+                starRating: starRating,
+                isFavorite: isFavorite,
+                isTrashed: isTrashed,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -19428,6 +20157,9 @@ class $$ItemsTableTableManager
                 Value<String> nutritionRefUnit = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
                 Value<String?> defaultLocationId = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<bool> isTrashed = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -19458,6 +20190,9 @@ class $$ItemsTableTableManager
                 nutritionRefUnit: nutritionRefUnit,
                 stockUnit: stockUnit,
                 defaultLocationId: defaultLocationId,
+                starRating: starRating,
+                isFavorite: isFavorite,
+                isTrashed: isTrashed,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -21602,6 +22337,8 @@ typedef $$ItemEventsTableCreateCompanionBuilder =
       Value<String?> fromState,
       Value<String?> toState,
       Value<String?> containerId,
+      Value<String?> consumptionReason,
+      Value<String?> thumbRating,
       required String deviceId,
       Value<String> syncStatus,
       Value<DateTime?> syncedAt,
@@ -21624,6 +22361,8 @@ typedef $$ItemEventsTableUpdateCompanionBuilder =
       Value<String?> fromState,
       Value<String?> toState,
       Value<String?> containerId,
+      Value<String?> consumptionReason,
+      Value<String?> thumbRating,
       Value<String> deviceId,
       Value<String> syncStatus,
       Value<DateTime?> syncedAt,
@@ -21738,6 +22477,16 @@ class $$ItemEventsTableFilterComposer
 
   ColumnFilters<String> get containerId => $composableBuilder(
     column: $table.containerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get consumptionReason => $composableBuilder(
+    column: $table.consumptionReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -21877,6 +22626,16 @@ class $$ItemEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get consumptionReason => $composableBuilder(
+    column: $table.consumptionReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get deviceId => $composableBuilder(
     column: $table.deviceId,
     builder: (column) => ColumnOrderings(column),
@@ -21997,6 +22756,16 @@ class $$ItemEventsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get consumptionReason => $composableBuilder(
+    column: $table.consumptionReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get deviceId =>
       $composableBuilder(column: $table.deviceId, builder: (column) => column);
 
@@ -22102,6 +22871,8 @@ class $$ItemEventsTableTableManager
                 Value<String?> fromState = const Value.absent(),
                 Value<String?> toState = const Value.absent(),
                 Value<String?> containerId = const Value.absent(),
+                Value<String?> consumptionReason = const Value.absent(),
+                Value<String?> thumbRating = const Value.absent(),
                 Value<String> deviceId = const Value.absent(),
                 Value<String> syncStatus = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -22122,6 +22893,8 @@ class $$ItemEventsTableTableManager
                 fromState: fromState,
                 toState: toState,
                 containerId: containerId,
+                consumptionReason: consumptionReason,
+                thumbRating: thumbRating,
                 deviceId: deviceId,
                 syncStatus: syncStatus,
                 syncedAt: syncedAt,
@@ -22144,6 +22917,8 @@ class $$ItemEventsTableTableManager
                 Value<String?> fromState = const Value.absent(),
                 Value<String?> toState = const Value.absent(),
                 Value<String?> containerId = const Value.absent(),
+                Value<String?> consumptionReason = const Value.absent(),
+                Value<String?> thumbRating = const Value.absent(),
                 required String deviceId,
                 Value<String> syncStatus = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -22164,6 +22939,8 @@ class $$ItemEventsTableTableManager
                 fromState: fromState,
                 toState: toState,
                 containerId: containerId,
+                consumptionReason: consumptionReason,
+                thumbRating: thumbRating,
                 deviceId: deviceId,
                 syncStatus: syncStatus,
                 syncedAt: syncedAt,
@@ -23555,6 +24332,9 @@ typedef $$RecipesTableCreateCompanionBuilder =
       Value<double?> fatPerServing,
       Value<double?> fiberPerServing,
       Value<double?> sodiumPerServing,
+      Value<int?> starRating,
+      Value<bool> isFavorite,
+      Value<bool> isTrashed,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -23579,6 +24359,9 @@ typedef $$RecipesTableUpdateCompanionBuilder =
       Value<double?> fatPerServing,
       Value<double?> fiberPerServing,
       Value<double?> sodiumPerServing,
+      Value<int?> starRating,
+      Value<bool> isFavorite,
+      Value<bool> isTrashed,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -23795,6 +24578,21 @@ class $$RecipesTableFilterComposer
 
   ColumnFilters<double> get sodiumPerServing => $composableBuilder(
     column: $table.sodiumPerServing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isTrashed => $composableBuilder(
+    column: $table.isTrashed,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -24033,6 +24831,21 @@ class $$RecipesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isTrashed => $composableBuilder(
+    column: $table.isTrashed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -24128,6 +24941,19 @@ class $$RecipesTableAnnotationComposer
     column: $table.sodiumPerServing,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isTrashed =>
+      $composableBuilder(column: $table.isTrashed, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -24315,6 +25141,9 @@ class $$RecipesTableTableManager
                 Value<double?> fatPerServing = const Value.absent(),
                 Value<double?> fiberPerServing = const Value.absent(),
                 Value<double?> sodiumPerServing = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<bool> isTrashed = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -24337,6 +25166,9 @@ class $$RecipesTableTableManager
                 fatPerServing: fatPerServing,
                 fiberPerServing: fiberPerServing,
                 sodiumPerServing: sodiumPerServing,
+                starRating: starRating,
+                isFavorite: isFavorite,
+                isTrashed: isTrashed,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -24361,6 +25193,9 @@ class $$RecipesTableTableManager
                 Value<double?> fatPerServing = const Value.absent(),
                 Value<double?> fiberPerServing = const Value.absent(),
                 Value<double?> sodiumPerServing = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<bool> isTrashed = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -24383,6 +25218,9 @@ class $$RecipesTableTableManager
                 fatPerServing: fatPerServing,
                 fiberPerServing: fiberPerServing,
                 sodiumPerServing: sodiumPerServing,
+                starRating: starRating,
+                isFavorite: isFavorite,
+                isTrashed: isTrashed,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -26025,6 +26863,9 @@ typedef $$StandardMealsTableCreateCompanionBuilder =
       Value<double?> proteinG,
       Value<double?> carbsG,
       Value<double?> fatG,
+      Value<int?> starRating,
+      Value<bool> isFavorite,
+      Value<bool> isTrashed,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -26038,6 +26879,9 @@ typedef $$StandardMealsTableUpdateCompanionBuilder =
       Value<double?> proteinG,
       Value<double?> carbsG,
       Value<double?> fatG,
+      Value<int?> starRating,
+      Value<bool> isFavorite,
+      Value<bool> isTrashed,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -26155,6 +26999,21 @@ class $$StandardMealsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isTrashed => $composableBuilder(
+    column: $table.isTrashed,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
@@ -26261,6 +27120,21 @@ class $$StandardMealsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isTrashed => $composableBuilder(
+    column: $table.isTrashed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -26301,6 +27175,19 @@ class $$StandardMealsTableAnnotationComposer
 
   GeneratedColumn<double> get fatG =>
       $composableBuilder(column: $table.fatG, builder: (column) => column);
+
+  GeneratedColumn<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isTrashed =>
+      $composableBuilder(column: $table.isTrashed, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -26398,6 +27285,9 @@ class $$StandardMealsTableTableManager
                 Value<double?> proteinG = const Value.absent(),
                 Value<double?> carbsG = const Value.absent(),
                 Value<double?> fatG = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<bool> isTrashed = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StandardMealsCompanion(
@@ -26409,6 +27299,9 @@ class $$StandardMealsTableTableManager
                 proteinG: proteinG,
                 carbsG: carbsG,
                 fatG: fatG,
+                starRating: starRating,
+                isFavorite: isFavorite,
+                isTrashed: isTrashed,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -26422,6 +27315,9 @@ class $$StandardMealsTableTableManager
                 Value<double?> proteinG = const Value.absent(),
                 Value<double?> carbsG = const Value.absent(),
                 Value<double?> fatG = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<bool> isTrashed = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StandardMealsCompanion.insert(
@@ -26433,6 +27329,9 @@ class $$StandardMealsTableTableManager
                 proteinG: proteinG,
                 carbsG: carbsG,
                 fatG: fatG,
+                starRating: starRating,
+                isFavorite: isFavorite,
+                isTrashed: isTrashed,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -30900,6 +31799,8 @@ typedef $$NutritionLogsTableCreateCompanionBuilder =
       Value<double?> fatG,
       Value<double?> fiberG,
       Value<String> source,
+      Value<String?> thumbRating,
+      Value<bool> inventoryDeducted,
       Value<String?> notes,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -30921,6 +31822,8 @@ typedef $$NutritionLogsTableUpdateCompanionBuilder =
       Value<double?> fatG,
       Value<double?> fiberG,
       Value<String> source,
+      Value<String?> thumbRating,
+      Value<bool> inventoryDeducted,
       Value<String?> notes,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -31007,6 +31910,16 @@ class $$NutritionLogsTableFilterComposer
 
   ColumnFilters<String> get source => $composableBuilder(
     column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get inventoryDeducted => $composableBuilder(
+    column: $table.inventoryDeducted,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -31105,6 +32018,16 @@ class $$NutritionLogsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get inventoryDeducted => $composableBuilder(
+    column: $table.inventoryDeducted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -31176,6 +32099,16 @@ class $$NutritionLogsTableAnnotationComposer
   GeneratedColumn<String> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
 
+  GeneratedColumn<String> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get inventoryDeducted => $composableBuilder(
+    column: $table.inventoryDeducted,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
@@ -31229,6 +32162,8 @@ class $$NutritionLogsTableTableManager
                 Value<double?> fatG = const Value.absent(),
                 Value<double?> fiberG = const Value.absent(),
                 Value<String> source = const Value.absent(),
+                Value<String?> thumbRating = const Value.absent(),
+                Value<bool> inventoryDeducted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -31248,6 +32183,8 @@ class $$NutritionLogsTableTableManager
                 fatG: fatG,
                 fiberG: fiberG,
                 source: source,
+                thumbRating: thumbRating,
+                inventoryDeducted: inventoryDeducted,
                 notes: notes,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -31269,6 +32206,8 @@ class $$NutritionLogsTableTableManager
                 Value<double?> fatG = const Value.absent(),
                 Value<double?> fiberG = const Value.absent(),
                 Value<String> source = const Value.absent(),
+                Value<String?> thumbRating = const Value.absent(),
+                Value<bool> inventoryDeducted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -31288,6 +32227,8 @@ class $$NutritionLogsTableTableManager
                 fatG: fatG,
                 fiberG: fiberG,
                 source: source,
+                thumbRating: thumbRating,
+                inventoryDeducted: inventoryDeducted,
                 notes: notes,
                 createdAt: createdAt,
                 rowid: rowid,

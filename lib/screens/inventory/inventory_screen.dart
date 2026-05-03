@@ -130,17 +130,45 @@ class _ItemCard extends StatelessWidget {
   final List<ItemState> states;
   const _ItemCard({required this.item, required this.states});
 
+  // Returns (daysLeft, expiryDate) for the soonest expiring state, or null.
+  (int, DateTime)? _soonestExpiry() {
+    DateTime? soonest;
+    for (final s in states) {
+      if (s.expiryDate == null) continue;
+      if (soonest == null || s.expiryDate!.isBefore(soonest)) {
+        soonest = s.expiryDate;
+      }
+    }
+    if (soonest == null) return null;
+    final days = soonest.difference(DateTime.now()).inDays;
+    return (days, soonest);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final expiry = _soonestExpiry();
+    final showExpiry = expiry != null && expiry.$1 <= 7;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: _ProductTypeIcon(type: item.productType),
-        title: Text(
-          item.name,
-          style: theme.textTheme.titleSmall,
-          overflow: TextOverflow.ellipsis,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                item.name,
+                style: theme.textTheme.titleSmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (item.isFavorite) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
+            ],
+          ],
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,18 +178,21 @@ class _ItemCard extends StatelessWidget {
               Text(
                 item.brand!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: cs.onSurfaceVariant,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             Row(
               children: [
                 if (item.ean != null) ...[
-                  Icon(Icons.barcode_reader, size: 12,
-                      color: theme.colorScheme.outline),
+                  Icon(Icons.barcode_reader, size: 12, color: cs.outline),
                   const SizedBox(width: 4),
                 ],
                 _StockBadge(item: item, states: states),
+                if (showExpiry) ...[
+                  const SizedBox(width: 6),
+                  _ExpiryBadge(daysLeft: expiry.$1),
+                ],
               ],
             ),
           ],
@@ -169,6 +200,46 @@ class _ItemCard extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         isThreeLine: item.brand != null,
         onTap: () => context.push('/inventory/item/${item.id}'),
+      ),
+    );
+  }
+}
+
+class _ExpiryBadge extends StatelessWidget {
+  final int daysLeft;
+  const _ExpiryBadge({required this.daysLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    final String label;
+    if (daysLeft < 0) {
+      color = Theme.of(context).colorScheme.error;
+      label = 'Abgelaufen';
+    } else if (daysLeft == 0) {
+      color = Theme.of(context).colorScheme.error;
+      label = 'Heute';
+    } else if (daysLeft <= 3) {
+      color = Colors.orange;
+      label = '${daysLeft}T';
+    } else {
+      color = Colors.amber.shade700;
+      label = '${daysLeft}T';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.event_busy_outlined, size: 10, color: color),
+          const SizedBox(width: 2),
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
