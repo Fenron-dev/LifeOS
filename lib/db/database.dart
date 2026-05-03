@@ -296,6 +296,9 @@ class AppDatabase extends _$AppDatabase {
   Future<Item?> itemById(String id) =>
       (select(items)..where((i) => i.id.equals(id))).getSingleOrNull();
 
+  Stream<Item?> watchItemById(String id) =>
+      (select(items)..where((i) => i.id.equals(id))).watchSingleOrNull();
+
   Future<Item?> itemByEan(String ean) =>
       (select(items)..where((i) => i.ean.equals(ean))).getSingleOrNull();
 

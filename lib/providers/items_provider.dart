@@ -38,9 +38,10 @@ final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
 // ---------------------------------------------------------------------------
 
 final itemByIdProvider =
-    FutureProvider.family<Item?, String>((ref, id) async {
+    StreamProvider.family<Item?, String>((ref, id) {
   final db = ref.watch(databaseProvider);
-  return db?.itemById(id);
+  if (db == null) return const Stream.empty();
+  return db.watchItemById(id);
 });
 
 // ---------------------------------------------------------------------------
