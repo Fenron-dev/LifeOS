@@ -107,9 +107,22 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
           .map(_SearchItem.fromOff)
           .toList();
 
+      // Local names that already exist — OFF results with the same name are
+      // suppressed so the user always sees the locally-corrected data first.
+      final localNames =
+          localItems.map((i) => i.name.toLowerCase().trim()).toSet();
+      final localEans =
+          localItems.map((i) => i.ean).whereType<String>().toSet();
+
       final seen = <String>{};
       final merged = <_SearchItem>[];
-      for (final item in [...localItems, ...recipeItems, ...mealItems, ...offProducts]) {
+      for (final item
+          in [...localItems, ...recipeItems, ...mealItems, ...offProducts]) {
+        // Suppress OFF results shadowed by a local item (same EAN or name)
+        if (item.source == 'off') {
+          if (item.ean != null && localEans.contains(item.ean)) continue;
+          if (localNames.contains(item.name.toLowerCase().trim())) continue;
+        }
         final key = item.ean ?? '${item.source}:${item.name}';
         if (seen.add(key)) merged.add(item);
       }

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
 import '../../providers/units_provider.dart';
+import '../../providers/vault_provider.dart';
 import '../providers/nutrition_provider.dart';
 import 'food_search_sheet.dart';
 
@@ -73,6 +74,8 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _unit = log.displayUnit;
       _qtyController.text = _fmtQty(log.quantityG);
       _notesController.text = log.notes ?? '';
+      // Start with a stub product; _reloadItemData replaces it with current
+      // item nutrition so corrected values are immediately reflected.
       _product = FoodSearchResult(
         productName: log.productName,
         brand: log.brand,
@@ -86,6 +89,11 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       }
       if (log.carbsG != null) _carbsManual.text = log.carbsG!.toStringAsFixed(1);
       if (log.fatG != null) _fatManual.text = log.fatG!.toStringAsFixed(1);
+      // Reload from DB so corrected item nutrition is used, not the stale log
+      if (log.itemId != null) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _reloadItemData(log));
+      }
     } else if (widget.initialProduct != null) {
       _product = widget.initialProduct;
       final p = _product!;
@@ -147,6 +155,40 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     final v = c.text.trim().replaceAll(',', '.');
     if (v.isEmpty) return null;
     return double.tryParse(v);
+  }
+
+  /// Refreshes nutrition on the stub product from the item's current DB row.
+  /// Called post-frame when opening an existing log entry for editing, so that
+  /// any nutrition corrections made in the item form are picked up immediately.
+  Future<void> _reloadItemData(NutritionLog log) async {
+    final db = ref.read(databaseProvider);
+    if (db == null || !mounted) return;
+    final item = await db.itemById(log.itemId!);
+    if (item == null || !mounted) return;
+    setState(() {
+      _product = FoodSearchResult(
+        productName: log.productName,
+        brand: log.brand,
+        ean: log.ean,
+        itemId: item.id,
+        caloriesPer100g: item.caloriesPer100g,
+        proteinPer100g: item.proteinPer100g,
+        carbsPer100g: item.carbsPer100g,
+        fatPer100g: item.fatPer100g,
+        fiberPer100g: item.fiberPer100g,
+        servingSizeG: item.servingSizeG,
+        nutritionRefUnit: item.nutritionRefUnit,
+        source: log.source,
+      );
+      // If item has per-100g data, the live preview takes over — clear stale
+      // manual fields so they don't conflict with the computed values on save.
+      if (item.caloriesPer100g != null) {
+        _kcalManual.clear();
+        _proteinManual.clear();
+        _carbsManual.clear();
+        _fatManual.clear();
+      }
+    });
   }
 
   Future<void> _openSearch() async {
