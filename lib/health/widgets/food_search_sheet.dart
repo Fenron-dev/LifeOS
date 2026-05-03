@@ -565,6 +565,7 @@ class _SearchItem {
         : null;
     return _SearchItem(
       name: r.name,
+      itemId: r.id, // stored so diary log can find ingredients for deduction
       caloriesPer100g: nutrition?.caloriesPer100g,
       proteinPer100g: nutrition?.proteinPer100g,
       carbsPer100g: nutrition?.carbsPer100g,
@@ -584,6 +585,7 @@ class _SearchItem {
   factory _SearchItem.fromMeal(StandardMeal m, RecipeNutritionData? nutrition) {
     return _SearchItem(
       name: m.name,
+      itemId: m.id, // stored so diary log can find ingredients for deduction
       caloriesPer100g: nutrition?.caloriesPer100g,
       proteinPer100g: nutrition?.proteinPer100g,
       carbsPer100g: nutrition?.carbsPer100g,

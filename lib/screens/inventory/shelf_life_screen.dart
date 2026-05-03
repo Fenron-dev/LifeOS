@@ -90,16 +90,31 @@ class ShelfLifeScreen extends ConsumerWidget {
               ? {for (final l in locationsAsync.value!) l.id: l.name}
               : <String, String>{};
 
+          // Count how many entries exist per item so we can number them
+          final countPerItem = <String, int>{};
+          final indexPerEntry = <String, int>{};
+          for (final row in relevant) {
+            final idx = (countPerItem[row.item.id] ?? 0) + 1;
+            countPerItem[row.item.id] = idx;
+            indexPerEntry[row.entry.id] = idx;
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(8),
             itemCount: relevant.length,
             itemBuilder: (context, i) {
               final row = relevant[i];
+              final totalForItem = countPerItem[row.item.id] ?? 1;
+              final entryIndex = indexPerEntry[row.entry.id] ?? 1;
               return _ShelfLifeTile(
                 entry: row.entry,
                 item: row.item,
                 locationName: row.entry.locationId != null
                     ? locationMap[row.entry.locationId]
+                    : null,
+                // Show "Packung 2 von 3" only when multiple entries exist
+                entryLabel: totalForItem > 1
+                    ? 'Packung $entryIndex von $totalForItem'
                     : null,
               );
             },
@@ -114,11 +129,13 @@ class _ShelfLifeTile extends ConsumerWidget {
   final InventoryEntry entry;
   final Item item;
   final String? locationName;
+  final String? entryLabel; // e.g. "Packung 2 von 3"
 
   const _ShelfLifeTile({
     required this.entry,
     required this.item,
     this.locationName,
+    this.entryLabel,
   });
 
   Color _urgencyColor(BuildContext context, DateTime? expiry) {
@@ -171,13 +188,24 @@ class _ShelfLifeTile extends ConsumerWidget {
         title: Row(
           children: [
             Expanded(
-              child: Text(
-                item.name,
-                style: TextStyle(
-                  decoration:
-                      isExpired ? TextDecoration.lineThrough : null,
-                  color: isExpired ? cs.onSurfaceVariant : null,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    style: TextStyle(
+                      decoration:
+                          isExpired ? TextDecoration.lineThrough : null,
+                      color: isExpired ? cs.onSurfaceVariant : null,
+                    ),
+                  ),
+                  if (entryLabel != null)
+                    Text(
+                      entryLabel!,
+                      style: TextStyle(
+                          fontSize: 11, color: cs.onSurfaceVariant),
+                    ),
+                ],
               ),
             ),
             if (isOpened)

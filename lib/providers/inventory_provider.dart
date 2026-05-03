@@ -46,12 +46,12 @@ final expiryNotificationSchedulerProvider = Provider<void>((ref) {
 });
 
 /// Aggregated stock per item: {itemId → list of (qty, unit) entries}.
-/// Used to show stock counts on the inventory list without N individual queries.
+/// Only includes non-expired entries so badges reflect usable stock.
 final itemStockMapProvider =
     StreamProvider<Map<String, List<ItemState>>>((ref) {
   final db = ref.watch(databaseProvider);
   if (db == null) return const Stream.empty();
-  return db.watchAllItemStates().map((states) {
+  return db.watchValidItemStates().map((states) {
     final map = <String, List<ItemState>>{};
     for (final s in states) {
       map.putIfAbsent(s.itemId, () => []).add(s);

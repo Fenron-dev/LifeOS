@@ -9,6 +9,7 @@ import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../providers/nutrition_provider.dart';
 import 'food_search_sheet.dart';
+import 'inventory_deduct_sheet.dart';
 
 /// Bottom sheet for adding / editing one food diary entry.
 ///
@@ -411,6 +412,37 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               source: _product!.source,
               notes: notes,
             );
+        // Offer inventory deduction for local items and meals/recipes with
+        // linked inventory items. Build a minimal log object from saved values.
+        final src = _product!.source;
+        final hasDeductable = _product!.itemId != null &&
+            (src == 'local' || src == 'meal' || src == 'recipe');
+        if (hasDeductable && mounted) {
+          final logForDeduct = NutritionLog(
+            id: '',
+            loggedAt: _loggedAt,
+            productName: _product!.productName,
+            brand: _product!.brand,
+            mealTypeId: _mealTypeId,
+            itemId: _product!.itemId,
+            ean: _product!.ean,
+            quantityG: storedQty,
+            displayUnit: _unit,
+            kcal: kcal,
+            proteinG: protein,
+            carbsG: carbs,
+            fatG: fat,
+            fiberG: fiber,
+            source: src,
+            notes: notes,
+            createdAt: DateTime.now(),
+          );
+          await showModalBottomSheet<bool>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => InventoryDeductSheet(log: logForDeduct),
+          );
+        }
       }
       if (mounted) Navigator.of(context).pop(true);
     } finally {

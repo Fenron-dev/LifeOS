@@ -347,6 +347,30 @@ class AppDatabase extends _$AppDatabase {
         InventoryEntriesCompanion(openedAt: Value(openedAt)),
       );
 
+  /// Returns all inventory entries for an item, sorted by expiry date (FIFO:
+  /// consume soonest-expiring first; entries without expiry date come last).
+  Future<List<InventoryEntry>> inventoryEntriesForItem(String itemId) =>
+      (select(inventoryEntries)
+            ..where((e) => e.itemId.equals(itemId))
+            ..orderBy([
+              (e) => OrderingTerm(
+                    expression: e.expiryDate,
+                    nulls: NullsOrder.last,
+                  ),
+            ]))
+          .get();
+
+  /// Streams non-expired item states. Used for stock badges and min-stock
+  /// checks so that entries past their expiry date don't inflate the count.
+  Stream<List<ItemState>> watchValidItemStates() {
+    final today = DateTime.now();
+    return (select(itemStates)
+          ..where((s) =>
+              s.expiryDate.isNull() |
+              s.expiryDate.isBiggerOrEqualValue(today)))
+        .watch();
+  }
+
   Future<void> insertInventoryEntry(InventoryEntriesCompanion entry) =>
       into(inventoryEntries).insert(entry);
 
