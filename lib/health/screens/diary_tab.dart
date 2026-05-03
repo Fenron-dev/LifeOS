@@ -316,13 +316,16 @@ class _DailyTotalsCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            calorieGoal != null
-                                ? '/ ${fmt0.format(calorieGoal)} kcal'
-                                : 'kcal',
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: cs.onPrimaryContainer),
+                          Flexible(
+                            child: Text(
+                              calorieGoal != null
+                                  ? '/ ${fmt0.format(calorieGoal)} kcal'
+                                  : 'kcal',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: cs.onPrimaryContainer),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -977,20 +980,21 @@ class _WaterWidgetState extends ConsumerState<_WaterWidget> {
             ),
             const SizedBox(height: 10),
             // Quick-add buttons
-            Row(
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _QuickAddBtn(label: '+200 ml', onTap: () => _add(200)),
-                const SizedBox(width: 6),
                 _QuickAddBtn(label: '+250 ml', onTap: () => _add(250)),
-                const SizedBox(width: 6),
                 _QuickAddBtn(label: '+330 ml', onTap: () => _add(330)),
-                const SizedBox(width: 6),
                 _QuickAddBtn(label: '+500 ml', onTap: () => _add(500)),
-                const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline, size: 22),
                   tooltip: 'Andere Menge',
                   visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onPressed: _addCustom,
                 ),
               ],
