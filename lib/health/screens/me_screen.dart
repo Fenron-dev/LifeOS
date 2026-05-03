@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../widgets/adaptive_shell.dart';
+import '../services/app_lock_service.dart';
 import 'diary_tab.dart';
 import 'measurements_tab.dart';
+import 'photos_tab.dart';
 import 'profile_tab.dart';
 import 'weight_tab.dart';
 
@@ -22,12 +24,12 @@ class MeScreen extends ConsumerStatefulWidget {
 }
 
 class _MeScreenState extends ConsumerState<MeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _tabs = <_MeTabSpec>[
     _MeTabSpec(label: 'Tagebuch', icon: Icons.book_outlined, ready: true),
     _MeTabSpec(label: 'Gewicht', icon: Icons.monitor_weight_outlined, ready: true),
     _MeTabSpec(label: 'Maße', icon: Icons.straighten, ready: true),
-    _MeTabSpec(label: 'Fotos', icon: Icons.photo_library_outlined, ready: false),
+    _MeTabSpec(label: 'Fotos', icon: Icons.photo_library_outlined, ready: true),
     _MeTabSpec(label: 'Workouts', icon: Icons.fitness_center, ready: false),
     _MeTabSpec(label: 'Ziele', icon: Icons.flag_outlined, ready: false),
     _MeTabSpec(label: 'Profil', icon: Icons.person_outline, ready: true),
@@ -35,22 +37,68 @@ class _MeScreenState extends ConsumerState<MeScreen>
 
   late final TabController _controller;
 
+  /// Whether the Fotos tab has been unlocked this session.
+  bool _photosUnlocked = false;
+  DateTime? _lastActiveTime;
+
+  static const _autoLockSeconds = 60;
+
   @override
   void initState() {
     super.initState();
-    // Default to "Tagebuch" — the daily diary is the main entry point.
+    WidgetsBinding.instance.addObserver(this);
     final initial = _tabs.indexWhere((t) => t.label == 'Tagebuch');
     _controller = TabController(
       length: _tabs.length,
       vsync: this,
       initialIndex: initial < 0 ? 0 : initial,
     );
+    _controller.addListener(_onTabChanged);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller.removeListener(_onTabChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _lastActiveTime = DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_lastActiveTime != null) {
+        final elapsed = DateTime.now().difference(_lastActiveTime!).inSeconds;
+        if (elapsed > _autoLockSeconds) {
+          setState(() => _photosUnlocked = false);
+        }
+      }
+    }
+  }
+
+  void _onTabChanged() {
+    if (_controller.indexIsChanging) return;
+    final tab = _tabs[_controller.index];
+    if (tab.label == 'Fotos' && !_photosUnlocked) {
+      _requestPhotoAccess();
+    }
+  }
+
+  Future<void> _requestPhotoAccess() async {
+    final available = await AppLockService.isAvailable();
+    if (!available) {
+      // No biometrics on this device — allow access
+      if (mounted) setState(() => _photosUnlocked = true);
+      return;
+    }
+    final ok = await AppLockService.authenticate();
+    if (mounted) setState(() => _photosUnlocked = ok);
+    if (!ok && mounted) {
+      // Bounce back to Tagebuch
+      _controller.animateTo(0);
+    }
   }
 
   @override
@@ -74,6 +122,11 @@ class _MeScreenState extends ConsumerState<MeScreen>
         controller: _controller,
         children: _tabs.map((t) {
           if (!t.ready) return _PlaceholderTab(label: t.label, icon: t.icon);
+          if (t.label == 'Fotos') {
+            return _photosUnlocked
+                ? const PhotosTab()
+                : _LockedTab(onUnlock: _requestPhotoAccess);
+          }
           return switch (t.label) {
             'Tagebuch' => const DiaryTab(),
             'Gewicht' => const WeightTab(),
@@ -117,6 +170,42 @@ class _PlaceholderTab extends StatelessWidget {
               'Dieser Bereich folgt in einer späteren Phase.',
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LockedTab extends StatelessWidget {
+  final VoidCallback onUnlock;
+  const _LockedTab({required this.onUnlock});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outlined, size: 64, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text('Privater Bereich',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              'Dieser Bereich ist durch Biometrie\noder Geräte-PIN geschützt.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onUnlock,
+              icon: const Icon(Icons.fingerprint),
+              label: const Text('Entsperren'),
             ),
           ],
         ),

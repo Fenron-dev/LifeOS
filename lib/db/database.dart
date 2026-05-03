@@ -23,6 +23,7 @@ import 'tables/nutrition_table.dart';
 import 'tables/stats_table.dart';
 import 'tables/meal_plan_table.dart';
 import 'tables/categories_table.dart';
+import 'tables/body_photos_table.dart';
 
 part 'database.g.dart';
 
@@ -72,6 +73,8 @@ part 'database.g.dart';
   MealPlanEntries,
   // Custom categories (Phase 4)
   CategoryDefinitions,
+  // Private body photos (Phase 6.7)
+  BodyPhotos,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -86,7 +89,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -247,6 +250,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 21) {
             // Phase 4 — custom user-defined categories.
             await m.createTable(categoryDefinitions);
+          }
+          if (from < 22) {
+            // Phase 6.7 — private encrypted body photos.
+            await m.createTable(bodyPhotos);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -1518,4 +1525,22 @@ class RecipeNutritionData {
       nutritionWeightG > 0 ? fatG / nutritionWeightG * 100 : null;
   double? get fiberPer100g =>
       nutritionWeightG > 0 ? fiberG / nutritionWeightG * 100 : null;
+}
+
+// ── Body Photos ───────────────────────────────────────────────────────────────
+
+extension BodyPhotosDao on AppDatabase {
+  Stream<List<BodyPhoto>> watchAllBodyPhotos() =>
+      (select(bodyPhotos)..orderBy([(p) => OrderingTerm.desc(p.takenAt)]))
+          .watch();
+
+  Future<void> insertBodyPhoto(BodyPhotosCompanion entry) =>
+      into(bodyPhotos).insert(entry);
+
+  Future<void> deleteBodyPhoto(String id) =>
+      (delete(bodyPhotos)..where((p) => p.id.equals(id))).go();
+
+  Future<void> updateBodyPhotoNotes(String id, String? notes) =>
+      (update(bodyPhotos)..where((p) => p.id.equals(id)))
+          .write(BodyPhotosCompanion(notes: Value(notes)));
 }

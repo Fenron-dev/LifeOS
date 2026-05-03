@@ -18858,6 +18858,590 @@ class CategoryDefinitionsCompanion extends UpdateCompanion<CategoryDefinition> {
   }
 }
 
+class $BodyPhotosTable extends BodyPhotos
+    with TableInfo<$BodyPhotosTable, BodyPhoto> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BodyPhotosTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _takenAtMeta = const VerificationMeta(
+    'takenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> takenAt = GeneratedColumn<DateTime>(
+    'taken_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _photoTypeMeta = const VerificationMeta(
+    'photoType',
+  );
+  @override
+  late final GeneratedColumn<String> photoType = GeneratedColumn<String>(
+    'photo_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('other'),
+  );
+  static const VerificationMeta _filePathRelativeMeta = const VerificationMeta(
+    'filePathRelative',
+  );
+  @override
+  late final GeneratedColumn<String> filePathRelative = GeneratedColumn<String>(
+    'file_path_relative',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _encryptionIvMeta = const VerificationMeta(
+    'encryptionIv',
+  );
+  @override
+  late final GeneratedColumn<String> encryptionIv = GeneratedColumn<String>(
+    'encryption_iv',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileSizeBytesMeta = const VerificationMeta(
+    'fileSizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> fileSizeBytes = GeneratedColumn<int>(
+    'file_size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _weightAtPhotoKgMeta = const VerificationMeta(
+    'weightAtPhotoKg',
+  );
+  @override
+  late final GeneratedColumn<double> weightAtPhotoKg = GeneratedColumn<double>(
+    'weight_at_photo_kg',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    takenAt,
+    photoType,
+    filePathRelative,
+    encryptionIv,
+    fileSizeBytes,
+    weightAtPhotoKg,
+    notes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'body_photos';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BodyPhoto> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('taken_at')) {
+      context.handle(
+        _takenAtMeta,
+        takenAt.isAcceptableOrUnknown(data['taken_at']!, _takenAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_takenAtMeta);
+    }
+    if (data.containsKey('photo_type')) {
+      context.handle(
+        _photoTypeMeta,
+        photoType.isAcceptableOrUnknown(data['photo_type']!, _photoTypeMeta),
+      );
+    }
+    if (data.containsKey('file_path_relative')) {
+      context.handle(
+        _filePathRelativeMeta,
+        filePathRelative.isAcceptableOrUnknown(
+          data['file_path_relative']!,
+          _filePathRelativeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_filePathRelativeMeta);
+    }
+    if (data.containsKey('encryption_iv')) {
+      context.handle(
+        _encryptionIvMeta,
+        encryptionIv.isAcceptableOrUnknown(
+          data['encryption_iv']!,
+          _encryptionIvMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_encryptionIvMeta);
+    }
+    if (data.containsKey('file_size_bytes')) {
+      context.handle(
+        _fileSizeBytesMeta,
+        fileSizeBytes.isAcceptableOrUnknown(
+          data['file_size_bytes']!,
+          _fileSizeBytesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weight_at_photo_kg')) {
+      context.handle(
+        _weightAtPhotoKgMeta,
+        weightAtPhotoKg.isAcceptableOrUnknown(
+          data['weight_at_photo_kg']!,
+          _weightAtPhotoKgMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BodyPhoto map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BodyPhoto(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      takenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}taken_at'],
+      )!,
+      photoType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_type'],
+      )!,
+      filePathRelative: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_path_relative'],
+      )!,
+      encryptionIv: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}encryption_iv'],
+      )!,
+      fileSizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}file_size_bytes'],
+      )!,
+      weightAtPhotoKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weight_at_photo_kg'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BodyPhotosTable createAlias(String alias) {
+    return $BodyPhotosTable(attachedDatabase, alias);
+  }
+}
+
+class BodyPhoto extends DataClass implements Insertable<BodyPhoto> {
+  final String id;
+  final DateTime takenAt;
+
+  /// front|side|back|face|other
+  final String photoType;
+
+  /// Relative path from vault root: photos/private/<uuid>.enc
+  final String filePathRelative;
+
+  /// Per-file IV used for AES-256-GCM (base64-encoded, 12 bytes → 16 chars)
+  final String encryptionIv;
+  final int fileSizeBytes;
+
+  /// Weight snapshot at photo time (nullable)
+  final double? weightAtPhotoKg;
+  final String? notes;
+  final DateTime createdAt;
+  const BodyPhoto({
+    required this.id,
+    required this.takenAt,
+    required this.photoType,
+    required this.filePathRelative,
+    required this.encryptionIv,
+    required this.fileSizeBytes,
+    this.weightAtPhotoKg,
+    this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['taken_at'] = Variable<DateTime>(takenAt);
+    map['photo_type'] = Variable<String>(photoType);
+    map['file_path_relative'] = Variable<String>(filePathRelative);
+    map['encryption_iv'] = Variable<String>(encryptionIv);
+    map['file_size_bytes'] = Variable<int>(fileSizeBytes);
+    if (!nullToAbsent || weightAtPhotoKg != null) {
+      map['weight_at_photo_kg'] = Variable<double>(weightAtPhotoKg);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  BodyPhotosCompanion toCompanion(bool nullToAbsent) {
+    return BodyPhotosCompanion(
+      id: Value(id),
+      takenAt: Value(takenAt),
+      photoType: Value(photoType),
+      filePathRelative: Value(filePathRelative),
+      encryptionIv: Value(encryptionIv),
+      fileSizeBytes: Value(fileSizeBytes),
+      weightAtPhotoKg: weightAtPhotoKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weightAtPhotoKg),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory BodyPhoto.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BodyPhoto(
+      id: serializer.fromJson<String>(json['id']),
+      takenAt: serializer.fromJson<DateTime>(json['takenAt']),
+      photoType: serializer.fromJson<String>(json['photoType']),
+      filePathRelative: serializer.fromJson<String>(json['filePathRelative']),
+      encryptionIv: serializer.fromJson<String>(json['encryptionIv']),
+      fileSizeBytes: serializer.fromJson<int>(json['fileSizeBytes']),
+      weightAtPhotoKg: serializer.fromJson<double?>(json['weightAtPhotoKg']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'takenAt': serializer.toJson<DateTime>(takenAt),
+      'photoType': serializer.toJson<String>(photoType),
+      'filePathRelative': serializer.toJson<String>(filePathRelative),
+      'encryptionIv': serializer.toJson<String>(encryptionIv),
+      'fileSizeBytes': serializer.toJson<int>(fileSizeBytes),
+      'weightAtPhotoKg': serializer.toJson<double?>(weightAtPhotoKg),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  BodyPhoto copyWith({
+    String? id,
+    DateTime? takenAt,
+    String? photoType,
+    String? filePathRelative,
+    String? encryptionIv,
+    int? fileSizeBytes,
+    Value<double?> weightAtPhotoKg = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+  }) => BodyPhoto(
+    id: id ?? this.id,
+    takenAt: takenAt ?? this.takenAt,
+    photoType: photoType ?? this.photoType,
+    filePathRelative: filePathRelative ?? this.filePathRelative,
+    encryptionIv: encryptionIv ?? this.encryptionIv,
+    fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+    weightAtPhotoKg: weightAtPhotoKg.present
+        ? weightAtPhotoKg.value
+        : this.weightAtPhotoKg,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  BodyPhoto copyWithCompanion(BodyPhotosCompanion data) {
+    return BodyPhoto(
+      id: data.id.present ? data.id.value : this.id,
+      takenAt: data.takenAt.present ? data.takenAt.value : this.takenAt,
+      photoType: data.photoType.present ? data.photoType.value : this.photoType,
+      filePathRelative: data.filePathRelative.present
+          ? data.filePathRelative.value
+          : this.filePathRelative,
+      encryptionIv: data.encryptionIv.present
+          ? data.encryptionIv.value
+          : this.encryptionIv,
+      fileSizeBytes: data.fileSizeBytes.present
+          ? data.fileSizeBytes.value
+          : this.fileSizeBytes,
+      weightAtPhotoKg: data.weightAtPhotoKg.present
+          ? data.weightAtPhotoKg.value
+          : this.weightAtPhotoKg,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyPhoto(')
+          ..write('id: $id, ')
+          ..write('takenAt: $takenAt, ')
+          ..write('photoType: $photoType, ')
+          ..write('filePathRelative: $filePathRelative, ')
+          ..write('encryptionIv: $encryptionIv, ')
+          ..write('fileSizeBytes: $fileSizeBytes, ')
+          ..write('weightAtPhotoKg: $weightAtPhotoKg, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    takenAt,
+    photoType,
+    filePathRelative,
+    encryptionIv,
+    fileSizeBytes,
+    weightAtPhotoKg,
+    notes,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BodyPhoto &&
+          other.id == this.id &&
+          other.takenAt == this.takenAt &&
+          other.photoType == this.photoType &&
+          other.filePathRelative == this.filePathRelative &&
+          other.encryptionIv == this.encryptionIv &&
+          other.fileSizeBytes == this.fileSizeBytes &&
+          other.weightAtPhotoKg == this.weightAtPhotoKg &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class BodyPhotosCompanion extends UpdateCompanion<BodyPhoto> {
+  final Value<String> id;
+  final Value<DateTime> takenAt;
+  final Value<String> photoType;
+  final Value<String> filePathRelative;
+  final Value<String> encryptionIv;
+  final Value<int> fileSizeBytes;
+  final Value<double?> weightAtPhotoKg;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const BodyPhotosCompanion({
+    this.id = const Value.absent(),
+    this.takenAt = const Value.absent(),
+    this.photoType = const Value.absent(),
+    this.filePathRelative = const Value.absent(),
+    this.encryptionIv = const Value.absent(),
+    this.fileSizeBytes = const Value.absent(),
+    this.weightAtPhotoKg = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BodyPhotosCompanion.insert({
+    required String id,
+    required DateTime takenAt,
+    this.photoType = const Value.absent(),
+    required String filePathRelative,
+    required String encryptionIv,
+    this.fileSizeBytes = const Value.absent(),
+    this.weightAtPhotoKg = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       takenAt = Value(takenAt),
+       filePathRelative = Value(filePathRelative),
+       encryptionIv = Value(encryptionIv);
+  static Insertable<BodyPhoto> custom({
+    Expression<String>? id,
+    Expression<DateTime>? takenAt,
+    Expression<String>? photoType,
+    Expression<String>? filePathRelative,
+    Expression<String>? encryptionIv,
+    Expression<int>? fileSizeBytes,
+    Expression<double>? weightAtPhotoKg,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (takenAt != null) 'taken_at': takenAt,
+      if (photoType != null) 'photo_type': photoType,
+      if (filePathRelative != null) 'file_path_relative': filePathRelative,
+      if (encryptionIv != null) 'encryption_iv': encryptionIv,
+      if (fileSizeBytes != null) 'file_size_bytes': fileSizeBytes,
+      if (weightAtPhotoKg != null) 'weight_at_photo_kg': weightAtPhotoKg,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BodyPhotosCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? takenAt,
+    Value<String>? photoType,
+    Value<String>? filePathRelative,
+    Value<String>? encryptionIv,
+    Value<int>? fileSizeBytes,
+    Value<double?>? weightAtPhotoKg,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return BodyPhotosCompanion(
+      id: id ?? this.id,
+      takenAt: takenAt ?? this.takenAt,
+      photoType: photoType ?? this.photoType,
+      filePathRelative: filePathRelative ?? this.filePathRelative,
+      encryptionIv: encryptionIv ?? this.encryptionIv,
+      fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      weightAtPhotoKg: weightAtPhotoKg ?? this.weightAtPhotoKg,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (takenAt.present) {
+      map['taken_at'] = Variable<DateTime>(takenAt.value);
+    }
+    if (photoType.present) {
+      map['photo_type'] = Variable<String>(photoType.value);
+    }
+    if (filePathRelative.present) {
+      map['file_path_relative'] = Variable<String>(filePathRelative.value);
+    }
+    if (encryptionIv.present) {
+      map['encryption_iv'] = Variable<String>(encryptionIv.value);
+    }
+    if (fileSizeBytes.present) {
+      map['file_size_bytes'] = Variable<int>(fileSizeBytes.value);
+    }
+    if (weightAtPhotoKg.present) {
+      map['weight_at_photo_kg'] = Variable<double>(weightAtPhotoKg.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyPhotosCompanion(')
+          ..write('id: $id, ')
+          ..write('takenAt: $takenAt, ')
+          ..write('photoType: $photoType, ')
+          ..write('filePathRelative: $filePathRelative, ')
+          ..write('encryptionIv: $encryptionIv, ')
+          ..write('fileSizeBytes: $fileSizeBytes, ')
+          ..write('weightAtPhotoKg: $weightAtPhotoKg, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -18911,6 +19495,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $CategoryDefinitionsTable categoryDefinitions =
       $CategoryDefinitionsTable(this);
+  late final $BodyPhotosTable bodyPhotos = $BodyPhotosTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -18948,6 +19533,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     waterLogs,
     mealPlanEntries,
     categoryDefinitions,
+    bodyPhotos,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -34635,6 +35221,287 @@ typedef $$CategoryDefinitionsTableProcessedTableManager =
       CategoryDefinition,
       PrefetchHooks Function()
     >;
+typedef $$BodyPhotosTableCreateCompanionBuilder =
+    BodyPhotosCompanion Function({
+      required String id,
+      required DateTime takenAt,
+      Value<String> photoType,
+      required String filePathRelative,
+      required String encryptionIv,
+      Value<int> fileSizeBytes,
+      Value<double?> weightAtPhotoKg,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$BodyPhotosTableUpdateCompanionBuilder =
+    BodyPhotosCompanion Function({
+      Value<String> id,
+      Value<DateTime> takenAt,
+      Value<String> photoType,
+      Value<String> filePathRelative,
+      Value<String> encryptionIv,
+      Value<int> fileSizeBytes,
+      Value<double?> weightAtPhotoKg,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$BodyPhotosTableFilterComposer
+    extends Composer<_$AppDatabase, $BodyPhotosTable> {
+  $$BodyPhotosTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get takenAt => $composableBuilder(
+    column: $table.takenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoType => $composableBuilder(
+    column: $table.photoType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filePathRelative => $composableBuilder(
+    column: $table.filePathRelative,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get encryptionIv => $composableBuilder(
+    column: $table.encryptionIv,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fileSizeBytes => $composableBuilder(
+    column: $table.fileSizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weightAtPhotoKg => $composableBuilder(
+    column: $table.weightAtPhotoKg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BodyPhotosTableOrderingComposer
+    extends Composer<_$AppDatabase, $BodyPhotosTable> {
+  $$BodyPhotosTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get takenAt => $composableBuilder(
+    column: $table.takenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoType => $composableBuilder(
+    column: $table.photoType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filePathRelative => $composableBuilder(
+    column: $table.filePathRelative,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get encryptionIv => $composableBuilder(
+    column: $table.encryptionIv,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fileSizeBytes => $composableBuilder(
+    column: $table.fileSizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weightAtPhotoKg => $composableBuilder(
+    column: $table.weightAtPhotoKg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BodyPhotosTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BodyPhotosTable> {
+  $$BodyPhotosTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get takenAt =>
+      $composableBuilder(column: $table.takenAt, builder: (column) => column);
+
+  GeneratedColumn<String> get photoType =>
+      $composableBuilder(column: $table.photoType, builder: (column) => column);
+
+  GeneratedColumn<String> get filePathRelative => $composableBuilder(
+    column: $table.filePathRelative,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get encryptionIv => $composableBuilder(
+    column: $table.encryptionIv,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get fileSizeBytes => $composableBuilder(
+    column: $table.fileSizeBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get weightAtPhotoKg => $composableBuilder(
+    column: $table.weightAtPhotoKg,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$BodyPhotosTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BodyPhotosTable,
+          BodyPhoto,
+          $$BodyPhotosTableFilterComposer,
+          $$BodyPhotosTableOrderingComposer,
+          $$BodyPhotosTableAnnotationComposer,
+          $$BodyPhotosTableCreateCompanionBuilder,
+          $$BodyPhotosTableUpdateCompanionBuilder,
+          (
+            BodyPhoto,
+            BaseReferences<_$AppDatabase, $BodyPhotosTable, BodyPhoto>,
+          ),
+          BodyPhoto,
+          PrefetchHooks Function()
+        > {
+  $$BodyPhotosTableTableManager(_$AppDatabase db, $BodyPhotosTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BodyPhotosTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BodyPhotosTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BodyPhotosTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> takenAt = const Value.absent(),
+                Value<String> photoType = const Value.absent(),
+                Value<String> filePathRelative = const Value.absent(),
+                Value<String> encryptionIv = const Value.absent(),
+                Value<int> fileSizeBytes = const Value.absent(),
+                Value<double?> weightAtPhotoKg = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BodyPhotosCompanion(
+                id: id,
+                takenAt: takenAt,
+                photoType: photoType,
+                filePathRelative: filePathRelative,
+                encryptionIv: encryptionIv,
+                fileSizeBytes: fileSizeBytes,
+                weightAtPhotoKg: weightAtPhotoKg,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime takenAt,
+                Value<String> photoType = const Value.absent(),
+                required String filePathRelative,
+                required String encryptionIv,
+                Value<int> fileSizeBytes = const Value.absent(),
+                Value<double?> weightAtPhotoKg = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BodyPhotosCompanion.insert(
+                id: id,
+                takenAt: takenAt,
+                photoType: photoType,
+                filePathRelative: filePathRelative,
+                encryptionIv: encryptionIv,
+                fileSizeBytes: fileSizeBytes,
+                weightAtPhotoKg: weightAtPhotoKg,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BodyPhotosTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BodyPhotosTable,
+      BodyPhoto,
+      $$BodyPhotosTableFilterComposer,
+      $$BodyPhotosTableOrderingComposer,
+      $$BodyPhotosTableAnnotationComposer,
+      $$BodyPhotosTableCreateCompanionBuilder,
+      $$BodyPhotosTableUpdateCompanionBuilder,
+      (BodyPhoto, BaseReferences<_$AppDatabase, $BodyPhotosTable, BodyPhoto>),
+      BodyPhoto,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -34706,4 +35573,6 @@ class $AppDatabaseManager {
       $$MealPlanEntriesTableTableManager(_db, _db.mealPlanEntries);
   $$CategoryDefinitionsTableTableManager get categoryDefinitions =>
       $$CategoryDefinitionsTableTableManager(_db, _db.categoryDefinitions);
+  $$BodyPhotosTableTableManager get bodyPhotos =>
+      $$BodyPhotosTableTableManager(_db, _db.bodyPhotos);
 }
