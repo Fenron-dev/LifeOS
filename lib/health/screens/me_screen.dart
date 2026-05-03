@@ -8,6 +8,7 @@ import 'measurements_tab.dart';
 import 'photos_tab.dart';
 import 'profile_tab.dart';
 import 'weight_tab.dart';
+import 'workouts_tab.dart';
 
 /// "Ich"-Tab — central hub for personal health data.
 ///
@@ -30,7 +31,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
     _MeTabSpec(label: 'Gewicht', icon: Icons.monitor_weight_outlined, ready: true),
     _MeTabSpec(label: 'Maße', icon: Icons.straighten, ready: true),
     _MeTabSpec(label: 'Fotos', icon: Icons.photo_library_outlined, ready: true),
-    _MeTabSpec(label: 'Workouts', icon: Icons.fitness_center, ready: false),
+    _MeTabSpec(label: 'Workouts', icon: Icons.fitness_center, ready: true),
     _MeTabSpec(label: 'Ziele', icon: Icons.flag_outlined, ready: false),
     _MeTabSpec(label: 'Profil', icon: Icons.person_outline, ready: true),
   ];
@@ -131,6 +132,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
             'Tagebuch' => const DiaryTab(),
             'Gewicht' => const WeightTab(),
             'Maße' => const MeasurementsTab(),
+            'Workouts' => const WorkoutsTab(),
             'Profil' => const ProfileTab(),
             _ => _PlaceholderTab(label: t.label, icon: t.icon),
           };

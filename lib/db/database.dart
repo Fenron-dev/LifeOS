@@ -24,6 +24,7 @@ import 'tables/stats_table.dart';
 import 'tables/meal_plan_table.dart';
 import 'tables/categories_table.dart';
 import 'tables/body_photos_table.dart';
+import 'tables/fitness_table.dart';
 
 part 'database.g.dart';
 
@@ -75,6 +76,10 @@ part 'database.g.dart';
   CategoryDefinitions,
   // Private body photos (Phase 6.7)
   BodyPhotos,
+  // Fitness tracking (Phase 6.8)
+  Exercises,
+  Workouts,
+  WorkoutSets,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -89,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -98,6 +103,7 @@ class AppDatabase extends _$AppDatabase {
           await _seedDefaultUnits();
           await _seedDefaultConversions();
           await _seedDefaultMealTypes();
+          await _seedDefaultExercises();
           await _createIndexes();
         },
         onUpgrade: (m, from, to) async {
@@ -254,6 +260,13 @@ class AppDatabase extends _$AppDatabase {
           if (from < 22) {
             // Phase 6.7 — private encrypted body photos.
             await m.createTable(bodyPhotos);
+          }
+          if (from < 23) {
+            // Phase 6.8 — fitness tracking.
+            await m.createTable(exercises);
+            await m.createTable(workouts);
+            await m.createTable(workoutSets);
+            await _seedDefaultExercises();
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -1526,6 +1539,147 @@ class RecipeNutritionData {
   double? get fiberPer100g =>
       nutritionWeightG > 0 ? fiberG / nutritionWeightG * 100 : null;
 }
+
+// ── Fitness ───────────────────────────────────────────────────────────────────
+
+extension FitnessDao on AppDatabase {
+  // Exercises
+  Stream<List<Exercise>> watchAllExercises() =>
+      (select(exercises)..orderBy([(e) => OrderingTerm.asc(e.name)])).watch();
+
+  Future<List<Exercise>> searchExercises(String query) =>
+      (select(exercises)
+            ..where((e) =>
+                e.name.like('%$query%') |
+                e.category.like('%$query%'))
+            ..orderBy([(e) => OrderingTerm.asc(e.name)]))
+          .get();
+
+  Future<void> insertExercise(ExercisesCompanion entry) =>
+      into(exercises).insertOnConflictUpdate(entry);
+
+  Future<void> deleteExercise(String id) =>
+      (delete(exercises)..where((e) => e.id.equals(id))).go();
+
+  // Workouts
+  Stream<List<Workout>> watchAllWorkouts() =>
+      (select(workouts)
+            ..orderBy([(w) => OrderingTerm.desc(w.startedAt)]))
+          .watch();
+
+  Future<void> insertWorkout(WorkoutsCompanion entry) =>
+      into(workouts).insert(entry);
+
+  Future<void> updateWorkout(WorkoutsCompanion entry) =>
+      (update(workouts)..where((w) => w.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteWorkout(String id) =>
+      (delete(workouts)..where((w) => w.id.equals(id))).go();
+
+  // WorkoutSets
+  Stream<List<WorkoutSet>> watchSetsForWorkout(String workoutId) =>
+      (select(workoutSets)
+            ..where((s) => s.workoutId.equals(workoutId))
+            ..orderBy([
+              (s) => OrderingTerm.asc(s.exerciseId),
+              (s) => OrderingTerm.asc(s.setNumber),
+            ]))
+          .watch();
+
+  Future<void> insertWorkoutSet(WorkoutSetsCompanion entry) =>
+      into(workoutSets).insert(entry);
+
+  Future<void> updateWorkoutSet(WorkoutSetsCompanion entry) =>
+      (update(workoutSets)..where((s) => s.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteWorkoutSet(String id) =>
+      (delete(workoutSets)..where((s) => s.id.equals(id))).go();
+
+  Future<void> deleteAllSetsForWorkout(String workoutId) =>
+      (delete(workoutSets)
+            ..where((s) => s.workoutId.equals(workoutId)))
+          .go();
+
+  // Seed
+  Future<void> _seedDefaultExercises() async {
+    for (final e in _defaultExercises) {
+      final existing = await (select(exercises)
+                ..where((ex) => ex.id.equals(e.$1)))
+            .getSingleOrNull();
+      if (existing != null) continue;
+      await into(exercises).insert(ExercisesCompanion.insert(
+        id: e.$1,
+        name: e.$2,
+        category: e.$3,
+        equipment: Value(e.$4),
+        muscleGroups: Value(e.$5),
+      ));
+    }
+  }
+}
+
+// (id, name, category, equipment, muscleGroupsJson)
+const _defaultExercises = <(String, String, String, String?, String?)>[
+  // ── Brust ──────────────────────────────────────────────────────────────────
+  ('ex_bench_bar',   'Bankdrücken',             'chest',     'barbell',   '["Brust","Trizeps","Schultern"]'),
+  ('ex_bench_db',    'Kurzhantel Bankdrücken',   'chest',     'dumbbell',  '["Brust","Trizeps"]'),
+  ('ex_incline_bar', 'Schrägbankdrücken',        'chest',     'barbell',   '["Obere Brust","Trizeps"]'),
+  ('ex_incline_db',  'Schrägbank Kurzhantel',    'chest',     'dumbbell',  '["Obere Brust"]'),
+  ('ex_fly_db',      'Fliegende',                'chest',     'dumbbell',  '["Brust"]'),
+  ('ex_cable_cross', 'Kabelkreuzen',             'chest',     'cable',     '["Brust"]'),
+  ('ex_pushup',      'Liegestütze',              'chest',     'bodyweight','["Brust","Trizeps"]'),
+  ('ex_dip',         'Dips',                     'chest',     'bodyweight','["Brust","Trizeps"]'),
+  // ── Rücken ─────────────────────────────────────────────────────────────────
+  ('ex_deadlift',    'Kreuzheben',               'back',      'barbell',   '["Rücken","Gesäß","Beinbeuger"]'),
+  ('ex_rdl',         'Romanian Deadlift',        'back',      'barbell',   '["Beinbeuger","Gesäß","Rücken"]'),
+  ('ex_pullup',      'Klimmzug',                 'back',      'bodyweight','["Latissimus","Bizeps"]'),
+  ('ex_lat_pull',    'Lat-Pulldown',             'back',      'machine',   '["Latissimus","Bizeps"]'),
+  ('ex_cable_row',   'Kabelrudern',              'back',      'cable',     '["Rücken","Bizeps"]'),
+  ('ex_bb_row',      'Langhantelrudern',         'back',      'barbell',   '["Rücken","Bizeps"]'),
+  ('ex_db_row',      'Kurzhantelrudern',         'back',      'dumbbell',  '["Rücken"]'),
+  ('ex_hyper',       'Rückenstrecker',           'back',      'machine',   '["Unterer Rücken","Gesäß"]'),
+  // ── Beine ──────────────────────────────────────────────────────────────────
+  ('ex_squat',       'Kniebeuge',                'legs',      'barbell',   '["Quadrizeps","Gesäß"]'),
+  ('ex_leg_press',   'Beinpresse',               'legs',      'machine',   '["Quadrizeps","Gesäß"]'),
+  ('ex_lunge',       'Ausfallschritte',          'legs',      'dumbbell',  '["Quadrizeps","Gesäß"]'),
+  ('ex_leg_ext',     'Beinstrecker',             'legs',      'machine',   '["Quadrizeps"]'),
+  ('ex_leg_curl',    'Beinbeuger',               'legs',      'machine',   '["Beinbeuger"]'),
+  ('ex_calf_raise',  'Wadenheben',               'legs',      'machine',   '["Waden"]'),
+  ('ex_hip_thrust',  'Hip Thrust',               'legs',      'barbell',   '["Gesäß","Beinbeuger"]'),
+  // ── Schultern ──────────────────────────────────────────────────────────────
+  ('ex_ohp',         'Schulterdrücken',          'shoulders', 'barbell',   '["Schultern","Trizeps"]'),
+  ('ex_db_press_sh', 'Kurzhantel Schulterdrücken','shoulders','dumbbell',  '["Schultern"]'),
+  ('ex_lateral',     'Seitheben',                'shoulders', 'dumbbell',  '["Seitliche Schulter"]'),
+  ('ex_frontal',     'Frontheben',               'shoulders', 'dumbbell',  '["Vordere Schulter"]'),
+  ('ex_face_pull',   'Face Pulls',               'shoulders', 'cable',     '["Hintere Schulter","Rotatorenmanschette"]'),
+  ('ex_upright_row', 'Aufrechtes Rudern',        'shoulders', 'barbell',   '["Schultern","Fallen"]'),
+  // ── Arme ───────────────────────────────────────────────────────────────────
+  ('ex_bicurl_bar',  'Bizepscurl',               'arms',      'barbell',   '["Bizeps"]'),
+  ('ex_bicurl_db',   'Kurzhantel Bizepscurl',    'arms',      'dumbbell',  '["Bizeps"]'),
+  ('ex_hammer',      'Hammer Curls',             'arms',      'dumbbell',  '["Bizeps","Brachialis"]'),
+  ('ex_tricep_press','Trizepsdrücken',           'arms',      'machine',   '["Trizeps"]'),
+  ('ex_tricep_dip',  'Trizeps Dips',             'arms',      'bodyweight','["Trizeps"]'),
+  ('ex_tricep_down', 'Trizeps Pushdowns',        'arms',      'cable',     '["Trizeps"]'),
+  ('ex_skull',       'Skull Crushers',           'arms',      'barbell',   '["Trizeps"]'),
+  // ── Core ───────────────────────────────────────────────────────────────────
+  ('ex_plank',       'Plank',                    'core',      'bodyweight','["Bauch","Core"]'),
+  ('ex_crunch',      'Crunches',                 'core',      'bodyweight','["Bauch"]'),
+  ('ex_legrise',     'Beinheben',                'core',      'bodyweight','["Unterer Bauch"]'),
+  ('ex_russian',     'Russian Twist',            'core',      'bodyweight','["Schrägmuskel"]'),
+  ('ex_abroller',    'Ab-Roller',                'core',      'other',     '["Bauch","Core"]'),
+  ('ex_situp',       'Situps',                   'core',      'bodyweight','["Bauch"]'),
+  ('ex_mountain',    'Mountain Climbers',        'core',      'bodyweight','["Core","Kardio"]'),
+  // ── Kardio ─────────────────────────────────────────────────────────────────
+  ('ex_treadmill',   'Laufband',                 'cardio',    'machine',   '["Kardio"]'),
+  ('ex_bike',        'Ergometer',                'cardio',    'machine',   '["Kardio","Beine"]'),
+  ('ex_rowing_erg',  'Rudergerät',               'cardio',    'machine',   '["Kardio","Rücken","Arme"]'),
+  ('ex_jumprope',    'Seilspringen',             'cardio',    'bodyweight','["Kardio","Waden"]'),
+  ('ex_stairmaster', 'Stairmaster',              'cardio',    'machine',   '["Kardio","Beine"]'),
+  ('ex_run_outdoor', 'Laufen (draußen)',         'cardio',    null,        '["Kardio"]'),
+  ('ex_hiit',        'HIIT',                     'cardio',    'bodyweight','["Kardio"]'),
+];
 
 // ── Body Photos ───────────────────────────────────────────────────────────────
 

@@ -25,10 +25,10 @@ void main() {
     await db.close();
   });
 
-  test('fresh database opens and exposes schemaVersion 22', () async {
+  test('fresh database opens and exposes schemaVersion 23', () async {
     // Triggers onCreate → createAll + seeds + _createIndexes
     await db.customSelect('SELECT 1').get();
-    expect(db.schemaVersion, 22);
+    expect(db.schemaVersion, 23);
   });
 
   test('every declared table is reachable', () async {
@@ -58,6 +58,9 @@ void main() {
     await db.select(db.mealPlanEntries).get();
     await db.select(db.categoryDefinitions).get();
     await db.select(db.bodyPhotos).get();
+    await db.select(db.exercises).get();
+    await db.select(db.workouts).get();
+    await db.select(db.workoutSets).get();
   });
 
   test('weight log persists full body composition payload', () async {
@@ -124,11 +127,15 @@ void main() {
     expect(last7, 2); // today + day-2 (day-30 is outside)
   });
 
-  test('default units and meal types are seeded on create', () async {
+  test('default units, meal types and exercises are seeded on create',
+      () async {
     final units = await db.select(db.units).get();
     final mealTypes = await db.select(db.mealTypes).get();
+    final exs = await db.select(db.exercises).get();
     expect(units, isNotEmpty, reason: 'onCreate must seed default units');
     expect(mealTypes, isNotEmpty, reason: 'onCreate must seed meal types');
+    expect(exs.length, greaterThanOrEqualTo(40),
+        reason: 'onCreate must seed default exercises');
   });
 
   test('hot-path indexes exist', () async {
