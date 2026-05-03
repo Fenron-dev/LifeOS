@@ -25,6 +25,7 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
   late TextEditingController _notesCtrl;
   late TextEditingController _sourceUrlCtrl;
   int _servings = 2;
+  String _servingUnit = 'Portion';
   int? _prepTime;
   int? _cookTime;
 
@@ -58,6 +59,7 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
           _notesCtrl.text = _existing!.notes ?? '';
           _sourceUrlCtrl.text = _existing!.sourceUrl ?? '';
           _servings = _existing!.servings;
+          _servingUnit = _existing!.servingUnit;
           _prepTime = _existing!.prepTimeMinutes;
           _cookTime = _existing!.cookTimeMinutes;
 
@@ -134,7 +136,7 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Servings + times
+            // Servings + serving unit + times
             Row(
               children: [
                 Expanded(
@@ -146,6 +148,33 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
                     ),
                     keyboardType: TextInputType.number,
                     onChanged: (v) => _servings = int.tryParse(v) ?? _servings,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: StatefulBuilder(
+                    builder: (context, setLocal) => InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Einheit/Portion',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _servingUnit,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(value: 'Portion', child: Text('Portion')),
+                          DropdownMenuItem(value: 'Stück', child: Text('Stück')),
+                          DropdownMenuItem(value: 'g', child: Text('g (Gramm)')),
+                          DropdownMenuItem(value: 'ml', child: Text('ml')),
+                        ],
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() => _servingUnit = v);
+                          setLocal(() {});
+                        },
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -284,6 +313,7 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
         prepTimeMinutes: _prepTime,
         cookTimeMinutes: _cookTime,
         servings: _servings,
+        servingUnit: _servingUnit,
         sourceUrl: _sourceUrlCtrl.text.trim().isEmpty
             ? null
             : _sourceUrlCtrl.text.trim(),
@@ -305,6 +335,7 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
           prepTimeMinutes: Value(_prepTime),
           cookTimeMinutes: Value(_cookTime),
           servings: _servings,
+          servingUnit: _servingUnit,
           sourceUrl: Value(_sourceUrlCtrl.text.trim().isEmpty
               ? null
               : _sourceUrlCtrl.text.trim()),

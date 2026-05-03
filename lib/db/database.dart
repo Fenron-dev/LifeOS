@@ -80,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -228,6 +228,11 @@ class AppDatabase extends _$AppDatabase {
             // Phase 6.7 — opened-state tracking for inventory entries.
             await m.addColumn(items, items.daysAfterOpening);
             await m.addColumn(inventoryEntries, inventoryEntries.openedAt);
+          }
+          if (from < 18) {
+            // Phase 6.8 — flexible serving unit for recipes and meals.
+            await m.addColumn(recipes, recipes.servingUnit);
+            await m.addColumn(standardMeals, standardMeals.servingUnit);
           }
         },
         beforeOpen: (details) async {

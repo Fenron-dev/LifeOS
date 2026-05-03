@@ -9,6 +9,9 @@ class Recipes extends Table {
   IntColumn get prepTimeMinutes => integer().nullable()();
   IntColumn get cookTimeMinutes => integer().nullable()();
   IntColumn get servings => integer().withDefault(const Constant(2))();
+  /// Unit shown to user per serving: 'Portion' | 'Stück' | 'g' | 'ml' | custom
+  TextColumn get servingUnit =>
+      text().withDefault(const Constant('Portion'))();
   TextColumn get videoUrl => text().nullable()(); // YouTube URL or local path
   TextColumn get sourceUrl => text().nullable()(); // original web URL
   TextColumn get mealieSlug => text().nullable()(); // Mealie slug for sync
@@ -64,6 +67,9 @@ class StandardMeals extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get notes => text().nullable()();
+  /// Unit shown to user per serving: 'Portion' | 'Stück' | 'g' | 'ml' | custom
+  TextColumn get servingUnit =>
+      text().withDefault(const Constant('Portion'))();
   // Nutrition per serving — can be entered manually or auto-computed from linked ingredients.
   RealColumn get kcalTotal => real().nullable()();
   RealColumn get proteinG => real().nullable()();

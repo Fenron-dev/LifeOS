@@ -280,6 +280,7 @@ class _MealFormState extends ConsumerState<_MealForm> {
   final _proteinCtrl = TextEditingController();
   final _carbsCtrl = TextEditingController();
   final _fatCtrl = TextEditingController();
+  String _servingUnit = 'Portion';
   final List<_IngRow> _ingredients = [];
   bool _loading = true;
 
@@ -294,6 +295,7 @@ class _MealFormState extends ConsumerState<_MealForm> {
       _nameCtrl.text = widget.meal!.name;
       _notesCtrl.text = widget.meal!.notes ?? '';
       final m = widget.meal!;
+      _servingUnit = m.servingUnit;
       if (m.kcalTotal != null) _kcalCtrl.text = m.kcalTotal!.toStringAsFixed(0);
       if (m.proteinG != null) _proteinCtrl.text = m.proteinG!.toStringAsFixed(1);
       if (m.carbsG != null) _carbsCtrl.text = m.carbsG!.toStringAsFixed(1);
@@ -390,6 +392,29 @@ class _MealFormState extends ConsumerState<_MealForm> {
                       border: OutlineInputBorder(),
                     ),
                     autofocus: true,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Serving unit
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Einheit pro Portion',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: DropdownButton<String>(
+                      value: _servingUnit,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      items: const [
+                        DropdownMenuItem(value: 'Portion', child: Text('Portion')),
+                        DropdownMenuItem(value: 'Stück', child: Text('Stück')),
+                        DropdownMenuItem(value: 'g', child: Text('g (Gramm)')),
+                        DropdownMenuItem(value: 'ml', child: Text('ml')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _servingUnit = v);
+                      },
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -518,6 +543,7 @@ class _MealFormState extends ConsumerState<_MealForm> {
       await notifier.createMeal(
         name: _nameCtrl.text.trim(),
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+        servingUnit: _servingUnit,
         ingredients: ings,
         kcalTotal: kcal,
         proteinG: protein,
@@ -528,6 +554,7 @@ class _MealFormState extends ConsumerState<_MealForm> {
       await notifier.updateMeal(
         widget.meal!,
         ingredients: ings,
+        servingUnit: _servingUnit,
         kcalTotal: kcal,
         proteinG: protein,
         carbsG: carbs,

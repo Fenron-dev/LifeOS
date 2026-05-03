@@ -5965,6 +5965,18 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
     requiredDuringInsert: false,
     defaultValue: const Constant(2),
   );
+  static const VerificationMeta _servingUnitMeta = const VerificationMeta(
+    'servingUnit',
+  );
+  @override
+  late final GeneratedColumn<String> servingUnit = GeneratedColumn<String>(
+    'serving_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Portion'),
+  );
   static const VerificationMeta _videoUrlMeta = const VerificationMeta(
     'videoUrl',
   );
@@ -6117,6 +6129,7 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
     prepTimeMinutes,
     cookTimeMinutes,
     servings,
+    servingUnit,
     videoUrl,
     sourceUrl,
     mealieSlug,
@@ -6187,6 +6200,15 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
       context.handle(
         _servingsMeta,
         servings.isAcceptableOrUnknown(data['servings']!, _servingsMeta),
+      );
+    }
+    if (data.containsKey('serving_unit')) {
+      context.handle(
+        _servingUnitMeta,
+        servingUnit.isAcceptableOrUnknown(
+          data['serving_unit']!,
+          _servingUnitMeta,
+        ),
       );
     }
     if (data.containsKey('video_url')) {
@@ -6318,6 +6340,10 @@ class $RecipesTable extends Recipes with TableInfo<$RecipesTable, Recipe> {
         DriftSqlType.int,
         data['${effectivePrefix}servings'],
       )!,
+      servingUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}serving_unit'],
+      )!,
       videoUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}video_url'],
@@ -6386,6 +6412,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
   final int? prepTimeMinutes;
   final int? cookTimeMinutes;
   final int servings;
+
+  /// Unit shown to user per serving: 'Portion' | 'Stück' | 'g' | 'ml' | custom
+  final String servingUnit;
   final String? videoUrl;
   final String? sourceUrl;
   final String? mealieSlug;
@@ -6406,6 +6435,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     this.prepTimeMinutes,
     this.cookTimeMinutes,
     required this.servings,
+    required this.servingUnit,
     this.videoUrl,
     this.sourceUrl,
     this.mealieSlug,
@@ -6435,6 +6465,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       map['cook_time_minutes'] = Variable<int>(cookTimeMinutes);
     }
     map['servings'] = Variable<int>(servings);
+    map['serving_unit'] = Variable<String>(servingUnit);
     if (!nullToAbsent || videoUrl != null) {
       map['video_url'] = Variable<String>(videoUrl);
     }
@@ -6487,6 +6518,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           ? const Value.absent()
           : Value(cookTimeMinutes),
       servings: Value(servings),
+      servingUnit: Value(servingUnit),
       videoUrl: videoUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(videoUrl),
@@ -6537,6 +6569,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       prepTimeMinutes: serializer.fromJson<int?>(json['prepTimeMinutes']),
       cookTimeMinutes: serializer.fromJson<int?>(json['cookTimeMinutes']),
       servings: serializer.fromJson<int>(json['servings']),
+      servingUnit: serializer.fromJson<String>(json['servingUnit']),
       videoUrl: serializer.fromJson<String?>(json['videoUrl']),
       sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
       mealieSlug: serializer.fromJson<String?>(json['mealieSlug']),
@@ -6566,6 +6599,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
       'prepTimeMinutes': serializer.toJson<int?>(prepTimeMinutes),
       'cookTimeMinutes': serializer.toJson<int?>(cookTimeMinutes),
       'servings': serializer.toJson<int>(servings),
+      'servingUnit': serializer.toJson<String>(servingUnit),
       'videoUrl': serializer.toJson<String?>(videoUrl),
       'sourceUrl': serializer.toJson<String?>(sourceUrl),
       'mealieSlug': serializer.toJson<String?>(mealieSlug),
@@ -6589,6 +6623,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     Value<int?> prepTimeMinutes = const Value.absent(),
     Value<int?> cookTimeMinutes = const Value.absent(),
     int? servings,
+    String? servingUnit,
     Value<String?> videoUrl = const Value.absent(),
     Value<String?> sourceUrl = const Value.absent(),
     Value<String?> mealieSlug = const Value.absent(),
@@ -6613,6 +6648,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
         ? cookTimeMinutes.value
         : this.cookTimeMinutes,
     servings: servings ?? this.servings,
+    servingUnit: servingUnit ?? this.servingUnit,
     videoUrl: videoUrl.present ? videoUrl.value : this.videoUrl,
     sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
     mealieSlug: mealieSlug.present ? mealieSlug.value : this.mealieSlug,
@@ -6653,6 +6689,9 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           ? data.cookTimeMinutes.value
           : this.cookTimeMinutes,
       servings: data.servings.present ? data.servings.value : this.servings,
+      servingUnit: data.servingUnit.present
+          ? data.servingUnit.value
+          : this.servingUnit,
       videoUrl: data.videoUrl.present ? data.videoUrl.value : this.videoUrl,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
       mealieSlug: data.mealieSlug.present
@@ -6692,6 +6731,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           ..write('prepTimeMinutes: $prepTimeMinutes, ')
           ..write('cookTimeMinutes: $cookTimeMinutes, ')
           ..write('servings: $servings, ')
+          ..write('servingUnit: $servingUnit, ')
           ..write('videoUrl: $videoUrl, ')
           ..write('sourceUrl: $sourceUrl, ')
           ..write('mealieSlug: $mealieSlug, ')
@@ -6717,6 +6757,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
     prepTimeMinutes,
     cookTimeMinutes,
     servings,
+    servingUnit,
     videoUrl,
     sourceUrl,
     mealieSlug,
@@ -6741,6 +6782,7 @@ class Recipe extends DataClass implements Insertable<Recipe> {
           other.prepTimeMinutes == this.prepTimeMinutes &&
           other.cookTimeMinutes == this.cookTimeMinutes &&
           other.servings == this.servings &&
+          other.servingUnit == this.servingUnit &&
           other.videoUrl == this.videoUrl &&
           other.sourceUrl == this.sourceUrl &&
           other.mealieSlug == this.mealieSlug &&
@@ -6763,6 +6805,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
   final Value<int?> prepTimeMinutes;
   final Value<int?> cookTimeMinutes;
   final Value<int> servings;
+  final Value<String> servingUnit;
   final Value<String?> videoUrl;
   final Value<String?> sourceUrl;
   final Value<String?> mealieSlug;
@@ -6784,6 +6827,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     this.prepTimeMinutes = const Value.absent(),
     this.cookTimeMinutes = const Value.absent(),
     this.servings = const Value.absent(),
+    this.servingUnit = const Value.absent(),
     this.videoUrl = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.mealieSlug = const Value.absent(),
@@ -6806,6 +6850,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     this.prepTimeMinutes = const Value.absent(),
     this.cookTimeMinutes = const Value.absent(),
     this.servings = const Value.absent(),
+    this.servingUnit = const Value.absent(),
     this.videoUrl = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.mealieSlug = const Value.absent(),
@@ -6829,6 +6874,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     Expression<int>? prepTimeMinutes,
     Expression<int>? cookTimeMinutes,
     Expression<int>? servings,
+    Expression<String>? servingUnit,
     Expression<String>? videoUrl,
     Expression<String>? sourceUrl,
     Expression<String>? mealieSlug,
@@ -6851,6 +6897,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
       if (prepTimeMinutes != null) 'prep_time_minutes': prepTimeMinutes,
       if (cookTimeMinutes != null) 'cook_time_minutes': cookTimeMinutes,
       if (servings != null) 'servings': servings,
+      if (servingUnit != null) 'serving_unit': servingUnit,
       if (videoUrl != null) 'video_url': videoUrl,
       if (sourceUrl != null) 'source_url': sourceUrl,
       if (mealieSlug != null) 'mealie_slug': mealieSlug,
@@ -6876,6 +6923,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     Value<int?>? prepTimeMinutes,
     Value<int?>? cookTimeMinutes,
     Value<int>? servings,
+    Value<String>? servingUnit,
     Value<String?>? videoUrl,
     Value<String?>? sourceUrl,
     Value<String?>? mealieSlug,
@@ -6898,6 +6946,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
       prepTimeMinutes: prepTimeMinutes ?? this.prepTimeMinutes,
       cookTimeMinutes: cookTimeMinutes ?? this.cookTimeMinutes,
       servings: servings ?? this.servings,
+      servingUnit: servingUnit ?? this.servingUnit,
       videoUrl: videoUrl ?? this.videoUrl,
       sourceUrl: sourceUrl ?? this.sourceUrl,
       mealieSlug: mealieSlug ?? this.mealieSlug,
@@ -6935,6 +6984,9 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
     }
     if (servings.present) {
       map['servings'] = Variable<int>(servings.value);
+    }
+    if (servingUnit.present) {
+      map['serving_unit'] = Variable<String>(servingUnit.value);
     }
     if (videoUrl.present) {
       map['video_url'] = Variable<String>(videoUrl.value);
@@ -6990,6 +7042,7 @@ class RecipesCompanion extends UpdateCompanion<Recipe> {
           ..write('prepTimeMinutes: $prepTimeMinutes, ')
           ..write('cookTimeMinutes: $cookTimeMinutes, ')
           ..write('servings: $servings, ')
+          ..write('servingUnit: $servingUnit, ')
           ..write('videoUrl: $videoUrl, ')
           ..write('sourceUrl: $sourceUrl, ')
           ..write('mealieSlug: $mealieSlug, ')
@@ -8561,6 +8614,18 @@ class $StandardMealsTable extends StandardMeals
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _servingUnitMeta = const VerificationMeta(
+    'servingUnit',
+  );
+  @override
+  late final GeneratedColumn<String> servingUnit = GeneratedColumn<String>(
+    'serving_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Portion'),
+  );
   static const VerificationMeta _kcalTotalMeta = const VerificationMeta(
     'kcalTotal',
   );
@@ -8618,6 +8683,7 @@ class $StandardMealsTable extends StandardMeals
     id,
     name,
     notes,
+    servingUnit,
     kcalTotal,
     proteinG,
     carbsG,
@@ -8653,6 +8719,15 @@ class $StandardMealsTable extends StandardMeals
       context.handle(
         _notesMeta,
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('serving_unit')) {
+      context.handle(
+        _servingUnitMeta,
+        servingUnit.isAcceptableOrUnknown(
+          data['serving_unit']!,
+          _servingUnitMeta,
+        ),
       );
     }
     if (data.containsKey('kcal_total')) {
@@ -8706,6 +8781,10 @@ class $StandardMealsTable extends StandardMeals
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      servingUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}serving_unit'],
+      )!,
       kcalTotal: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}kcal_total'],
@@ -8739,6 +8818,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
   final String id;
   final String name;
   final String? notes;
+
+  /// Unit shown to user per serving: 'Portion' | 'Stück' | 'g' | 'ml' | custom
+  final String servingUnit;
   final double? kcalTotal;
   final double? proteinG;
   final double? carbsG;
@@ -8748,6 +8830,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     required this.id,
     required this.name,
     this.notes,
+    required this.servingUnit,
     this.kcalTotal,
     this.proteinG,
     this.carbsG,
@@ -8762,6 +8845,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    map['serving_unit'] = Variable<String>(servingUnit);
     if (!nullToAbsent || kcalTotal != null) {
       map['kcal_total'] = Variable<double>(kcalTotal);
     }
@@ -8785,6 +8869,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      servingUnit: Value(servingUnit),
       kcalTotal: kcalTotal == null && nullToAbsent
           ? const Value.absent()
           : Value(kcalTotal),
@@ -8808,6 +8893,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       notes: serializer.fromJson<String?>(json['notes']),
+      servingUnit: serializer.fromJson<String>(json['servingUnit']),
       kcalTotal: serializer.fromJson<double?>(json['kcalTotal']),
       proteinG: serializer.fromJson<double?>(json['proteinG']),
       carbsG: serializer.fromJson<double?>(json['carbsG']),
@@ -8822,6 +8908,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'notes': serializer.toJson<String?>(notes),
+      'servingUnit': serializer.toJson<String>(servingUnit),
       'kcalTotal': serializer.toJson<double?>(kcalTotal),
       'proteinG': serializer.toJson<double?>(proteinG),
       'carbsG': serializer.toJson<double?>(carbsG),
@@ -8834,6 +8921,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     String? id,
     String? name,
     Value<String?> notes = const Value.absent(),
+    String? servingUnit,
     Value<double?> kcalTotal = const Value.absent(),
     Value<double?> proteinG = const Value.absent(),
     Value<double?> carbsG = const Value.absent(),
@@ -8843,6 +8931,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     id: id ?? this.id,
     name: name ?? this.name,
     notes: notes.present ? notes.value : this.notes,
+    servingUnit: servingUnit ?? this.servingUnit,
     kcalTotal: kcalTotal.present ? kcalTotal.value : this.kcalTotal,
     proteinG: proteinG.present ? proteinG.value : this.proteinG,
     carbsG: carbsG.present ? carbsG.value : this.carbsG,
@@ -8854,6 +8943,9 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       notes: data.notes.present ? data.notes.value : this.notes,
+      servingUnit: data.servingUnit.present
+          ? data.servingUnit.value
+          : this.servingUnit,
       kcalTotal: data.kcalTotal.present ? data.kcalTotal.value : this.kcalTotal,
       proteinG: data.proteinG.present ? data.proteinG.value : this.proteinG,
       carbsG: data.carbsG.present ? data.carbsG.value : this.carbsG,
@@ -8868,6 +8960,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notes: $notes, ')
+          ..write('servingUnit: $servingUnit, ')
           ..write('kcalTotal: $kcalTotal, ')
           ..write('proteinG: $proteinG, ')
           ..write('carbsG: $carbsG, ')
@@ -8882,6 +8975,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
     id,
     name,
     notes,
+    servingUnit,
     kcalTotal,
     proteinG,
     carbsG,
@@ -8895,6 +8989,7 @@ class StandardMeal extends DataClass implements Insertable<StandardMeal> {
           other.id == this.id &&
           other.name == this.name &&
           other.notes == this.notes &&
+          other.servingUnit == this.servingUnit &&
           other.kcalTotal == this.kcalTotal &&
           other.proteinG == this.proteinG &&
           other.carbsG == this.carbsG &&
@@ -8906,6 +9001,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
   final Value<String> id;
   final Value<String> name;
   final Value<String?> notes;
+  final Value<String> servingUnit;
   final Value<double?> kcalTotal;
   final Value<double?> proteinG;
   final Value<double?> carbsG;
@@ -8916,6 +9012,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.notes = const Value.absent(),
+    this.servingUnit = const Value.absent(),
     this.kcalTotal = const Value.absent(),
     this.proteinG = const Value.absent(),
     this.carbsG = const Value.absent(),
@@ -8927,6 +9024,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     required String id,
     required String name,
     this.notes = const Value.absent(),
+    this.servingUnit = const Value.absent(),
     this.kcalTotal = const Value.absent(),
     this.proteinG = const Value.absent(),
     this.carbsG = const Value.absent(),
@@ -8939,6 +9037,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? notes,
+    Expression<String>? servingUnit,
     Expression<double>? kcalTotal,
     Expression<double>? proteinG,
     Expression<double>? carbsG,
@@ -8950,6 +9049,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (notes != null) 'notes': notes,
+      if (servingUnit != null) 'serving_unit': servingUnit,
       if (kcalTotal != null) 'kcal_total': kcalTotal,
       if (proteinG != null) 'protein_g': proteinG,
       if (carbsG != null) 'carbs_g': carbsG,
@@ -8963,6 +9063,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     Value<String>? id,
     Value<String>? name,
     Value<String?>? notes,
+    Value<String>? servingUnit,
     Value<double?>? kcalTotal,
     Value<double?>? proteinG,
     Value<double?>? carbsG,
@@ -8974,6 +9075,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
       id: id ?? this.id,
       name: name ?? this.name,
       notes: notes ?? this.notes,
+      servingUnit: servingUnit ?? this.servingUnit,
       kcalTotal: kcalTotal ?? this.kcalTotal,
       proteinG: proteinG ?? this.proteinG,
       carbsG: carbsG ?? this.carbsG,
@@ -8994,6 +9096,9 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
     }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
+    }
+    if (servingUnit.present) {
+      map['serving_unit'] = Variable<String>(servingUnit.value);
     }
     if (kcalTotal.present) {
       map['kcal_total'] = Variable<double>(kcalTotal.value);
@@ -9022,6 +9127,7 @@ class StandardMealsCompanion extends UpdateCompanion<StandardMeal> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notes: $notes, ')
+          ..write('servingUnit: $servingUnit, ')
           ..write('kcalTotal: $kcalTotal, ')
           ..write('proteinG: $proteinG, ')
           ..write('carbsG: $carbsG, ')
@@ -23437,6 +23543,7 @@ typedef $$RecipesTableCreateCompanionBuilder =
       Value<int?> prepTimeMinutes,
       Value<int?> cookTimeMinutes,
       Value<int> servings,
+      Value<String> servingUnit,
       Value<String?> videoUrl,
       Value<String?> sourceUrl,
       Value<String?> mealieSlug,
@@ -23460,6 +23567,7 @@ typedef $$RecipesTableUpdateCompanionBuilder =
       Value<int?> prepTimeMinutes,
       Value<int?> cookTimeMinutes,
       Value<int> servings,
+      Value<String> servingUnit,
       Value<String?> videoUrl,
       Value<String?> sourceUrl,
       Value<String?> mealieSlug,
@@ -23627,6 +23735,11 @@ class $$RecipesTableFilterComposer
 
   ColumnFilters<int> get servings => $composableBuilder(
     column: $table.servings,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -23860,6 +23973,11 @@ class $$RecipesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get videoUrl => $composableBuilder(
     column: $table.videoUrl,
     builder: (column) => ColumnOrderings(column),
@@ -23958,6 +24076,11 @@ class $$RecipesTableAnnotationComposer
 
   GeneratedColumn<int> get servings =>
       $composableBuilder(column: $table.servings, builder: (column) => column);
+
+  GeneratedColumn<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get videoUrl =>
       $composableBuilder(column: $table.videoUrl, builder: (column) => column);
@@ -24180,6 +24303,7 @@ class $$RecipesTableTableManager
                 Value<int?> prepTimeMinutes = const Value.absent(),
                 Value<int?> cookTimeMinutes = const Value.absent(),
                 Value<int> servings = const Value.absent(),
+                Value<String> servingUnit = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<String?> mealieSlug = const Value.absent(),
@@ -24201,6 +24325,7 @@ class $$RecipesTableTableManager
                 prepTimeMinutes: prepTimeMinutes,
                 cookTimeMinutes: cookTimeMinutes,
                 servings: servings,
+                servingUnit: servingUnit,
                 videoUrl: videoUrl,
                 sourceUrl: sourceUrl,
                 mealieSlug: mealieSlug,
@@ -24224,6 +24349,7 @@ class $$RecipesTableTableManager
                 Value<int?> prepTimeMinutes = const Value.absent(),
                 Value<int?> cookTimeMinutes = const Value.absent(),
                 Value<int> servings = const Value.absent(),
+                Value<String> servingUnit = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<String?> mealieSlug = const Value.absent(),
@@ -24245,6 +24371,7 @@ class $$RecipesTableTableManager
                 prepTimeMinutes: prepTimeMinutes,
                 cookTimeMinutes: cookTimeMinutes,
                 servings: servings,
+                servingUnit: servingUnit,
                 videoUrl: videoUrl,
                 sourceUrl: sourceUrl,
                 mealieSlug: mealieSlug,
@@ -25893,6 +26020,7 @@ typedef $$StandardMealsTableCreateCompanionBuilder =
       required String id,
       required String name,
       Value<String?> notes,
+      Value<String> servingUnit,
       Value<double?> kcalTotal,
       Value<double?> proteinG,
       Value<double?> carbsG,
@@ -25905,6 +26033,7 @@ typedef $$StandardMealsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String?> notes,
+      Value<String> servingUnit,
       Value<double?> kcalTotal,
       Value<double?> proteinG,
       Value<double?> carbsG,
@@ -25998,6 +26127,11 @@ class $$StandardMealsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -26102,6 +26236,11 @@ class $$StandardMealsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get kcalTotal => $composableBuilder(
     column: $table.kcalTotal,
     builder: (column) => ColumnOrderings(column),
@@ -26145,6 +26284,11 @@ class $$StandardMealsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<double> get kcalTotal =>
       $composableBuilder(column: $table.kcalTotal, builder: (column) => column);
@@ -26249,6 +26393,7 @@ class $$StandardMealsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> servingUnit = const Value.absent(),
                 Value<double?> kcalTotal = const Value.absent(),
                 Value<double?> proteinG = const Value.absent(),
                 Value<double?> carbsG = const Value.absent(),
@@ -26259,6 +26404,7 @@ class $$StandardMealsTableTableManager
                 id: id,
                 name: name,
                 notes: notes,
+                servingUnit: servingUnit,
                 kcalTotal: kcalTotal,
                 proteinG: proteinG,
                 carbsG: carbsG,
@@ -26271,6 +26417,7 @@ class $$StandardMealsTableTableManager
                 required String id,
                 required String name,
                 Value<String?> notes = const Value.absent(),
+                Value<String> servingUnit = const Value.absent(),
                 Value<double?> kcalTotal = const Value.absent(),
                 Value<double?> proteinG = const Value.absent(),
                 Value<double?> carbsG = const Value.absent(),
@@ -26281,6 +26428,7 @@ class $$StandardMealsTableTableManager
                 id: id,
                 name: name,
                 notes: notes,
+                servingUnit: servingUnit,
                 kcalTotal: kcalTotal,
                 proteinG: proteinG,
                 carbsG: carbsG,

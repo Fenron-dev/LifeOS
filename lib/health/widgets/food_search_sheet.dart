@@ -27,6 +27,9 @@ class FoodSearchResult {
   final double? recipeCarbsTotal;
   final double? recipeFatTotal;
   final bool isRecipe;
+  /// For recipes/meals: how the user-facing serving unit is labelled
+  /// ('Portion' | 'Stück' | 'g' | 'ml' | custom). Defaults to 'Portion'.
+  final String servingUnit;
   final String? nutritionRefUnit; // 'g' | 'ml' for local items
   final String source; // 'local' | 'off' | 'recipe' | 'meal' | 'manual'
 
@@ -46,6 +49,7 @@ class FoodSearchResult {
     this.recipeCarbsTotal,
     this.recipeFatTotal,
     this.isRecipe = false,
+    this.servingUnit = 'Portion',
     this.nutritionRefUnit,
     required this.source,
   });
@@ -215,6 +219,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
       recipeCarbsTotal: item.recipeCarbsTotal,
       recipeFatTotal: item.recipeFatTotal,
       isRecipe: item.source == 'recipe' || item.source == 'meal',
+      servingUnit: item.servingUnit,
       nutritionRefUnit: item.nutritionRefUnit,
       source: item.source,
     ));
@@ -500,6 +505,7 @@ class _SearchItem {
   final double? recipeProteinTotal;
   final double? recipeCarbsTotal;
   final double? recipeFatTotal;
+  final String servingUnit;
   final String? nutritionRefUnit; // 'g' | 'ml' — from local items
   final String source;
 
@@ -518,6 +524,7 @@ class _SearchItem {
     this.recipeProteinTotal,
     this.recipeCarbsTotal,
     this.recipeFatTotal,
+    this.servingUnit = 'Portion',
     this.nutritionRefUnit,
     required this.source,
   });
@@ -569,6 +576,7 @@ class _SearchItem {
       recipeProteinTotal: nutrition?.proteinG ?? r.proteinPerServing,
       recipeCarbsTotal: nutrition?.carbsG ?? r.carbsPerServing,
       recipeFatTotal: nutrition?.fatG ?? r.fatPerServing,
+      servingUnit: r.servingUnit,
       source: 'recipe',
     );
   }
@@ -588,6 +596,7 @@ class _SearchItem {
       recipeProteinTotal: nutrition?.proteinG ?? m.proteinG,
       recipeCarbsTotal: nutrition?.carbsG ?? m.carbsG,
       recipeFatTotal: nutrition?.fatG ?? m.fatG,
+      servingUnit: m.servingUnit,
       source: 'meal',
     );
   }

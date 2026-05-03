@@ -58,8 +58,22 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _product!.isRecipe &&
       _product!.recipeKcalTotal != null;
 
+  /// True when the current unit is a weight/volume unit (g, ml, kg, l, …).
+  /// Used to switch recipe entries between serving-count and gram-based math.
+  bool get _recipeUsesWeightUnit =>
+      _product != null && _product!.isRecipe && _isWeightVolUnit(_unit);
+
   bool get _showManualMacros =>
       _product != null && !_hasPerHundredData && !_hasRecipeTotals;
+
+  static bool _isWeightVolUnit(String unit) {
+    final u = unit.toLowerCase().trim();
+    return u == 'g' || u == 'gr' || u == 'gramm' ||
+        u == 'kg' || u == 'kilogramm' ||
+        u == 'ml' || u == 'milliliter' ||
+        u == 'cl' || u == 'dl' ||
+        u == 'l' || u == 'liter';
+  }
 
   @override
   void initState() {
@@ -76,25 +90,50 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _notesController.text = log.notes ?? '';
 
       if (log.source == 'meal' || log.source == 'recipe') {
-        // quantityG stores the number of servings (after the fix).
-        // Reconstruct per-serving totals so changing qty re-multiplies correctly.
-        final servings = log.quantityG > 0 ? log.quantityG : 1.0;
-        _product = FoodSearchResult(
-          productName: log.productName,
-          brand: log.brand,
-          ean: log.ean,
-          itemId: log.itemId,
-          source: log.source,
-          isRecipe: true,
-          recipeKcalTotal:
-              log.kcal != null ? log.kcal! / servings : null,
-          recipeProteinTotal:
-              log.proteinG != null ? log.proteinG! / servings : null,
-          recipeCarbsTotal:
-              log.carbsG != null ? log.carbsG! / servings : null,
-          recipeFatTotal:
-              log.fatG != null ? log.fatG! / servings : null,
-        );
+        if (_isWeightVolUnit(log.displayUnit) &&
+            log.quantityG > 0 &&
+            log.kcal != null) {
+          // g/ml unit: quantityG = grams. Derive per-100g so qty editing scales.
+          _product = FoodSearchResult(
+            productName: log.productName,
+            brand: log.brand,
+            ean: log.ean,
+            itemId: log.itemId,
+            source: log.source,
+            isRecipe: true,
+            servingUnit: log.displayUnit,
+            caloriesPer100g: log.kcal! / log.quantityG * 100,
+            proteinPer100g: log.proteinG != null
+                ? log.proteinG! / log.quantityG * 100
+                : null,
+            carbsPer100g: log.carbsG != null
+                ? log.carbsG! / log.quantityG * 100
+                : null,
+            fatPer100g: log.fatG != null
+                ? log.fatG! / log.quantityG * 100
+                : null,
+          );
+        } else {
+          // Portion/Stück: quantityG stores serving count.
+          // Reconstruct per-serving totals so changing qty re-multiplies correctly.
+          final servings = log.quantityG > 0 ? log.quantityG : 1.0;
+          _product = FoodSearchResult(
+            productName: log.productName,
+            brand: log.brand,
+            ean: log.ean,
+            itemId: log.itemId,
+            source: log.source,
+            isRecipe: true,
+            recipeKcalTotal:
+                log.kcal != null ? log.kcal! / servings : null,
+            recipeProteinTotal:
+                log.proteinG != null ? log.proteinG! / servings : null,
+            recipeCarbsTotal:
+                log.carbsG != null ? log.carbsG! / servings : null,
+            recipeFatTotal:
+                log.fatG != null ? log.fatG! / servings : null,
+          );
+        }
       } else {
         // Start with a stub product; _reloadItemData replaces it with current
         // item nutrition so corrected values are immediately reflected.
@@ -122,9 +161,15 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _product = widget.initialProduct;
       final p = _product!;
       if (p.isRecipe) {
-        // Recipes & meals: qty = number of servings (1 Portion = servingSizeG grams)
-        _qtyController.text = '1';
-        _unit = 'Portion';
+        final su = p.servingUnit;
+        _unit = su;
+        if (_isWeightVolUnit(su)) {
+          // Weight/volume unit: pre-fill with the gram serving size
+          _qtyController.text = _fmtQty(p.servingSizeG ?? 1);
+        } else {
+          // Portion, Stück, etc.: pre-fill with 1
+          _qtyController.text = '1';
+        }
       } else if (p.servingSizeG != null) {
         // Regular food item with a known serving: pre-fill in grams
         _qtyController.text = _fmtQty(p.servingSizeG!);
@@ -226,8 +271,13 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _product = result;
       if (_qtyController.text.trim().isEmpty) {
         if (result.isRecipe) {
-          _qtyController.text = '1';
-          _unit = 'Portion';
+          final su = result.servingUnit;
+          _unit = su;
+          if (_isWeightVolUnit(su)) {
+            _qtyController.text = _fmtQty(result.servingSizeG ?? 1);
+          } else {
+            _qtyController.text = '1';
+          }
         } else if (result.servingSizeG != null) {
           _qtyController.text = _fmtQty(result.servingSizeG!);
           _unit = 'g';
@@ -279,21 +329,29 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     }
 
     final qtyG = _toGrams(qty);
-    // For meals/recipes quantityG stores the serving count, not grams.
-    // This keeps the "70 Portionen" display correct.
-    final storedQty = _hasRecipeTotals ? qty : qtyG;
+    // Determine effective serving count for recipe entries:
+    // - weight/volume unit (g/ml/…): servings = grams / gramWeightPerServing
+    // - Portion/Stück/other: servings = entered qty directly
+    final servingSizeG = _product?.servingSizeG;
+    final servings = (_hasRecipeTotals && _recipeUsesWeightUnit &&
+            servingSizeG != null &&
+            servingSizeG > 0)
+        ? qtyG / servingSizeG
+        : qty;
+    // storedQty: grams for weight/volume units, serving count for Portion/Stück
+    final storedQty =
+        _hasRecipeTotals ? (_recipeUsesWeightUnit ? qtyG : qty) : qtyG;
     late double? kcal, protein, carbs, fat, fiber;
     if (_hasRecipeTotals) {
-      // qty = number of servings; multiply stored per-serving totals
-      kcal = qty * _product!.recipeKcalTotal!;
+      kcal = servings * _product!.recipeKcalTotal!;
       protein = _product!.recipeProteinTotal != null
-          ? qty * _product!.recipeProteinTotal!
+          ? servings * _product!.recipeProteinTotal!
           : null;
       carbs = _product!.recipeCarbsTotal != null
-          ? qty * _product!.recipeCarbsTotal!
+          ? servings * _product!.recipeCarbsTotal!
           : null;
       fat = _product!.recipeFatTotal != null
-          ? qty * _product!.recipeFatTotal!
+          ? servings * _product!.recipeFatTotal!
           : null;
       fiber = null;
     } else if (_hasPerHundredData) {
