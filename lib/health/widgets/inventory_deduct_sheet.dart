@@ -119,8 +119,25 @@ class _InventoryDeductSheetState
       final item = await db.itemById(log.itemId!);
       final entries = await db.inventoryEntriesForItem(log.itemId!);
       if (item != null) {
-        // displayUnit could be g, ml, Portion, Stück…
-        // Use the stored quantity and unit from the log as-is
+        // log.quantityG is ALWAYS stored in grams (or raw count when no
+        // servingSizeG was available). For counting-unit inventory (Packung,
+        // Stück, Portion, …) we must reverse the g→count conversion:
+        //   stored_grams = entered_count * servingSizeG
+        //   → entered_count = stored_grams / servingSizeG
+        final inventoryUnit =
+            entries.isNotEmpty ? entries.first.unit : log.displayUnit;
+        final servingSizeG = item.servingSizeG;
+
+        double deductQty = log.quantityG;
+        String deductUnit = log.displayUnit;
+
+        if (!_isWeightVolUnit(inventoryUnit) &&
+            servingSizeG != null &&
+            servingSizeG > 0) {
+          deductQty = log.quantityG / servingSizeG;
+          deductUnit = inventoryUnit;
+        }
+
         rows.add(_DeductRow(
           label: item.name,
           brand: item.brand,
@@ -129,8 +146,8 @@ class _InventoryDeductSheetState
           requestedUnit: log.displayUnit,
           inventoryEntries: entries,
           selectedEntry: entries.isNotEmpty ? entries.first : null,
-          deductQty: log.quantityG,
-          deductUnit: log.displayUnit,
+          deductQty: deductQty,
+          deductUnit: deductUnit,
           skip: entries.isEmpty,
         ));
       }
@@ -181,6 +198,26 @@ class _InventoryDeductSheetState
       if (mounted) Navigator.of(context).pop(true);
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  static bool _isWeightVolUnit(String unit) {
+    switch (unit.toLowerCase().trim()) {
+      case 'g':
+      case 'gr':
+      case 'gramm':
+      case 'mg':
+      case 'kg':
+      case 'kilogramm':
+      case 'ml':
+      case 'milliliter':
+      case 'cl':
+      case 'dl':
+      case 'l':
+      case 'liter':
+        return true;
+      default:
+        return false;
     }
   }
 
