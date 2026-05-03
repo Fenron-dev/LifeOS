@@ -10,6 +10,7 @@ import '../../providers/items_provider.dart';
 import '../../providers/locations_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
 import '../../providers/units_provider.dart';
+import '../../providers/categories_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../screens/settings/unit_conversions_screen.dart';
 import '../../services/open_food_facts_service.dart';
@@ -512,18 +513,43 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               decoration: const InputDecoration(labelText: 'Marke'),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              // ignore: deprecated_member_use
-              value: _categoryId,
-              decoration: const InputDecoration(labelText: 'Kategorie'),
-              items: ItemCategory.allItemCategories
-                  .map((c) => DropdownMenuItem(
+            Builder(builder: (context) {
+              final customCats =
+                  ref.watch(categoryDefinitionsProvider).valueOrNull ?? [];
+              return DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
+                value: _categoryId,
+                decoration: const InputDecoration(labelText: 'Kategorie'),
+                items: [
+                  ...ItemCategory.allItemCategories.map((c) =>
+                      DropdownMenuItem(
                         value: c,
                         child: Text(ItemCategory.labelDe(c)),
-                      ))
-                  .toList(),
-              onChanged: (v) => setState(() => _categoryId = v!),
-            ),
+                      )),
+                  if (customCats.isNotEmpty) ...[
+                    const DropdownMenuItem(
+                      enabled: false,
+                      value: '__divider__',
+                      child: Divider(height: 1),
+                    ),
+                    ...customCats.map((cat) => DropdownMenuItem(
+                          value: cat.id,
+                          child: Row(
+                            children: [
+                              Icon(_categoryIconData(cat.iconName), size: 16),
+                              const SizedBox(width: 8),
+                              Text(cat.name),
+                            ],
+                          ),
+                        )),
+                  ],
+                ],
+                onChanged: (v) {
+                  if (v == null || v == '__divider__') return;
+                  setState(() => _categoryId = v);
+                },
+              );
+            }),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               // ignore: deprecated_member_use
@@ -890,6 +916,31 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       ),
     );
   }
+}
+
+IconData _categoryIconData(String? name) {
+  return switch (name) {
+    'fitness_center' => Icons.fitness_center,
+    'restaurant' => Icons.restaurant_outlined,
+    'local_cafe' => Icons.local_cafe_outlined,
+    'sports' => Icons.sports_outlined,
+    'spa' => Icons.spa_outlined,
+    'medical_services' => Icons.medical_services_outlined,
+    'school' => Icons.school_outlined,
+    'work' => Icons.work_outline,
+    'home' => Icons.home_outlined,
+    'pets' => Icons.pets_outlined,
+    'child_care' => Icons.child_care_outlined,
+    'nature' => Icons.nature_outlined,
+    'local_grocery_store' => Icons.local_grocery_store_outlined,
+    'kitchen' => Icons.kitchen_outlined,
+    'outdoor_grill' => Icons.outdoor_grill_outlined,
+    'blender' => Icons.blender_outlined,
+    'emoji_food_beverage' => Icons.emoji_food_beverage_outlined,
+    'set_meal' => Icons.set_meal_outlined,
+    'bakery_dining' => Icons.bakery_dining_outlined,
+    _ => Icons.category_outlined,
+  };
 }
 
 class _NutritionField extends StatelessWidget {

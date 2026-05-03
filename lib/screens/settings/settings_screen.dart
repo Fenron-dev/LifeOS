@@ -115,6 +115,13 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/meal-types'),
           ),
+          ListTile(
+            leading: const Icon(Icons.category_outlined),
+            title: const Text('Eigene Kategorien'),
+            subtitle: const Text('Fitness, Mealprep, Babynahrung…'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/categories'),
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.help_outline),

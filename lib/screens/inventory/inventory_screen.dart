@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/item_categories.dart';
 import '../../db/database.dart';
+import '../../providers/categories_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
@@ -38,25 +40,31 @@ class InventoryScreen extends ConsumerWidget {
           ...shellMenuActions(context),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SearchBar(
-              hintText: 'Artikel suchen…',
-              leading: const Icon(Icons.search),
-              trailing: query.isNotEmpty
-                  ? [
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => ref
-                            .read(itemSearchQueryProvider.notifier)
-                            .state = '',
-                      ),
-                    ]
-                  : null,
-              onChanged: (v) =>
-                  ref.read(itemSearchQueryProvider.notifier).state = v,
-            ),
+          preferredSize: const Size.fromHeight(104),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: SearchBar(
+                  hintText: 'Artikel suchen…',
+                  leading: const Icon(Icons.search),
+                  trailing: query.isNotEmpty
+                      ? [
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => ref
+                                .read(itemSearchQueryProvider.notifier)
+                                .state = '',
+                          ),
+                        ]
+                      : null,
+                  onChanged: (v) =>
+                      ref.read(itemSearchQueryProvider.notifier).state = v,
+                ),
+              ),
+              _CategoryFilterRow(),
+            ],
           ),
         ),
       ),
@@ -329,6 +337,44 @@ class _ProductTypeIcon extends StatelessWidget {
     return CircleAvatar(
       backgroundColor: color.withValues(alpha: 0.15),
       child: Icon(icon, color: color, size: 20),
+    );
+  }
+}
+
+class _CategoryFilterRow extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(itemCategoryFilterProvider);
+    final customCats =
+        ref.watch(categoryDefinitionsProvider).valueOrNull ?? [];
+
+    final chips = <(String, String)>[
+      for (final id in ItemCategory.allItemCategories)
+        (id, ItemCategory.labelDe(id)),
+      for (final cat in customCats)
+        (cat.id, cat.name),
+    ];
+
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: chips.length,
+        separatorBuilder: (context, i) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final (id, label) = chips[i];
+          final isSelected = selected == id;
+          return FilterChip(
+            label: Text(label),
+            selected: isSelected,
+            onSelected: (_) => ref
+                .read(itemCategoryFilterProvider.notifier)
+                .state = isSelected ? null : id,
+            visualDensity: VisualDensity.compact,
+          );
+        },
+      ),
     );
   }
 }

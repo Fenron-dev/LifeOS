@@ -21,16 +21,34 @@ final allItemsProvider = StreamProvider<List<Item>>((ref) {
 
 final itemSearchQueryProvider = StateProvider<String>((ref) => '');
 
+/// null = all categories; non-null = filter by categoryId
+final itemCategoryFilterProvider = StateProvider<String?>((ref) => null);
+
 // ---------------------------------------------------------------------------
-// Filtered items (search applied if query is non-empty)
+// Filtered items (search + category filter)
 // ---------------------------------------------------------------------------
 
 final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
   final db = ref.watch(databaseProvider);
   if (db == null) return const Stream.empty();
-  final query = ref.watch(itemSearchQueryProvider);
-  if (query.trim().isEmpty) return db.watchAllItems();
-  return db.searchItems(query.trim());
+  final query = ref.watch(itemSearchQueryProvider).trim();
+  final category = ref.watch(itemCategoryFilterProvider);
+
+  Stream<List<Item>> base;
+  if (query.isEmpty && category == null) {
+    base = db.watchAllItems();
+  } else if (query.isEmpty) {
+    base = db.watchItemsByCategory(category!);
+  } else {
+    base = db.searchItems(query);
+  }
+
+  // If both search and category are active, filter stream client-side
+  if (query.isNotEmpty && category != null) {
+    return base.map((items) =>
+        items.where((i) => i.categoryId == category).toList());
+  }
+  return base;
 });
 
 // ---------------------------------------------------------------------------

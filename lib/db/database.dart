@@ -22,6 +22,7 @@ import 'tables/automation_table.dart';
 import 'tables/nutrition_table.dart';
 import 'tables/stats_table.dart';
 import 'tables/meal_plan_table.dart';
+import 'tables/categories_table.dart';
 
 part 'database.g.dart';
 
@@ -69,6 +70,8 @@ part 'database.g.dart';
   WaterLogs,
   // Meal plan
   MealPlanEntries,
+  // Custom categories (Phase 4)
+  CategoryDefinitions,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -83,7 +86,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -240,6 +243,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 20) {
             // Phase 7.0 — meal plan.
             await m.createTable(mealPlanEntries);
+          }
+          if (from < 21) {
+            // Phase 4 — custom user-defined categories.
+            await m.createTable(categoryDefinitions);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -1439,6 +1446,27 @@ class AppDatabase extends _$AppDatabase {
 
     return needs.values.toList();
   }
+
+  // ── Custom Categories ──────────────────────────────────────────────────────
+
+  Stream<List<CategoryDefinition>> watchAllCategories() =>
+      (select(categoryDefinitions)
+            ..orderBy([
+              (c) => OrderingTerm.asc(c.sortOrder),
+              (c) => OrderingTerm.asc(c.name),
+            ]))
+          .watch();
+
+  Future<void> insertCategory(CategoryDefinitionsCompanion entry) =>
+      into(categoryDefinitions).insert(entry);
+
+  Future<void> updateCategory(CategoryDefinitionsCompanion entry) =>
+      (update(categoryDefinitions)
+            ..where((c) => c.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteCategory(String id) =>
+      (delete(categoryDefinitions)..where((c) => c.id.equals(id))).go();
 }
 
 /// Aggregated nutritional totals for a single calendar day.
