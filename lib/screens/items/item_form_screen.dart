@@ -74,6 +74,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   String _productType = 'needsCooking';
   bool _alwaysConsumedFully = false;
   bool _openedFlag = true;
+  int? _daysAfterOpening;
   String _categoryId = ItemCategory.food;
   String? _nutriscore;
   int? _novaGroup;
@@ -119,6 +120,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _productType = i.productType;
       _alwaysConsumedFully = i.alwaysConsumedFully;
       _openedFlag = i.openedFlag;
+      _daysAfterOpening = i.daysAfterOpening;
       _categoryId = i.categoryId;
       _nutriscore = i.nutriscore;
       _novaGroup = i.novaGroup;
@@ -358,6 +360,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         productType: _productType,
         alwaysConsumedFully: _alwaysConsumedFully,
         openedFlag: _openedFlag,
+        daysAfterOpening: _daysAfterOpening,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         caloriesPer100g: calories,
         proteinPer100g: protein,
@@ -384,6 +387,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         productType: _productType,
         alwaysConsumedFully: _alwaysConsumedFully,
         openedFlag: _openedFlag,
+        daysAfterOpening: Value(_daysAfterOpening),
         notes: Value(_notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim()),
         caloriesPer100g: Value(calories),
         proteinPer100g: Value(protein),
@@ -555,6 +559,20 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               title: const Text('Bleibt nach Öffnen vorhanden'),
               subtitle: const Text('Für Mindestmengen: gilt als vorhanden bis leer'),
               contentPadding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              initialValue: _daysAfterOpening?.toString() ?? '',
+              decoration: const InputDecoration(
+                labelText: 'Haltbar nach Öffnen (Tage)',
+                helperText: 'Wie viele Tage das Produkt nach Öffnen noch haltbar ist',
+                prefixIcon: Icon(Icons.lock_open_outlined),
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: (v) {
+                final n = int.tryParse(v.trim());
+                setState(() => _daysAfterOpening = n);
+              },
             ),
             const SizedBox(height: 12),
             // Stock unit dropdown

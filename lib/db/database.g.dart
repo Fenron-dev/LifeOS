@@ -565,6 +565,17 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _daysAfterOpeningMeta = const VerificationMeta(
+    'daysAfterOpening',
+  );
+  @override
+  late final GeneratedColumn<int> daysAfterOpening = GeneratedColumn<int>(
+    'days_after_opening',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _containerItemIdMeta = const VerificationMeta(
     'containerItemId',
   );
@@ -792,6 +803,7 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     productType,
     alwaysConsumedFully,
     openedFlag,
+    daysAfterOpening,
     containerItemId,
     notes,
     caloriesPer100g,
@@ -879,6 +891,15 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
       context.handle(
         _openedFlagMeta,
         openedFlag.isAcceptableOrUnknown(data['opened_flag']!, _openedFlagMeta),
+      );
+    }
+    if (data.containsKey('days_after_opening')) {
+      context.handle(
+        _daysAfterOpeningMeta,
+        daysAfterOpening.isAcceptableOrUnknown(
+          data['days_after_opening']!,
+          _daysAfterOpeningMeta,
+        ),
       );
     }
     if (data.containsKey('container_item_id')) {
@@ -1072,6 +1093,10 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.bool,
         data['${effectivePrefix}opened_flag'],
       )!,
+      daysAfterOpening: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}days_after_opening'],
+      ),
       containerItemId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}container_item_id'],
@@ -1166,6 +1191,7 @@ class Item extends DataClass implements Insertable<Item> {
   final String productType;
   final bool alwaysConsumedFully;
   final bool openedFlag;
+  final int? daysAfterOpening;
   final String? containerItemId;
   final String? notes;
   final double? caloriesPer100g;
@@ -1201,6 +1227,7 @@ class Item extends DataClass implements Insertable<Item> {
     required this.productType,
     required this.alwaysConsumedFully,
     required this.openedFlag,
+    this.daysAfterOpening,
     this.containerItemId,
     this.notes,
     this.caloriesPer100g,
@@ -1236,6 +1263,9 @@ class Item extends DataClass implements Insertable<Item> {
     map['product_type'] = Variable<String>(productType);
     map['always_consumed_fully'] = Variable<bool>(alwaysConsumedFully);
     map['opened_flag'] = Variable<bool>(openedFlag);
+    if (!nullToAbsent || daysAfterOpening != null) {
+      map['days_after_opening'] = Variable<int>(daysAfterOpening);
+    }
     if (!nullToAbsent || containerItemId != null) {
       map['container_item_id'] = Variable<String>(containerItemId);
     }
@@ -1302,6 +1332,9 @@ class Item extends DataClass implements Insertable<Item> {
       productType: Value(productType),
       alwaysConsumedFully: Value(alwaysConsumedFully),
       openedFlag: Value(openedFlag),
+      daysAfterOpening: daysAfterOpening == null && nullToAbsent
+          ? const Value.absent()
+          : Value(daysAfterOpening),
       containerItemId: containerItemId == null && nullToAbsent
           ? const Value.absent()
           : Value(containerItemId),
@@ -1372,6 +1405,7 @@ class Item extends DataClass implements Insertable<Item> {
         json['alwaysConsumedFully'],
       ),
       openedFlag: serializer.fromJson<bool>(json['openedFlag']),
+      daysAfterOpening: serializer.fromJson<int?>(json['daysAfterOpening']),
       containerItemId: serializer.fromJson<String?>(json['containerItemId']),
       notes: serializer.fromJson<String?>(json['notes']),
       caloriesPer100g: serializer.fromJson<double?>(json['caloriesPer100g']),
@@ -1409,6 +1443,7 @@ class Item extends DataClass implements Insertable<Item> {
       'productType': serializer.toJson<String>(productType),
       'alwaysConsumedFully': serializer.toJson<bool>(alwaysConsumedFully),
       'openedFlag': serializer.toJson<bool>(openedFlag),
+      'daysAfterOpening': serializer.toJson<int?>(daysAfterOpening),
       'containerItemId': serializer.toJson<String?>(containerItemId),
       'notes': serializer.toJson<String?>(notes),
       'caloriesPer100g': serializer.toJson<double?>(caloriesPer100g),
@@ -1440,6 +1475,7 @@ class Item extends DataClass implements Insertable<Item> {
     String? productType,
     bool? alwaysConsumedFully,
     bool? openedFlag,
+    Value<int?> daysAfterOpening = const Value.absent(),
     Value<String?> containerItemId = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<double?> caloriesPer100g = const Value.absent(),
@@ -1468,6 +1504,9 @@ class Item extends DataClass implements Insertable<Item> {
     productType: productType ?? this.productType,
     alwaysConsumedFully: alwaysConsumedFully ?? this.alwaysConsumedFully,
     openedFlag: openedFlag ?? this.openedFlag,
+    daysAfterOpening: daysAfterOpening.present
+        ? daysAfterOpening.value
+        : this.daysAfterOpening,
     containerItemId: containerItemId.present
         ? containerItemId.value
         : this.containerItemId,
@@ -1520,6 +1559,9 @@ class Item extends DataClass implements Insertable<Item> {
       openedFlag: data.openedFlag.present
           ? data.openedFlag.value
           : this.openedFlag,
+      daysAfterOpening: data.daysAfterOpening.present
+          ? data.daysAfterOpening.value
+          : this.daysAfterOpening,
       containerItemId: data.containerItemId.present
           ? data.containerItemId.value
           : this.containerItemId,
@@ -1581,6 +1623,7 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('productType: $productType, ')
           ..write('alwaysConsumedFully: $alwaysConsumedFully, ')
           ..write('openedFlag: $openedFlag, ')
+          ..write('daysAfterOpening: $daysAfterOpening, ')
           ..write('containerItemId: $containerItemId, ')
           ..write('notes: $notes, ')
           ..write('caloriesPer100g: $caloriesPer100g, ')
@@ -1614,6 +1657,7 @@ class Item extends DataClass implements Insertable<Item> {
     productType,
     alwaysConsumedFully,
     openedFlag,
+    daysAfterOpening,
     containerItemId,
     notes,
     caloriesPer100g,
@@ -1646,6 +1690,7 @@ class Item extends DataClass implements Insertable<Item> {
           other.productType == this.productType &&
           other.alwaysConsumedFully == this.alwaysConsumedFully &&
           other.openedFlag == this.openedFlag &&
+          other.daysAfterOpening == this.daysAfterOpening &&
           other.containerItemId == this.containerItemId &&
           other.notes == this.notes &&
           other.caloriesPer100g == this.caloriesPer100g &&
@@ -1676,6 +1721,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<String> productType;
   final Value<bool> alwaysConsumedFully;
   final Value<bool> openedFlag;
+  final Value<int?> daysAfterOpening;
   final Value<String?> containerItemId;
   final Value<String?> notes;
   final Value<double?> caloriesPer100g;
@@ -1705,6 +1751,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.productType = const Value.absent(),
     this.alwaysConsumedFully = const Value.absent(),
     this.openedFlag = const Value.absent(),
+    this.daysAfterOpening = const Value.absent(),
     this.containerItemId = const Value.absent(),
     this.notes = const Value.absent(),
     this.caloriesPer100g = const Value.absent(),
@@ -1735,6 +1782,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.productType = const Value.absent(),
     this.alwaysConsumedFully = const Value.absent(),
     this.openedFlag = const Value.absent(),
+    this.daysAfterOpening = const Value.absent(),
     this.containerItemId = const Value.absent(),
     this.notes = const Value.absent(),
     this.caloriesPer100g = const Value.absent(),
@@ -1767,6 +1815,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<String>? productType,
     Expression<bool>? alwaysConsumedFully,
     Expression<bool>? openedFlag,
+    Expression<int>? daysAfterOpening,
     Expression<String>? containerItemId,
     Expression<String>? notes,
     Expression<double>? caloriesPer100g,
@@ -1798,6 +1847,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (alwaysConsumedFully != null)
         'always_consumed_fully': alwaysConsumedFully,
       if (openedFlag != null) 'opened_flag': openedFlag,
+      if (daysAfterOpening != null) 'days_after_opening': daysAfterOpening,
       if (containerItemId != null) 'container_item_id': containerItemId,
       if (notes != null) 'notes': notes,
       if (caloriesPer100g != null) 'calories_per100g': caloriesPer100g,
@@ -1831,6 +1881,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<String>? productType,
     Value<bool>? alwaysConsumedFully,
     Value<bool>? openedFlag,
+    Value<int?>? daysAfterOpening,
     Value<String?>? containerItemId,
     Value<String?>? notes,
     Value<double?>? caloriesPer100g,
@@ -1861,6 +1912,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       productType: productType ?? this.productType,
       alwaysConsumedFully: alwaysConsumedFully ?? this.alwaysConsumedFully,
       openedFlag: openedFlag ?? this.openedFlag,
+      daysAfterOpening: daysAfterOpening ?? this.daysAfterOpening,
       containerItemId: containerItemId ?? this.containerItemId,
       notes: notes ?? this.notes,
       caloriesPer100g: caloriesPer100g ?? this.caloriesPer100g,
@@ -1910,6 +1962,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     }
     if (openedFlag.present) {
       map['opened_flag'] = Variable<bool>(openedFlag.value);
+    }
+    if (daysAfterOpening.present) {
+      map['days_after_opening'] = Variable<int>(daysAfterOpening.value);
     }
     if (containerItemId.present) {
       map['container_item_id'] = Variable<String>(containerItemId.value);
@@ -1987,6 +2042,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('productType: $productType, ')
           ..write('alwaysConsumedFully: $alwaysConsumedFully, ')
           ..write('openedFlag: $openedFlag, ')
+          ..write('daysAfterOpening: $daysAfterOpening, ')
           ..write('containerItemId: $containerItemId, ')
           ..write('notes: $notes, ')
           ..write('caloriesPer100g: $caloriesPer100g, ')
@@ -2094,6 +2150,17 @@ class $InventoryEntriesTable extends InventoryEntries
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _openedAtMeta = const VerificationMeta(
+    'openedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> openedAt = GeneratedColumn<DateTime>(
+    'opened_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _frozenAtMeta = const VerificationMeta(
     'frozenAt',
   );
@@ -2182,6 +2249,7 @@ class $InventoryEntriesTable extends InventoryEntries
     unit,
     state,
     expiryDate,
+    openedAt,
     frozenAt,
     thawedAt,
     activeContainerId,
@@ -2247,6 +2315,12 @@ class $InventoryEntriesTable extends InventoryEntries
       context.handle(
         _expiryDateMeta,
         expiryDate.isAcceptableOrUnknown(data['expiry_date']!, _expiryDateMeta),
+      );
+    }
+    if (data.containsKey('opened_at')) {
+      context.handle(
+        _openedAtMeta,
+        openedAt.isAcceptableOrUnknown(data['opened_at']!, _openedAtMeta),
       );
     }
     if (data.containsKey('frozen_at')) {
@@ -2331,6 +2405,10 @@ class $InventoryEntriesTable extends InventoryEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}expiry_date'],
       ),
+      openedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}opened_at'],
+      ),
       frozenAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}frozen_at'],
@@ -2376,6 +2454,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
   final String unit;
   final String state;
   final DateTime? expiryDate;
+  final DateTime? openedAt;
   final DateTime? frozenAt;
   final DateTime? thawedAt;
   final String? activeContainerId;
@@ -2391,6 +2470,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
     required this.unit,
     required this.state,
     this.expiryDate,
+    this.openedAt,
     this.frozenAt,
     this.thawedAt,
     this.activeContainerId,
@@ -2412,6 +2492,9 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
     map['state'] = Variable<String>(state);
     if (!nullToAbsent || expiryDate != null) {
       map['expiry_date'] = Variable<DateTime>(expiryDate);
+    }
+    if (!nullToAbsent || openedAt != null) {
+      map['opened_at'] = Variable<DateTime>(openedAt);
     }
     if (!nullToAbsent || frozenAt != null) {
       map['frozen_at'] = Variable<DateTime>(frozenAt);
@@ -2446,6 +2529,9 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
       expiryDate: expiryDate == null && nullToAbsent
           ? const Value.absent()
           : Value(expiryDate),
+      openedAt: openedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(openedAt),
       frozenAt: frozenAt == null && nullToAbsent
           ? const Value.absent()
           : Value(frozenAt),
@@ -2479,6 +2565,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
       unit: serializer.fromJson<String>(json['unit']),
       state: serializer.fromJson<String>(json['state']),
       expiryDate: serializer.fromJson<DateTime?>(json['expiryDate']),
+      openedAt: serializer.fromJson<DateTime?>(json['openedAt']),
       frozenAt: serializer.fromJson<DateTime?>(json['frozenAt']),
       thawedAt: serializer.fromJson<DateTime?>(json['thawedAt']),
       activeContainerId: serializer.fromJson<String?>(
@@ -2501,6 +2588,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
       'unit': serializer.toJson<String>(unit),
       'state': serializer.toJson<String>(state),
       'expiryDate': serializer.toJson<DateTime?>(expiryDate),
+      'openedAt': serializer.toJson<DateTime?>(openedAt),
       'frozenAt': serializer.toJson<DateTime?>(frozenAt),
       'thawedAt': serializer.toJson<DateTime?>(thawedAt),
       'activeContainerId': serializer.toJson<String?>(activeContainerId),
@@ -2519,6 +2607,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
     String? unit,
     String? state,
     Value<DateTime?> expiryDate = const Value.absent(),
+    Value<DateTime?> openedAt = const Value.absent(),
     Value<DateTime?> frozenAt = const Value.absent(),
     Value<DateTime?> thawedAt = const Value.absent(),
     Value<String?> activeContainerId = const Value.absent(),
@@ -2534,6 +2623,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
     unit: unit ?? this.unit,
     state: state ?? this.state,
     expiryDate: expiryDate.present ? expiryDate.value : this.expiryDate,
+    openedAt: openedAt.present ? openedAt.value : this.openedAt,
     frozenAt: frozenAt.present ? frozenAt.value : this.frozenAt,
     thawedAt: thawedAt.present ? thawedAt.value : this.thawedAt,
     activeContainerId: activeContainerId.present
@@ -2557,6 +2647,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
       expiryDate: data.expiryDate.present
           ? data.expiryDate.value
           : this.expiryDate,
+      openedAt: data.openedAt.present ? data.openedAt.value : this.openedAt,
       frozenAt: data.frozenAt.present ? data.frozenAt.value : this.frozenAt,
       thawedAt: data.thawedAt.present ? data.thawedAt.value : this.thawedAt,
       activeContainerId: data.activeContainerId.present
@@ -2579,6 +2670,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
           ..write('unit: $unit, ')
           ..write('state: $state, ')
           ..write('expiryDate: $expiryDate, ')
+          ..write('openedAt: $openedAt, ')
           ..write('frozenAt: $frozenAt, ')
           ..write('thawedAt: $thawedAt, ')
           ..write('activeContainerId: $activeContainerId, ')
@@ -2599,6 +2691,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
     unit,
     state,
     expiryDate,
+    openedAt,
     frozenAt,
     thawedAt,
     activeContainerId,
@@ -2618,6 +2711,7 @@ class InventoryEntry extends DataClass implements Insertable<InventoryEntry> {
           other.unit == this.unit &&
           other.state == this.state &&
           other.expiryDate == this.expiryDate &&
+          other.openedAt == this.openedAt &&
           other.frozenAt == this.frozenAt &&
           other.thawedAt == this.thawedAt &&
           other.activeContainerId == this.activeContainerId &&
@@ -2635,6 +2729,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
   final Value<String> unit;
   final Value<String> state;
   final Value<DateTime?> expiryDate;
+  final Value<DateTime?> openedAt;
   final Value<DateTime?> frozenAt;
   final Value<DateTime?> thawedAt;
   final Value<String?> activeContainerId;
@@ -2651,6 +2746,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
     this.unit = const Value.absent(),
     this.state = const Value.absent(),
     this.expiryDate = const Value.absent(),
+    this.openedAt = const Value.absent(),
     this.frozenAt = const Value.absent(),
     this.thawedAt = const Value.absent(),
     this.activeContainerId = const Value.absent(),
@@ -2668,6 +2764,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
     required String unit,
     this.state = const Value.absent(),
     this.expiryDate = const Value.absent(),
+    this.openedAt = const Value.absent(),
     this.frozenAt = const Value.absent(),
     this.thawedAt = const Value.absent(),
     this.activeContainerId = const Value.absent(),
@@ -2688,6 +2785,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
     Expression<String>? unit,
     Expression<String>? state,
     Expression<DateTime>? expiryDate,
+    Expression<DateTime>? openedAt,
     Expression<DateTime>? frozenAt,
     Expression<DateTime>? thawedAt,
     Expression<String>? activeContainerId,
@@ -2705,6 +2803,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
       if (unit != null) 'unit': unit,
       if (state != null) 'state': state,
       if (expiryDate != null) 'expiry_date': expiryDate,
+      if (openedAt != null) 'opened_at': openedAt,
       if (frozenAt != null) 'frozen_at': frozenAt,
       if (thawedAt != null) 'thawed_at': thawedAt,
       if (activeContainerId != null) 'active_container_id': activeContainerId,
@@ -2724,6 +2823,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
     Value<String>? unit,
     Value<String>? state,
     Value<DateTime?>? expiryDate,
+    Value<DateTime?>? openedAt,
     Value<DateTime?>? frozenAt,
     Value<DateTime?>? thawedAt,
     Value<String?>? activeContainerId,
@@ -2741,6 +2841,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
       unit: unit ?? this.unit,
       state: state ?? this.state,
       expiryDate: expiryDate ?? this.expiryDate,
+      openedAt: openedAt ?? this.openedAt,
       frozenAt: frozenAt ?? this.frozenAt,
       thawedAt: thawedAt ?? this.thawedAt,
       activeContainerId: activeContainerId ?? this.activeContainerId,
@@ -2775,6 +2876,9 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
     }
     if (expiryDate.present) {
       map['expiry_date'] = Variable<DateTime>(expiryDate.value);
+    }
+    if (openedAt.present) {
+      map['opened_at'] = Variable<DateTime>(openedAt.value);
     }
     if (frozenAt.present) {
       map['frozen_at'] = Variable<DateTime>(frozenAt.value);
@@ -2813,6 +2917,7 @@ class InventoryEntriesCompanion extends UpdateCompanion<InventoryEntry> {
           ..write('unit: $unit, ')
           ..write('state: $state, ')
           ..write('expiryDate: $expiryDate, ')
+          ..write('openedAt: $openedAt, ')
           ..write('frozenAt: $frozenAt, ')
           ..write('thawedAt: $thawedAt, ')
           ..write('activeContainerId: $activeContainerId, ')
@@ -17805,6 +17910,7 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String> productType,
       Value<bool> alwaysConsumedFully,
       Value<bool> openedFlag,
+      Value<int?> daysAfterOpening,
       Value<String?> containerItemId,
       Value<String?> notes,
       Value<double?> caloriesPer100g,
@@ -17836,6 +17942,7 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String> productType,
       Value<bool> alwaysConsumedFully,
       Value<bool> openedFlag,
+      Value<int?> daysAfterOpening,
       Value<String?> containerItemId,
       Value<String?> notes,
       Value<double?> caloriesPer100g,
@@ -18139,6 +18246,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<bool> get openedFlag => $composableBuilder(
     column: $table.openedFlag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get daysAfterOpening => $composableBuilder(
+    column: $table.daysAfterOpening,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18549,6 +18661,11 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get daysAfterOpening => $composableBuilder(
+    column: $table.daysAfterOpening,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -18719,6 +18836,11 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<bool> get openedFlag => $composableBuilder(
     column: $table.openedFlag,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get daysAfterOpening => $composableBuilder(
+    column: $table.daysAfterOpening,
     builder: (column) => column,
   );
 
@@ -19120,6 +19242,7 @@ class $$ItemsTableTableManager
                 Value<String> productType = const Value.absent(),
                 Value<bool> alwaysConsumedFully = const Value.absent(),
                 Value<bool> openedFlag = const Value.absent(),
+                Value<int?> daysAfterOpening = const Value.absent(),
                 Value<String?> containerItemId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<double?> caloriesPer100g = const Value.absent(),
@@ -19149,6 +19272,7 @@ class $$ItemsTableTableManager
                 productType: productType,
                 alwaysConsumedFully: alwaysConsumedFully,
                 openedFlag: openedFlag,
+                daysAfterOpening: daysAfterOpening,
                 containerItemId: containerItemId,
                 notes: notes,
                 caloriesPer100g: caloriesPer100g,
@@ -19180,6 +19304,7 @@ class $$ItemsTableTableManager
                 Value<String> productType = const Value.absent(),
                 Value<bool> alwaysConsumedFully = const Value.absent(),
                 Value<bool> openedFlag = const Value.absent(),
+                Value<int?> daysAfterOpening = const Value.absent(),
                 Value<String?> containerItemId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<double?> caloriesPer100g = const Value.absent(),
@@ -19209,6 +19334,7 @@ class $$ItemsTableTableManager
                 productType: productType,
                 alwaysConsumedFully: alwaysConsumedFully,
                 openedFlag: openedFlag,
+                daysAfterOpening: daysAfterOpening,
                 containerItemId: containerItemId,
                 notes: notes,
                 caloriesPer100g: caloriesPer100g,
@@ -19530,6 +19656,7 @@ typedef $$InventoryEntriesTableCreateCompanionBuilder =
       required String unit,
       Value<String> state,
       Value<DateTime?> expiryDate,
+      Value<DateTime?> openedAt,
       Value<DateTime?> frozenAt,
       Value<DateTime?> thawedAt,
       Value<String?> activeContainerId,
@@ -19548,6 +19675,7 @@ typedef $$InventoryEntriesTableUpdateCompanionBuilder =
       Value<String> unit,
       Value<String> state,
       Value<DateTime?> expiryDate,
+      Value<DateTime?> openedAt,
       Value<DateTime?> frozenAt,
       Value<DateTime?> thawedAt,
       Value<String?> activeContainerId,
@@ -19698,6 +19826,11 @@ class $$InventoryEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get expiryDate => $composableBuilder(
     column: $table.expiryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get openedAt => $composableBuilder(
+    column: $table.openedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19885,6 +20018,11 @@ class $$InventoryEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get openedAt => $composableBuilder(
+    column: $table.openedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get frozenAt => $composableBuilder(
     column: $table.frozenAt,
     builder: (column) => ColumnOrderings(column),
@@ -20010,6 +20148,9 @@ class $$InventoryEntriesTableAnnotationComposer
     column: $table.expiryDate,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get openedAt =>
+      $composableBuilder(column: $table.openedAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get frozenAt =>
       $composableBuilder(column: $table.frozenAt, builder: (column) => column);
@@ -20192,6 +20333,7 @@ class $$InventoryEntriesTableTableManager
                 Value<String> unit = const Value.absent(),
                 Value<String> state = const Value.absent(),
                 Value<DateTime?> expiryDate = const Value.absent(),
+                Value<DateTime?> openedAt = const Value.absent(),
                 Value<DateTime?> frozenAt = const Value.absent(),
                 Value<DateTime?> thawedAt = const Value.absent(),
                 Value<String?> activeContainerId = const Value.absent(),
@@ -20208,6 +20350,7 @@ class $$InventoryEntriesTableTableManager
                 unit: unit,
                 state: state,
                 expiryDate: expiryDate,
+                openedAt: openedAt,
                 frozenAt: frozenAt,
                 thawedAt: thawedAt,
                 activeContainerId: activeContainerId,
@@ -20226,6 +20369,7 @@ class $$InventoryEntriesTableTableManager
                 required String unit,
                 Value<String> state = const Value.absent(),
                 Value<DateTime?> expiryDate = const Value.absent(),
+                Value<DateTime?> openedAt = const Value.absent(),
                 Value<DateTime?> frozenAt = const Value.absent(),
                 Value<DateTime?> thawedAt = const Value.absent(),
                 Value<String?> activeContainerId = const Value.absent(),
@@ -20242,6 +20386,7 @@ class $$InventoryEntriesTableTableManager
                 unit: unit,
                 state: state,
                 expiryDate: expiryDate,
+                openedAt: openedAt,
                 frozenAt: frozenAt,
                 thawedAt: thawedAt,
                 activeContainerId: activeContainerId,

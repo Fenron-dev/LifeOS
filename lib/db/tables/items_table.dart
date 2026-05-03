@@ -15,6 +15,8 @@ class Items extends Table {
   BoolColumn get alwaysConsumedFully => boolean().withDefault(const Constant(false))();
   // When opened: is product still counted in stock? (e.g. ketchup = true, cracker pack = false)
   BoolColumn get openedFlag => boolean().withDefault(const Constant(true))();
+  // How many days the product lasts after opening (null = no opened-expiry)
+  IntColumn get daysAfterOpening => integer().nullable()();
 
   // Smart Tara: default container item for this product
   TextColumn get containerItemId => text()
@@ -69,6 +71,8 @@ class InventoryEntries extends Table {
   TextColumn get unit => text()(); // g, kg, ml, l, piece, package, ...
   TextColumn get state => text().withDefault(const Constant('fresh'))(); // fresh | frozen | thawed
   DateTimeColumn get expiryDate => dateTime().nullable()();
+  // When this entry was opened (null = not opened yet)
+  DateTimeColumn get openedAt => dateTime().nullable()();
   DateTimeColumn get frozenAt => dateTime().nullable()();
   DateTimeColumn get thawedAt => dateTime().nullable()();
   // Container currently used (may differ from item.containerItemId)

@@ -508,14 +508,48 @@ class _LogList extends ConsumerWidget {
                           parts.join(' · '),
                           style: TextStyle(color: cs.onSurfaceVariant),
                         ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Bearbeiten',
-                    onPressed: () => showModalBottomSheet<void>(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (_) => MeasurementEntrySheet(editLog: m),
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Löschen',
+                        onPressed: () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Eintrag löschen?'),
+                              content: const Text(
+                                  'Diese Messung wird unwiderruflich entfernt.'),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(false),
+                                    child: const Text('Abbrechen')),
+                                FilledButton(
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(true),
+                                    child: const Text('Löschen')),
+                              ],
+                            ),
+                          );
+                          if (ok == true) {
+                            ref
+                                .read(measurementsOpsProvider.notifier)
+                                .deleteLog(m.id);
+                          }
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Bearbeiten',
+                        onPressed: () => showModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (_) => MeasurementEntrySheet(editLog: m),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );

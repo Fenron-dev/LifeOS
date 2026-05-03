@@ -23,6 +23,7 @@ import 'screens/settings/help_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'screens/inventory/groups_screen.dart';
 import 'screens/inventory/shopping_list_screen.dart';
+import 'screens/inventory/shelf_life_screen.dart';
 import 'health/screens/me_screen.dart';
 import 'widgets/adaptive_shell.dart';
 
@@ -121,6 +122,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'groups',
                     builder: (context, state) => const GroupsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'shelf-life',
+                    builder: (context, state) => const ShelfLifeScreen(),
                   ),
                 ],
               ),

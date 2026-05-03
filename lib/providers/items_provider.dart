@@ -72,6 +72,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
     String productType = 'needsCooking',
     bool alwaysConsumedFully = false,
     bool openedFlag = true,
+    int? daysAfterOpening,
     String? notes,
     // Nutrition
     double? caloriesPer100g,
@@ -100,6 +101,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       productType: Value(productType),
       alwaysConsumedFully: Value(alwaysConsumedFully),
       openedFlag: Value(openedFlag),
+      daysAfterOpening: Value(daysAfterOpening),
       notes: Value(notes),
       caloriesPer100g: Value(caloriesPer100g),
       proteinPer100g: Value(proteinPer100g),
@@ -130,6 +132,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       productType: Value(item.productType),
       alwaysConsumedFully: Value(item.alwaysConsumedFully),
       openedFlag: Value(item.openedFlag),
+      daysAfterOpening: Value(item.daysAfterOpening),
       containerItemId: Value(item.containerItemId),
       notes: Value(item.notes),
       caloriesPer100g: Value(item.caloriesPer100g),

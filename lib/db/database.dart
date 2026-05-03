@@ -80,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -224,6 +224,11 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(standardMeals, standardMeals.carbsG);
             await m.addColumn(standardMeals, standardMeals.fatG);
           }
+          if (from < 17) {
+            // Phase 6.7 — opened-state tracking for inventory entries.
+            await m.addColumn(items, items.daysAfterOpening);
+            await m.addColumn(inventoryEntries, inventoryEntries.openedAt);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -313,6 +318,29 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([(e) => OrderingTerm.asc(e.expiryDate)]))
         .get();
   }
+
+  /// Streams ALL inventory entries joined with their item, for the shelf-life
+  /// overview screen. Includes entries without an expiry date so the user can
+  /// also set `openedAt` on those. Sorting by effective expiry is done in Dart
+  /// (effective = min(expiryDate, openedAt + daysAfterOpening)).
+  Stream<List<({InventoryEntry entry, Item item})>> watchShelfLife() {
+    final query = select(inventoryEntries).join([
+      innerJoin(items, items.id.equalsExp(inventoryEntries.itemId)),
+    ]);
+    return query.watch().map(
+          (rows) => rows
+              .map((r) => (
+                    entry: r.readTable(inventoryEntries),
+                    item: r.readTable(items),
+                  ))
+              .toList(),
+        );
+  }
+
+  Future<void> setInventoryOpenedAt(String entryId, DateTime? openedAt) =>
+      (update(inventoryEntries)..where((e) => e.id.equals(entryId))).write(
+        InventoryEntriesCompanion(openedAt: Value(openedAt)),
+      );
 
   Future<void> insertInventoryEntry(InventoryEntriesCompanion entry) =>
       into(inventoryEntries).insert(entry);

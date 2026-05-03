@@ -74,25 +74,49 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _unit = log.displayUnit;
       _qtyController.text = _fmtQty(log.quantityG);
       _notesController.text = log.notes ?? '';
-      // Start with a stub product; _reloadItemData replaces it with current
-      // item nutrition so corrected values are immediately reflected.
-      _product = FoodSearchResult(
-        productName: log.productName,
-        brand: log.brand,
-        ean: log.ean,
-        itemId: log.itemId,
-        source: log.source,
-      );
-      if (log.kcal != null) _kcalManual.text = log.kcal!.toStringAsFixed(0);
-      if (log.proteinG != null) {
-        _proteinManual.text = log.proteinG!.toStringAsFixed(1);
-      }
-      if (log.carbsG != null) _carbsManual.text = log.carbsG!.toStringAsFixed(1);
-      if (log.fatG != null) _fatManual.text = log.fatG!.toStringAsFixed(1);
-      // Reload from DB so corrected item nutrition is used, not the stale log
-      if (log.itemId != null) {
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _reloadItemData(log));
+
+      if (log.source == 'meal' || log.source == 'recipe') {
+        // quantityG stores the number of servings (after the fix).
+        // Reconstruct per-serving totals so changing qty re-multiplies correctly.
+        final servings = log.quantityG > 0 ? log.quantityG : 1.0;
+        _product = FoodSearchResult(
+          productName: log.productName,
+          brand: log.brand,
+          ean: log.ean,
+          itemId: log.itemId,
+          source: log.source,
+          isRecipe: true,
+          recipeKcalTotal:
+              log.kcal != null ? log.kcal! / servings : null,
+          recipeProteinTotal:
+              log.proteinG != null ? log.proteinG! / servings : null,
+          recipeCarbsTotal:
+              log.carbsG != null ? log.carbsG! / servings : null,
+          recipeFatTotal:
+              log.fatG != null ? log.fatG! / servings : null,
+        );
+      } else {
+        // Start with a stub product; _reloadItemData replaces it with current
+        // item nutrition so corrected values are immediately reflected.
+        _product = FoodSearchResult(
+          productName: log.productName,
+          brand: log.brand,
+          ean: log.ean,
+          itemId: log.itemId,
+          source: log.source,
+        );
+        if (log.kcal != null) _kcalManual.text = log.kcal!.toStringAsFixed(0);
+        if (log.proteinG != null) {
+          _proteinManual.text = log.proteinG!.toStringAsFixed(1);
+        }
+        if (log.carbsG != null) {
+          _carbsManual.text = log.carbsG!.toStringAsFixed(1);
+        }
+        if (log.fatG != null) _fatManual.text = log.fatG!.toStringAsFixed(1);
+        if (log.itemId != null) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _reloadItemData(log));
+        }
       }
     } else if (widget.initialProduct != null) {
       _product = widget.initialProduct;
@@ -255,6 +279,9 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     }
 
     final qtyG = _toGrams(qty);
+    // For meals/recipes quantityG stores the serving count, not grams.
+    // This keeps the "70 Portionen" display correct.
+    final storedQty = _hasRecipeTotals ? qty : qtyG;
     late double? kcal, protein, carbs, fat, fiber;
     if (_hasRecipeTotals) {
       // qty = number of servings; multiply stored per-serving totals
@@ -298,7 +325,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
                 mealTypeId: Value(_mealTypeId),
                 itemId: Value(_product!.itemId),
                 ean: Value(_product!.ean),
-                quantityG: Value(qtyG),
+                quantityG: Value(storedQty),
                 displayUnit: Value(_unit),
                 kcal: Value(kcal),
                 proteinG: Value(protein),
@@ -316,7 +343,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               mealTypeId: _mealTypeId,
               itemId: _product!.itemId,
               ean: _product!.ean,
-              quantityG: qtyG,
+              quantityG: storedQty,
               displayUnit: _unit,
               kcal: kcal,
               proteinG: protein,

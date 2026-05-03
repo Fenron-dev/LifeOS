@@ -26,6 +26,11 @@ class InventoryScreen extends ConsumerWidget {
         title: const Text('Inventar'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.event_available_outlined),
+            tooltip: 'Haltbarkeit',
+            onPressed: () => context.push('/inventory/shelf-life'),
+          ),
+          IconButton(
             icon: const Icon(Icons.shopping_cart_outlined),
             tooltip: 'Einkaufsliste',
             onPressed: () => context.push('/inventory/shopping'),
