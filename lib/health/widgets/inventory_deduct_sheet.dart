@@ -121,9 +121,10 @@ class _InventoryDeductSheetState
 
   /// Best-guess deduction quantity in [inventoryUnit] given the diary log
   /// [quantityG] (always grams, or raw count when no servingSizeG) and the
-  /// item's [servingSizeG].
+  /// item's explicit [consumeQty]/[consumeUnit] override or [servingSizeG].
   ///
-  /// Rules:
+  /// Rules (highest priority first):
+  ///  • item has consumeQty + consumeUnit and units match inventory → use that
   ///  • inventory in weight/vol  → use quantityG, convert g→inventoryUnit
   ///  • inventory in count unit  → quantityG / servingSizeG  (if known)
   ///  • no servingSizeG          → fall back to 1 (one inventory unit)
@@ -131,7 +132,17 @@ class _InventoryDeductSheetState
     required double quantityG,
     required String inventoryUnit,
     required double? servingSizeG,
+    double? consumeQty,
+    String? consumeUnit,
   }) {
+    // Explicit per-item override takes precedence when the unit matches
+    if (consumeQty != null &&
+        consumeQty > 0 &&
+        consumeUnit != null &&
+        consumeUnit.toLowerCase().trim() ==
+            inventoryUnit.toLowerCase().trim()) {
+      return consumeQty;
+    }
     if (_isWeightVolUnit(inventoryUnit)) {
       // Convert grams to the inventory's weight unit
       return _convertWeightVol(quantityG, 'g', inventoryUnit) ?? quantityG;
@@ -169,6 +180,8 @@ class _InventoryDeductSheetState
           quantityG: qty,
           inventoryUnit: inventoryUnit,
           servingSizeG: item?.servingSizeG,
+          consumeQty: item?.consumeQty,
+          consumeUnit: item?.consumeUnit,
         );
         rows.add(_DeductRow(
           label: ing.name,
@@ -196,6 +209,8 @@ class _InventoryDeductSheetState
           quantityG: qty,
           inventoryUnit: inventoryUnit,
           servingSizeG: item?.servingSizeG,
+          consumeQty: item?.consumeQty,
+          consumeUnit: item?.consumeUnit,
         );
         rows.add(_DeductRow(
           label: ing.name,
@@ -219,6 +234,8 @@ class _InventoryDeductSheetState
           quantityG: log.quantityG,
           inventoryUnit: inventoryUnit,
           servingSizeG: item.servingSizeG,
+          consumeQty: item.consumeQty,
+          consumeUnit: item.consumeUnit,
         );
         rows.add(_DeductRow(
           label: item.name,

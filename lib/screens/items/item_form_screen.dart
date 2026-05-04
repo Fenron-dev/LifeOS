@@ -90,6 +90,10 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   String? _stockUnit;
   String? _defaultLocationId;
 
+  // Default consume unit (per-item deduction override)
+  late final TextEditingController _consumeQtyCtrl;
+  String? _consumeUnit;
+
   // Group membership
   Set<String> _selectedGroupIds = {};
   Set<String> _originalGroupIds = {};
@@ -116,6 +120,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     _fiberCtrl = TextEditingController(text: _fmtCtrl(i?.fiberPer100g));
     _saltCtrl = TextEditingController(text: _fmtCtrl(i?.saltPer100g));
     _servingSizeCtrl = TextEditingController(text: _fmtCtrl(i?.servingSizeG));
+    _consumeQtyCtrl = TextEditingController(
+        text: i?.consumeQty != null ? _fmtCtrl(i!.consumeQty) : '');
 
     if (i != null) {
       _productType = i.productType;
@@ -128,6 +134,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _stockUnit = i.stockUnit;
       _defaultLocationId = i.defaultLocationId;
       _nutritionRefUnit = i.nutritionRefUnit;
+      _consumeUnit = i.consumeUnit;
       _showNutrition = _hasAnyNutrition(i);
     }
     // Load existing group memberships and item conversions
@@ -184,6 +191,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     _fiberCtrl.dispose();
     _saltCtrl.dispose();
     _servingSizeCtrl.dispose();
+    _consumeQtyCtrl.dispose();
     super.dispose();
   }
 
@@ -351,6 +359,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         ? _ingredientsCtrl.text.trim()
         : null;
 
+    final consumeQty = double.tryParse(_consumeQtyCtrl.text.trim().replaceAll(',', '.'));
+
     final String itemId;
     if (existing == null) {
       itemId = await notifier.createItem(
@@ -378,6 +388,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         stockUnit: _stockUnit,
         defaultLocationId: _defaultLocationId,
         nutritionRefUnit: _nutritionRefUnit,
+        consumeQty: consumeQty,
+        consumeUnit: consumeQty != null ? _consumeUnit : null,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -405,6 +417,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         stockUnit: Value(_stockUnit),
         defaultLocationId: Value(_defaultLocationId),
         nutritionRefUnit: _nutritionRefUnit,
+        consumeQty: Value(consumeQty),
+        consumeUnit: Value(consumeQty != null ? _consumeUnit : null),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -621,6 +635,48 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                   ],
                   onChanged: (v) => setState(() => _stockUnit = v),
                 ),
+              );
+            }),
+            const SizedBox(height: 12),
+            // Default consume amount (overrides the servingSizeG heuristic when deducting)
+            Consumer(builder: (context, ref, _) {
+              final unitNames = ref.watch(unitNamesProvider);
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _consumeQtyCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Verbrauchsmenge',
+                        helperText: 'Standard-Abzug beim Ausbuchen',
+                        prefixIcon: Icon(Icons.remove_circle_outline),
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Einheit',
+                        helperText: ' ',
+                      ),
+                      child: DropdownButton<String?>(
+                        value: unitNames.contains(_consumeUnit) ? _consumeUnit : null,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('— auto —')),
+                          ...unitNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                        ],
+                        onChanged: (v) => setState(() => _consumeUnit = v),
+                      ),
+                    ),
+                  ),
+                ],
               );
             }),
             const SizedBox(height: 12),

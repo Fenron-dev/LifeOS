@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../providers/inventory_provider.dart';
 import '../providers/items_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/vault_provider.dart';
 
 /// Overflow menu actions shared across all main-branch AppBars.
 /// Provides navigation to Wishlist and Settings.
@@ -310,6 +313,12 @@ class _QuickActionsSheet extends ConsumerWidget {
                   Navigator.of(context).pop();
                   if (a == QuickAction.scanBarcode) {
                     onScanRequest();
+                  } else if (a == QuickAction.consumeInventory) {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (ctx) => const _ConsumePickerSheet(),
+                    );
                   } else {
                     _navigate(context, a);
                   }
@@ -434,4 +443,370 @@ class _DesktopShell extends StatelessWidget {
           ],
         ),
       );
+}
+
+// ---------------------------------------------------------------------------
+// Quick-consume picker: search for item → deduct
+// ---------------------------------------------------------------------------
+
+class _ConsumePickerSheet extends ConsumerStatefulWidget {
+  const _ConsumePickerSheet();
+
+  @override
+  ConsumerState<_ConsumePickerSheet> createState() =>
+      _ConsumePickerSheetState();
+}
+
+class _ConsumePickerSheetState extends ConsumerState<_ConsumePickerSheet> {
+  final _searchCtrl = TextEditingController();
+  List<Item> _results = [];
+  bool _searching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _search('');
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String query) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    setState(() => _searching = true);
+    final results = query.trim().isEmpty
+        ? await db.watchAllItems().first
+        : await db.searchItems(query.trim()).first;
+    if (!mounted) return;
+    setState(() {
+      _results = results;
+      _searching = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (ctx, scrollCtrl) => Column(
+        children: [
+          // Handle + search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('Artikel ausbuchen',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 10),
+                SearchBar(
+                  controller: _searchCtrl,
+                  hintText: 'Artikel suchen…',
+                  leading: const Icon(Icons.search),
+                  onChanged: _search,
+                  padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 12)),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (_searching)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            )
+          else
+            Expanded(
+              child: ListView.builder(
+                controller: scrollCtrl,
+                itemCount: _results.length,
+                itemBuilder: (ctx2, i) {
+                  final item = _results[i];
+                  return ListTile(
+                    title: Text(item.name),
+                    subtitle: item.brand != null ? Text(item.brand!) : null,
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => _QuickDeductSheet(item: item),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick-deduct sheet for a single item (no diary log needed)
+// ---------------------------------------------------------------------------
+
+class _QuickDeductSheet extends ConsumerStatefulWidget {
+  final Item item;
+  const _QuickDeductSheet({required this.item});
+
+  @override
+  ConsumerState<_QuickDeductSheet> createState() => _QuickDeductSheetState();
+}
+
+class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
+  List<InventoryEntry> _entries = [];
+  InventoryEntry? _selected;
+  bool _loading = true;
+  bool _saving = false;
+  late final TextEditingController _qtyCtrl;
+  String _reason = 'consumed';
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    final preQty = item.consumeQty ?? 1.0;
+    _qtyCtrl = TextEditingController(
+        text: preQty % 1 == 0
+            ? preQty.toStringAsFixed(0)
+            : preQty.toStringAsFixed(2));
+    _loadEntries();
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadEntries() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    final entries = await db.inventoryEntriesForItem(widget.item.id);
+    if (!mounted) return;
+    InventoryEntry? sel = entries.isNotEmpty ? entries.first : null;
+    // If item has a consumeUnit, prefer an entry matching that unit
+    final cu = widget.item.consumeUnit;
+    if (cu != null && entries.isNotEmpty) {
+      sel = entries.firstWhere(
+        (e) => e.unit.toLowerCase() == cu.toLowerCase(),
+        orElse: () => entries.first,
+      );
+    }
+    setState(() {
+      _entries = entries;
+      _selected = sel;
+      _loading = false;
+    });
+  }
+
+  double get _deductQty =>
+      double.tryParse(_qtyCtrl.text.replaceAll(',', '.')) ?? 0;
+
+  Future<void> _confirm() async {
+    final entry = _selected;
+    if (entry == null || _deductQty <= 0) return;
+    setState(() => _saving = true);
+    try {
+      final remaining =
+          (entry.quantity - _deductQty).clamp(0.0, double.infinity);
+      await ref.read(inventoryOpsProvider.notifier).consume(
+            itemId: widget.item.id,
+            inventoryEntryId: entry.id,
+            quantity: _deductQty,
+            unit: entry.unit,
+            remainingQuantity: remaining,
+            consumptionReason: _reason,
+          );
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  static String _fmtQty(double v) =>
+      v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final item = widget.item;
+    final entry = _selected;
+    final unit = entry?.unit ?? item.consumeUnit ?? '—';
+    final remaining = entry != null
+        ? (entry.quantity - _deductQty).clamp(0.0, double.infinity)
+        : 0.0;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(item.name, style: Theme.of(context).textTheme.titleMedium),
+            if (item.brand != null)
+              Text(item.brand!,
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 14),
+            if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else if (_entries.isEmpty)
+              Text('Kein Bestand vorhanden.',
+                  style: TextStyle(color: cs.onSurfaceVariant))
+            else ...[
+              // Qty row
+              Row(
+                children: [
+                  SizedBox(
+                    width: 90,
+                    child: TextFormField(
+                      controller: _qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 8),
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor:
+                            cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      ),
+                      textAlign: TextAlign.center,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(unit,
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 16),
+                  Text(
+                    '→ verbleibend: ${_fmtQty(remaining)} $unit',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: remaining <= 0 ? cs.error : cs.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+              // Entry selector when multiple
+              if (_entries.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    children: _entries.map((e) {
+                      final sel = _selected?.id == e.id;
+                      return ChoiceChip(
+                        label: Text(
+                          '${_fmtQty(e.quantity)} ${e.unit}'
+                          '${e.expiryDate != null ? ' (MHD ${e.expiryDate!.day}.${e.expiryDate!.month}.)' : ''}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        selected: sel,
+                        onSelected: (_) => setState(() => _selected = e),
+                        visualDensity: VisualDensity.compact,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              // Reason selector
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                      value: 'consumed',
+                      label: Text('Konsumiert'),
+                      icon: Icon(Icons.restaurant, size: 14)),
+                  ButtonSegment(
+                      value: 'expired',
+                      label: Text('Abgelaufen'),
+                      icon: Icon(Icons.event_busy, size: 14)),
+                  ButtonSegment(
+                      value: 'discarded',
+                      label: Text('Weggeworfen'),
+                      icon: Icon(Icons.delete_outline, size: 14)),
+                ],
+                selected: {_reason},
+                onSelectionChanged: (s) =>
+                    setState(() => _reason = s.first),
+                style: const ButtonStyle(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed:
+                      _saving ? null : () => Navigator.of(context).pop(),
+                  child: const Text('Abbrechen'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: (_saving ||
+                          _loading ||
+                          _entries.isEmpty ||
+                          _deductQty <= 0)
+                      ? null
+                      : _confirm,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Text('Ausbuchen'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

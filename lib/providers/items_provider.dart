@@ -109,6 +109,8 @@ class ItemsNotifier extends AsyncNotifier<void> {
     String? stockUnit,
     String? defaultLocationId,
     String nutritionRefUnit = 'g',
+    double? consumeQty,
+    String? consumeUnit,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -137,6 +139,8 @@ class ItemsNotifier extends AsyncNotifier<void> {
       stockUnit: Value(stockUnit),
       defaultLocationId: Value(defaultLocationId),
       nutritionRefUnit: Value(nutritionRefUnit),
+      consumeQty: Value(consumeQty),
+      consumeUnit: Value(consumeUnit),
     ));
     return id;
   }
@@ -169,6 +173,8 @@ class ItemsNotifier extends AsyncNotifier<void> {
       stockUnit: Value(item.stockUnit),
       defaultLocationId: Value(item.defaultLocationId),
       nutritionRefUnit: Value(item.nutritionRefUnit),
+      consumeQty: Value(item.consumeQty),
+      consumeUnit: Value(item.consumeUnit),
       updatedAt: Value(DateTime.now()),
     ));
   }

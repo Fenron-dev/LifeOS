@@ -52,6 +52,14 @@ class Items extends Table {
       .nullable()
       .references(Locations, #id, onDelete: KeyAction.setNull)();
 
+  /// Default deduction amount when consuming from diary or Quick Action.
+  /// Stored in [consumeUnit]. Example: 1 Stück, 200 ml, 0.5 Packung.
+  RealColumn get consumeQty => real().nullable()();
+
+  /// Unit for [consumeQty]. Should match an inventory entry unit.
+  /// If null, the deduction sheet falls back to the servingSizeG heuristic.
+  TextColumn get consumeUnit => text().nullable()();
+
   // User ratings
   IntColumn get starRating => integer().nullable()(); // 1–5
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();

@@ -25,10 +25,10 @@ void main() {
     await db.close();
   });
 
-  test('fresh database opens and exposes schemaVersion 23', () async {
+  test('fresh database opens and exposes schemaVersion 24', () async {
     // Triggers onCreate → createAll + seeds + _createIndexes
     await db.customSelect('SELECT 1').get();
-    expect(db.schemaVersion, 23);
+    expect(db.schemaVersion, 24);
   });
 
   test('every declared table is reachable', () async {

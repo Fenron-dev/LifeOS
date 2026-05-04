@@ -94,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -267,6 +267,11 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(workouts);
             await m.createTable(workoutSets);
             await _seedDefaultExercises();
+          }
+          if (from < 24) {
+            // Phase 6.9 — default consume unit per item.
+            await m.addColumn(items, items.consumeQty);
+            await m.addColumn(items, items.consumeUnit);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.

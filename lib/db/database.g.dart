@@ -769,6 +769,28 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
           'REFERENCES locations (id) ON DELETE SET NULL',
         ),
       );
+  static const VerificationMeta _consumeQtyMeta = const VerificationMeta(
+    'consumeQty',
+  );
+  @override
+  late final GeneratedColumn<double> consumeQty = GeneratedColumn<double>(
+    'consume_qty',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _consumeUnitMeta = const VerificationMeta(
+    'consumeUnit',
+  );
+  @override
+  late final GeneratedColumn<String> consumeUnit = GeneratedColumn<String>(
+    'consume_unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _starRatingMeta = const VerificationMeta(
     'starRating',
   );
@@ -862,6 +884,8 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     nutritionRefUnit,
     stockUnit,
     defaultLocationId,
+    consumeQty,
+    consumeUnit,
     starRating,
     isFavorite,
     isTrashed,
@@ -1084,6 +1108,21 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         ),
       );
     }
+    if (data.containsKey('consume_qty')) {
+      context.handle(
+        _consumeQtyMeta,
+        consumeQty.isAcceptableOrUnknown(data['consume_qty']!, _consumeQtyMeta),
+      );
+    }
+    if (data.containsKey('consume_unit')) {
+      context.handle(
+        _consumeUnitMeta,
+        consumeUnit.isAcceptableOrUnknown(
+          data['consume_unit']!,
+          _consumeUnitMeta,
+        ),
+      );
+    }
     if (data.containsKey('star_rating')) {
       context.handle(
         _starRatingMeta,
@@ -1227,6 +1266,14 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}default_location_id'],
       ),
+      consumeQty: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}consume_qty'],
+      ),
+      consumeUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}consume_unit'],
+      ),
       starRating: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}star_rating'],
@@ -1290,6 +1337,14 @@ class Item extends DataClass implements Insertable<Item> {
 
   /// Default location for new inventory entries (pre-selects in AddStockSheet).
   final String? defaultLocationId;
+
+  /// Default deduction amount when consuming from diary or Quick Action.
+  /// Stored in [consumeUnit]. Example: 1 Stück, 200 ml, 0.5 Packung.
+  final double? consumeQty;
+
+  /// Unit for [consumeQty]. Should match an inventory entry unit.
+  /// If null, the deduction sheet falls back to the servingSizeG heuristic.
+  final String? consumeUnit;
   final int? starRating;
   final bool isFavorite;
   final bool isTrashed;
@@ -1322,6 +1377,8 @@ class Item extends DataClass implements Insertable<Item> {
     required this.nutritionRefUnit,
     this.stockUnit,
     this.defaultLocationId,
+    this.consumeQty,
+    this.consumeUnit,
     this.starRating,
     required this.isFavorite,
     required this.isTrashed,
@@ -1394,6 +1451,12 @@ class Item extends DataClass implements Insertable<Item> {
     }
     if (!nullToAbsent || defaultLocationId != null) {
       map['default_location_id'] = Variable<String>(defaultLocationId);
+    }
+    if (!nullToAbsent || consumeQty != null) {
+      map['consume_qty'] = Variable<double>(consumeQty);
+    }
+    if (!nullToAbsent || consumeUnit != null) {
+      map['consume_unit'] = Variable<String>(consumeUnit);
     }
     if (!nullToAbsent || starRating != null) {
       map['star_rating'] = Variable<int>(starRating);
@@ -1469,6 +1532,12 @@ class Item extends DataClass implements Insertable<Item> {
       defaultLocationId: defaultLocationId == null && nullToAbsent
           ? const Value.absent()
           : Value(defaultLocationId),
+      consumeQty: consumeQty == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consumeQty),
+      consumeUnit: consumeUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consumeUnit),
       starRating: starRating == null && nullToAbsent
           ? const Value.absent()
           : Value(starRating),
@@ -1517,6 +1586,8 @@ class Item extends DataClass implements Insertable<Item> {
       defaultLocationId: serializer.fromJson<String?>(
         json['defaultLocationId'],
       ),
+      consumeQty: serializer.fromJson<double?>(json['consumeQty']),
+      consumeUnit: serializer.fromJson<String?>(json['consumeUnit']),
       starRating: serializer.fromJson<int?>(json['starRating']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       isTrashed: serializer.fromJson<bool>(json['isTrashed']),
@@ -1554,6 +1625,8 @@ class Item extends DataClass implements Insertable<Item> {
       'nutritionRefUnit': serializer.toJson<String>(nutritionRefUnit),
       'stockUnit': serializer.toJson<String?>(stockUnit),
       'defaultLocationId': serializer.toJson<String?>(defaultLocationId),
+      'consumeQty': serializer.toJson<double?>(consumeQty),
+      'consumeUnit': serializer.toJson<String?>(consumeUnit),
       'starRating': serializer.toJson<int?>(starRating),
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'isTrashed': serializer.toJson<bool>(isTrashed),
@@ -1589,6 +1662,8 @@ class Item extends DataClass implements Insertable<Item> {
     String? nutritionRefUnit,
     Value<String?> stockUnit = const Value.absent(),
     Value<String?> defaultLocationId = const Value.absent(),
+    Value<double?> consumeQty = const Value.absent(),
+    Value<String?> consumeUnit = const Value.absent(),
     Value<int?> starRating = const Value.absent(),
     bool? isFavorite,
     bool? isTrashed,
@@ -1637,6 +1712,8 @@ class Item extends DataClass implements Insertable<Item> {
     defaultLocationId: defaultLocationId.present
         ? defaultLocationId.value
         : this.defaultLocationId,
+    consumeQty: consumeQty.present ? consumeQty.value : this.consumeQty,
+    consumeUnit: consumeUnit.present ? consumeUnit.value : this.consumeUnit,
     starRating: starRating.present ? starRating.value : this.starRating,
     isFavorite: isFavorite ?? this.isFavorite,
     isTrashed: isTrashed ?? this.isTrashed,
@@ -1709,6 +1786,12 @@ class Item extends DataClass implements Insertable<Item> {
       defaultLocationId: data.defaultLocationId.present
           ? data.defaultLocationId.value
           : this.defaultLocationId,
+      consumeQty: data.consumeQty.present
+          ? data.consumeQty.value
+          : this.consumeQty,
+      consumeUnit: data.consumeUnit.present
+          ? data.consumeUnit.value
+          : this.consumeUnit,
       starRating: data.starRating.present
           ? data.starRating.value
           : this.starRating,
@@ -1750,6 +1833,8 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('nutritionRefUnit: $nutritionRefUnit, ')
           ..write('stockUnit: $stockUnit, ')
           ..write('defaultLocationId: $defaultLocationId, ')
+          ..write('consumeQty: $consumeQty, ')
+          ..write('consumeUnit: $consumeUnit, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -1787,6 +1872,8 @@ class Item extends DataClass implements Insertable<Item> {
     nutritionRefUnit,
     stockUnit,
     defaultLocationId,
+    consumeQty,
+    consumeUnit,
     starRating,
     isFavorite,
     isTrashed,
@@ -1823,6 +1910,8 @@ class Item extends DataClass implements Insertable<Item> {
           other.nutritionRefUnit == this.nutritionRefUnit &&
           other.stockUnit == this.stockUnit &&
           other.defaultLocationId == this.defaultLocationId &&
+          other.consumeQty == this.consumeQty &&
+          other.consumeUnit == this.consumeUnit &&
           other.starRating == this.starRating &&
           other.isFavorite == this.isFavorite &&
           other.isTrashed == this.isTrashed &&
@@ -1857,6 +1946,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<String> nutritionRefUnit;
   final Value<String?> stockUnit;
   final Value<String?> defaultLocationId;
+  final Value<double?> consumeQty;
+  final Value<String?> consumeUnit;
   final Value<int?> starRating;
   final Value<bool> isFavorite;
   final Value<bool> isTrashed;
@@ -1890,6 +1981,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutritionRefUnit = const Value.absent(),
     this.stockUnit = const Value.absent(),
     this.defaultLocationId = const Value.absent(),
+    this.consumeQty = const Value.absent(),
+    this.consumeUnit = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -1924,6 +2017,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.nutritionRefUnit = const Value.absent(),
     this.stockUnit = const Value.absent(),
     this.defaultLocationId = const Value.absent(),
+    this.consumeQty = const Value.absent(),
+    this.consumeUnit = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -1960,6 +2055,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<String>? nutritionRefUnit,
     Expression<String>? stockUnit,
     Expression<String>? defaultLocationId,
+    Expression<double>? consumeQty,
+    Expression<String>? consumeUnit,
     Expression<int>? starRating,
     Expression<bool>? isFavorite,
     Expression<bool>? isTrashed,
@@ -1996,6 +2093,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (nutritionRefUnit != null) 'nutrition_ref_unit': nutritionRefUnit,
       if (stockUnit != null) 'stock_unit': stockUnit,
       if (defaultLocationId != null) 'default_location_id': defaultLocationId,
+      if (consumeQty != null) 'consume_qty': consumeQty,
+      if (consumeUnit != null) 'consume_unit': consumeUnit,
       if (starRating != null) 'star_rating': starRating,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (isTrashed != null) 'is_trashed': isTrashed,
@@ -2032,6 +2131,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<String>? nutritionRefUnit,
     Value<String?>? stockUnit,
     Value<String?>? defaultLocationId,
+    Value<double?>? consumeQty,
+    Value<String?>? consumeUnit,
     Value<int?>? starRating,
     Value<bool>? isFavorite,
     Value<bool>? isTrashed,
@@ -2066,6 +2167,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       nutritionRefUnit: nutritionRefUnit ?? this.nutritionRefUnit,
       stockUnit: stockUnit ?? this.stockUnit,
       defaultLocationId: defaultLocationId ?? this.defaultLocationId,
+      consumeQty: consumeQty ?? this.consumeQty,
+      consumeUnit: consumeUnit ?? this.consumeUnit,
       starRating: starRating ?? this.starRating,
       isFavorite: isFavorite ?? this.isFavorite,
       isTrashed: isTrashed ?? this.isTrashed,
@@ -2158,6 +2261,12 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (defaultLocationId.present) {
       map['default_location_id'] = Variable<String>(defaultLocationId.value);
     }
+    if (consumeQty.present) {
+      map['consume_qty'] = Variable<double>(consumeQty.value);
+    }
+    if (consumeUnit.present) {
+      map['consume_unit'] = Variable<String>(consumeUnit.value);
+    }
     if (starRating.present) {
       map['star_rating'] = Variable<int>(starRating.value);
     }
@@ -2208,6 +2317,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('nutritionRefUnit: $nutritionRefUnit, ')
           ..write('stockUnit: $stockUnit, ')
           ..write('defaultLocationId: $defaultLocationId, ')
+          ..write('consumeQty: $consumeQty, ')
+          ..write('consumeUnit: $consumeUnit, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -21982,6 +22093,8 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String> nutritionRefUnit,
       Value<String?> stockUnit,
       Value<String?> defaultLocationId,
+      Value<double?> consumeQty,
+      Value<String?> consumeUnit,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -22017,6 +22130,8 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String> nutritionRefUnit,
       Value<String?> stockUnit,
       Value<String?> defaultLocationId,
+      Value<double?> consumeQty,
+      Value<String?> consumeUnit,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -22404,6 +22519,16 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get stockUnit => $composableBuilder(
     column: $table.stockUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get consumeQty => $composableBuilder(
+    column: $table.consumeQty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get consumeUnit => $composableBuilder(
+    column: $table.consumeUnit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22859,6 +22984,16 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get consumeQty => $composableBuilder(
+    column: $table.consumeQty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get consumeUnit => $composableBuilder(
+    column: $table.consumeUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get starRating => $composableBuilder(
     column: $table.starRating,
     builder: (column) => ColumnOrderings(column),
@@ -23045,6 +23180,16 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<String> get stockUnit =>
       $composableBuilder(column: $table.stockUnit, builder: (column) => column);
+
+  GeneratedColumn<double> get consumeQty => $composableBuilder(
+    column: $table.consumeQty,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get consumeUnit => $composableBuilder(
+    column: $table.consumeUnit,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get starRating => $composableBuilder(
     column: $table.starRating,
@@ -23432,6 +23577,8 @@ class $$ItemsTableTableManager
                 Value<String> nutritionRefUnit = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
                 Value<String?> defaultLocationId = const Value.absent(),
+                Value<double?> consumeQty = const Value.absent(),
+                Value<String?> consumeUnit = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -23465,6 +23612,8 @@ class $$ItemsTableTableManager
                 nutritionRefUnit: nutritionRefUnit,
                 stockUnit: stockUnit,
                 defaultLocationId: defaultLocationId,
+                consumeQty: consumeQty,
+                consumeUnit: consumeUnit,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
@@ -23500,6 +23649,8 @@ class $$ItemsTableTableManager
                 Value<String> nutritionRefUnit = const Value.absent(),
                 Value<String?> stockUnit = const Value.absent(),
                 Value<String?> defaultLocationId = const Value.absent(),
+                Value<double?> consumeQty = const Value.absent(),
+                Value<String?> consumeUnit = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -23533,6 +23684,8 @@ class $$ItemsTableTableManager
                 nutritionRefUnit: nutritionRefUnit,
                 stockUnit: stockUnit,
                 defaultLocationId: defaultLocationId,
+                consumeQty: consumeQty,
+                consumeUnit: consumeUnit,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
