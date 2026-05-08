@@ -8,6 +8,7 @@ import '../providers/inventory_provider.dart';
 import '../providers/items_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/vault_provider.dart';
+import '../utils/unit_deduct_utils.dart';
 
 /// Overflow menu actions shared across all main-branch AppBars.
 /// Provides navigation to Wishlist and Settings.
@@ -569,22 +570,7 @@ class _ConsumePickerSheetState extends ConsumerState<_ConsumePickerSheet> {
 // Quick-deduct sheet for a single item (no diary log needed)
 // ---------------------------------------------------------------------------
 
-/// Unit option for the quick-deduct sheet.
-/// [factor] = how many inventory-native units equal 1 logical unit.
-class _QDUnitOption {
-  final String unit;
-  final double factor;
-  final double defaultQty;
-  const _QDUnitOption(this.unit, this.factor, this.defaultQty);
-
-  @override
-  bool operator ==(Object other) =>
-      other is _QDUnitOption &&
-      other.unit.toLowerCase() == unit.toLowerCase();
-
-  @override
-  int get hashCode => unit.toLowerCase().hashCode;
-}
+typedef _QDUnitOption = UnitDeductOption;
 
 class _QuickDeductSheet extends ConsumerStatefulWidget {
   final Item item;
@@ -618,124 +604,6 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
     super.dispose();
   }
 
-  // ── Unit conversion helpers (mirror of inventory_deduct_sheet.dart) ──────
-
-  static bool _isWeightVol(String u) {
-    switch (u.toLowerCase().trim()) {
-      case 'g':
-      case 'gr':
-      case 'gramm':
-      case 'mg':
-      case 'kg':
-      case 'kilogramm':
-      case 'ml':
-      case 'milliliter':
-      case 'cl':
-      case 'dl':
-      case 'l':
-      case 'liter':
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  static double? _cvtWV(double qty, String from, String to) {
-    final f = from.toLowerCase().trim();
-    final t = to.toLowerCase().trim();
-    if (f == t) return qty;
-    if (f == 'g' && (t == 'kg' || t == 'kilogramm')) return qty / 1000;
-    if ((f == 'kg' || f == 'kilogramm') && t == 'g') return qty * 1000;
-    if (f == 'ml' && (t == 'l' || t == 'liter')) return qty / 1000;
-    if ((f == 'l' || f == 'liter') && t == 'ml') return qty * 1000;
-    if (f == 'cl' && t == 'ml') return qty * 10;
-    if (f == 'ml' && t == 'cl') return qty / 10;
-    if (f == 'dl' && t == 'ml') return qty * 100;
-    if (f == 'ml' && t == 'dl') return qty / 100;
-    return null;
-  }
-
-  static double? _factorToInv({
-    required String logicalToUnit,
-    required double logicalFactor,
-    required String inventoryUnit,
-    required List<UnitConversion> convs,
-  }) {
-    final toLo = logicalToUnit.toLowerCase().trim();
-    final invLo = inventoryUnit.toLowerCase().trim();
-    if (toLo == invLo) return logicalFactor;
-    if (_isWeightVol(toLo) && _isWeightVol(invLo)) {
-      final w = _cvtWV(logicalFactor, logicalToUnit, inventoryUnit);
-      if (w != null) return w;
-    }
-    for (final c2 in convs) {
-      final c2f = c2.fromUnit.toLowerCase().trim();
-      final c2t = c2.toUnit.toLowerCase().trim();
-      if (c2f == toLo && c2t == invLo) return logicalFactor * c2.factor;
-      if (c2t == toLo && c2f == invLo && c2.factor > 0) {
-        return logicalFactor / c2.factor;
-      }
-      if (c2f == toLo && _isWeightVol(c2t) && _isWeightVol(invLo)) {
-        final w = _cvtWV(logicalFactor * c2.factor, c2.toUnit, inventoryUnit);
-        if (w != null) return w;
-      }
-    }
-    return null;
-  }
-
-  static List<_QDUnitOption> _buildOptions({
-    required String inventoryUnit,
-    required List<UnitConversion> convs,
-    double? consumeQty,
-    String? consumeUnit,
-  }) {
-    final invLo = inventoryUnit.toLowerCase().trim();
-    final options = <_QDUnitOption>[];
-    final seen = <String>{invLo};
-
-    double defQty(String u) {
-      if (consumeUnit?.toLowerCase().trim() == u.toLowerCase().trim()) {
-        return consumeQty ?? 1.0;
-      }
-      return 1.0;
-    }
-
-    options.add(_QDUnitOption(inventoryUnit, 1.0, defQty(inventoryUnit)));
-
-    for (final conv in convs) {
-      final fromLo = conv.fromUnit.toLowerCase().trim();
-      final toLo = conv.toUnit.toLowerCase().trim();
-
-      if (!seen.contains(fromLo)) {
-        final f = _factorToInv(
-          logicalToUnit: conv.toUnit,
-          logicalFactor: conv.factor,
-          inventoryUnit: inventoryUnit,
-          convs: convs,
-        );
-        if (f != null) {
-          options.add(_QDUnitOption(conv.fromUnit, f, defQty(conv.fromUnit)));
-          seen.add(fromLo);
-        }
-      }
-
-      if (!seen.contains(toLo) && conv.factor > 0) {
-        final f = _factorToInv(
-          logicalToUnit: conv.fromUnit,
-          logicalFactor: 1.0 / conv.factor,
-          inventoryUnit: inventoryUnit,
-          convs: convs,
-        );
-        if (f != null) {
-          options.add(_QDUnitOption(conv.toUnit, f, defQty(conv.toUnit)));
-          seen.add(toLo);
-        }
-      }
-    }
-
-    return options;
-  }
-
   // ── Load ─────────────────────────────────────────────────────────────────
 
   Future<void> _loadEntries() async {
@@ -756,11 +624,12 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
     final globalConvs = await db.watchConversionsGlobal().first;
     final allConvs = [...itemConvs, ...globalConvs];
 
-    final opts = _buildOptions(
+    final opts = buildDeductUnitOptions(
       inventoryUnit: inventoryUnit,
-      convs: allConvs,
+      conversions: allConvs,
       consumeQty: item.consumeQty,
       consumeUnit: item.consumeUnit,
+      fallbackQty: 1.0,
     );
 
     // Pre-select consumeUnit option (or first)

@@ -5,26 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../db/database.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../utils/unit_deduct_utils.dart';
 import '../providers/nutrition_provider.dart';
 
-// ── Unit option ───────────────────────────────────────────────────────────────
-
-/// One selectable deduction unit.
-/// [factor] = how many inventory-native units equal 1 logical unit.
-/// E.g. if inventory is "g" and logical unit is "Portion" (20g): factor = 20.
-class _UnitOption {
-  final String unit;
-  final double factor;
-  final double defaultQty;
-  const _UnitOption(this.unit, this.factor, this.defaultQty);
-
-  @override
-  bool operator ==(Object other) =>
-      other is _UnitOption && other.unit.toLowerCase() == unit.toLowerCase();
-
-  @override
-  int get hashCode => unit.toLowerCase().hashCode;
-}
+typedef _UnitOption = UnitDeductOption;
 
 // ── Row data model ────────────────────────────────────────────────────────────
 
@@ -111,153 +95,6 @@ class _InventoryDeductSheetState
     super.dispose();
   }
 
-  // ── Unit helpers ────────────────────────────────────────────────────────────
-
-  static bool _isWeightVolUnit(String unit) {
-    switch (unit.toLowerCase().trim()) {
-      case 'g':
-      case 'gr':
-      case 'gramm':
-      case 'mg':
-      case 'kg':
-      case 'kilogramm':
-      case 'ml':
-      case 'milliliter':
-      case 'cl':
-      case 'dl':
-      case 'l':
-      case 'liter':
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  static double? _convertWeightVol(double qty, String from, String to) {
-    final f = from.toLowerCase().trim();
-    final t = to.toLowerCase().trim();
-    if (f == t) return qty;
-    if (f == 'g' && (t == 'kg' || t == 'kilogramm')) return qty / 1000;
-    if ((f == 'kg' || f == 'kilogramm') && t == 'g') return qty * 1000;
-    if (f == 'ml' && (t == 'l' || t == 'liter')) return qty / 1000;
-    if ((f == 'l' || f == 'liter') && t == 'ml') return qty * 1000;
-    if (f == 'cl' && t == 'ml') return qty * 10;
-    if (f == 'ml' && t == 'cl') return qty / 10;
-    if (f == 'dl' && t == 'ml') return qty * 100;
-    if (f == 'ml' && t == 'dl') return qty / 100;
-    return null;
-  }
-
-  /// Returns F such that 1 [logicalUnit] = F [inventoryUnit].
-  ///
-  /// [logicalToUnit] + [logicalFactor] define: 1 logicalUnit = logicalFactor logicalToUnit.
-  /// We chain this to [inventoryUnit] using [allConversions] or weight/vol rules.
-  static double? _factorToInventory({
-    required String logicalToUnit,
-    required double logicalFactor,
-    required String inventoryUnit,
-    required List<UnitConversion> allConversions,
-  }) {
-    final toLo = logicalToUnit.toLowerCase().trim();
-    final invLo = inventoryUnit.toLowerCase().trim();
-
-    // Direct match
-    if (toLo == invLo) return logicalFactor;
-
-    // Weight/vol chain (g → kg, ml → l, etc.)
-    if (_isWeightVolUnit(toLo) && _isWeightVolUnit(invLo)) {
-      final w = _convertWeightVol(logicalFactor, logicalToUnit, inventoryUnit);
-      if (w != null) return w;
-    }
-
-    // One more hop via another conversion in the list
-    for (final c2 in allConversions) {
-      final c2f = c2.fromUnit.toLowerCase().trim();
-      final c2t = c2.toUnit.toLowerCase().trim();
-
-      // chain: logicalUnit → logicalToUnit → inventoryUnit (via c2: logicalToUnit → inventoryUnit)
-      if (c2f == toLo && c2t == invLo) {
-        return logicalFactor * c2.factor;
-      }
-      // chain: logicalUnit → logicalToUnit → inventoryUnit via reverse c2
-      if (c2t == toLo && c2f == invLo && c2.factor > 0) {
-        return logicalFactor / c2.factor;
-      }
-      // chain: logicalUnit → logicalToUnit (weight) → c2.toUnit → inventoryUnit
-      if (c2f == toLo && _isWeightVolUnit(c2t) && _isWeightVolUnit(invLo)) {
-        final w = _convertWeightVol(
-            logicalFactor * c2.factor, c2.toUnit, inventoryUnit);
-        if (w != null) return w;
-      }
-    }
-
-    return null;
-  }
-
-  /// Builds the list of selectable unit options for one row.
-  ///
-  /// Always includes the raw [inventoryUnit] (factor = 1). Additional options
-  /// come from [conversions]: any unit that can be converted to [inventoryUnit]
-  /// via a direct rule, weight/vol chain, or one-hop through the list.
-  static List<_UnitOption> _buildUnitOptions({
-    required String inventoryUnit,
-    required List<UnitConversion> conversions,
-    double? consumeQty,
-    String? consumeUnit,
-    required double fallbackQty,
-  }) {
-    final invLo = inventoryUnit.toLowerCase().trim();
-    final options = <_UnitOption>[];
-    final seen = <String>{invLo};
-
-    double defQtyFor(String unit) {
-      if (consumeUnit?.toLowerCase().trim() == unit.toLowerCase().trim()) {
-        return consumeQty ?? 1.0;
-      }
-      return unit.toLowerCase().trim() == invLo ? fallbackQty : 1.0;
-    }
-
-    // Raw inventory unit always first
-    options.add(_UnitOption(inventoryUnit, 1.0, defQtyFor(inventoryUnit)));
-
-    for (final conv in conversions) {
-      final fromLo = conv.fromUnit.toLowerCase().trim();
-      final toLo = conv.toUnit.toLowerCase().trim();
-
-      // Try conv.fromUnit as a logical unit (1 fromUnit = conv.factor toUnit → inventoryUnit)
-      if (!seen.contains(fromLo)) {
-        final factor = _factorToInventory(
-          logicalToUnit: conv.toUnit,
-          logicalFactor: conv.factor,
-          inventoryUnit: inventoryUnit,
-          allConversions: conversions,
-        );
-        if (factor != null) {
-          options.add(
-              _UnitOption(conv.fromUnit, factor, defQtyFor(conv.fromUnit)));
-          seen.add(fromLo);
-        }
-      }
-
-      // Try conv.toUnit as a logical unit (reverse: 1 toUnit = 1/conv.factor fromUnit → inventoryUnit)
-      if (!seen.contains(toLo) && conv.factor > 0) {
-        final factor = _factorToInventory(
-          logicalToUnit: conv.fromUnit,
-          logicalFactor: 1.0 / conv.factor,
-          inventoryUnit: inventoryUnit,
-          allConversions: conversions,
-        );
-        if (factor != null) {
-          options
-              .add(_UnitOption(conv.toUnit, factor, defQtyFor(conv.toUnit)));
-          seen.add(toLo);
-        }
-      }
-    }
-
-    return options;
-  }
-
   // ── Heuristic fallback (when no consumeUnit conversion applies) ─────────────
 
   static double _heuristicQty({
@@ -265,8 +102,8 @@ class _InventoryDeductSheetState
     required String inventoryUnit,
     required double? servingSizeG,
   }) {
-    if (_isWeightVolUnit(inventoryUnit)) {
-      return _convertWeightVol(quantityG, 'g', inventoryUnit) ?? quantityG;
+    if (isWeightVolUnit(inventoryUnit)) {
+      return convertWeightVol(quantityG, 'g', inventoryUnit) ?? quantityG;
     }
     if (servingSizeG != null && servingSizeG > 0) {
       return quantityG / servingSizeG;
@@ -311,7 +148,7 @@ class _InventoryDeductSheetState
         servingSizeG: item?.servingSizeG,
       );
 
-      final unitOptions = _buildUnitOptions(
+      final unitOptions = buildDeductUnitOptions(
         inventoryUnit: inventoryUnit,
         conversions: convs,
         consumeQty: item?.consumeQty,

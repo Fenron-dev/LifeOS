@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../utils/unit_deduct_utils.dart';
 import '../providers/nutrition_provider.dart';
 import 'food_search_sheet.dart';
 import 'inventory_deduct_sheet.dart';
@@ -47,6 +49,14 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
   DateTime _loggedAt = DateTime.now();
   bool _saving = false;
   String _unit = 'g';
+
+  // Inventory deduction context (loaded when a local item is selected)
+  List<UnitDeductOption> _deductOpts = [];
+  List<UnitConversion> _convs = [];
+  List<InventoryEntry> _inventoryEntries = [];
+  bool _hasInventory = false;
+  bool _doDeduct = true;
+  String _consumptionReason = 'consumed';
 
   bool get _isEditMode => widget.editLog != null;
 
@@ -178,6 +188,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       } else if (p.nutritionRefUnit == 'ml') {
         _unit = 'ml';
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadItemContext());
     }
   }
 
@@ -195,8 +206,65 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
   String _fmtQty(double v) =>
       v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
+  /// Loads inventory context for the currently selected local item.
+  /// Builds unit options, filters the unit dropdown, and pre-selects consumeUnit.
+  Future<void> _loadItemContext() async {
+    final itemId = _product?.itemId;
+    if (itemId == null || _isEditMode) {
+      if (mounted) setState(() { _deductOpts = []; _hasInventory = false; _convs = []; _inventoryEntries = []; });
+      return;
+    }
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    final item = await db.itemById(itemId);
+    final entries = await db.inventoryEntriesForItem(itemId);
+    final itemConvs = await db.watchConversionsForItem(itemId).first;
+    final globalConvs = await db.watchConversionsGlobal().first;
+    final allConvs = [...itemConvs, ...globalConvs];
+    if (!mounted) return;
+
+    final invUnit = entries.isNotEmpty ? entries.first.unit : 'g';
+    final opts = buildDeductUnitOptions(
+      inventoryUnit: invUnit,
+      conversions: allConvs,
+      consumeQty: item?.consumeQty,
+      consumeUnit: item?.consumeUnit,
+      fallbackQty: 1.0,
+    );
+
+    // Switch to consumeUnit if set and available in options
+    final cu = item?.consumeUnit?.toLowerCase().trim();
+    String newUnit = _unit;
+    double? newQty;
+    if (cu != null && opts.any((o) => o.unit.toLowerCase().trim() == cu)) {
+      final opt = opts.firstWhere((o) => o.unit.toLowerCase().trim() == cu);
+      newUnit = opt.unit;
+      if (item?.consumeQty != null) newQty = item!.consumeQty;
+    }
+
+    setState(() {
+      _deductOpts = opts;
+      _convs = allConvs;
+      _inventoryEntries = entries;
+      _hasInventory = entries.isNotEmpty;
+      _unit = newUnit;
+      if (newQty != null && _qtyController.text.trim().isEmpty) {
+        _qtyController.text = _fmtQty(newQty);
+      }
+    });
+  }
+
+  /// Grams equivalent of 1 [_unit], derived from item conversions.
+  /// Returns null if no conversion to grams is known.
+  double? get _currentUnitGrams => unitToGrams(_unit, _convs);
+
   /// Convert entered quantity to grams using the selected unit.
   double _toGrams(double qty) {
+    // Check item-specific conversions first
+    final cug = _currentUnitGrams;
+    if (cug != null) return qty * cug;
+
     final lower = _unit.toLowerCase().trim();
     return switch (lower) {
       'g' || 'gr' || 'gramm' || 'mg' => qty,
@@ -291,6 +359,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
         _fatManual.clear();
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadItemContext());
   }
 
   Future<void> _pickDateTime() async {
@@ -413,37 +482,65 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               source: src,
               notes: notes,
             );
-        // Offer inventory deduction for local items and meals/recipes with
-        // linked inventory items.
+        // Deduct from inventory.
+        // Local items: inline deduction using the unit already selected in
+        // this sheet (no second dialog).
+        // Meals / recipes: multi-ingredient deduction via separate sheet.
         final hasDeductable = _product!.itemId != null &&
             (src == 'local' || src == 'meal' || src == 'recipe');
         if (hasDeductable && mounted) {
-          final logForDeduct = NutritionLog(
-            id: savedId,
-            loggedAt: _loggedAt,
-            productName: _product!.productName,
-            brand: _product!.brand,
-            mealTypeId: _mealTypeId,
-            itemId: _product!.itemId,
-            ean: _product!.ean,
-            quantityG: storedQty,
-            displayUnit: _unit,
-            kcal: kcal,
-            proteinG: protein,
-            carbsG: carbs,
-            fatG: fat,
-            fiberG: fiber,
-            source: src,
-            notes: notes,
-            thumbRating: null,
-            inventoryDeducted: false,
-            createdAt: DateTime.now(),
-          );
-          await showModalBottomSheet<bool>(
-            context: context,
-            isScrollControlled: true,
-            builder: (_) => InventoryDeductSheet(log: logForDeduct),
-          );
+          if (src == 'local' &&
+              _doDeduct &&
+              _hasInventory &&
+              _deductOpts.isNotEmpty &&
+              _inventoryEntries.isNotEmpty) {
+            final opt = _deductOpts.firstWhere(
+              (o) => o.unit.toLowerCase().trim() == _unit.toLowerCase().trim(),
+              orElse: () => _deductOpts.first,
+            );
+            final entry = _inventoryEntries.first;
+            final deductAmount = qty * opt.factor;
+            final remaining =
+                (entry.quantity - deductAmount).clamp(0.0, double.infinity);
+            await ref.read(inventoryOpsProvider.notifier).consume(
+                  itemId: _product!.itemId!,
+                  inventoryEntryId: entry.id,
+                  quantity: deductAmount,
+                  unit: entry.unit,
+                  remainingQuantity: remaining,
+                  consumptionReason: _consumptionReason,
+                );
+            await ref
+                .read(nutritionOpsProvider.notifier)
+                .setInventoryDeducted(savedId, true);
+          } else if (src == 'meal' || src == 'recipe') {
+            final logForDeduct = NutritionLog(
+              id: savedId,
+              loggedAt: _loggedAt,
+              productName: _product!.productName,
+              brand: _product!.brand,
+              mealTypeId: _mealTypeId,
+              itemId: _product!.itemId,
+              ean: _product!.ean,
+              quantityG: storedQty,
+              displayUnit: _unit,
+              kcal: kcal,
+              proteinG: protein,
+              carbsG: carbs,
+              fatG: fat,
+              fiberG: fiber,
+              source: src,
+              notes: notes,
+              thumbRating: null,
+              inventoryDeducted: false,
+              createdAt: DateTime.now(),
+            );
+            await showModalBottomSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => InventoryDeductSheet(log: logForDeduct),
+            );
+          }
         }
       }
       if (mounted) Navigator.of(context).pop(true);
@@ -482,8 +579,12 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     final cs = Theme.of(context).colorScheme;
     final mealTypes = ref.watch(mealTypesProvider).valueOrNull ?? [];
     final allUnits = ref.watch(unitNamesProvider);
-    // Ensure 'g' is always available as fallback.
-    final units = allUnits.isEmpty ? ['g', 'ml', 'Stück', 'Portion'] : allUnits;
+    final baseUnits =
+        allUnits.isEmpty ? ['g', 'ml', 'Stück', 'Portion'] : allUnits;
+    // For local items with known unit conversions, filter to meaningful units only.
+    final units = (_deductOpts.isNotEmpty && _product?.source == 'local')
+        ? _deductOpts.map((o) => o.unit).toList()
+        : baseUnits;
     // If current unit not in list, fall back to first.
     final safeUnit = units.contains(_unit) ? _unit : units.first;
 
@@ -563,7 +664,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
                   product: _product!,
                   qty: _qtyController.text,
                   unit: safeUnit,
-                  servingSizeG: _product!.servingSizeG),
+                  servingSizeG: _currentUnitGrams ?? _product!.servingSizeG),
 
             // ── Quantity + unit ─────────────────────────────────────────────
             Row(
@@ -618,6 +719,46 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
               ],
             ),
             const SizedBox(height: 12),
+
+            // ── Inventory deduction toggle (local items only) ───────────────
+            if (_hasInventory && !_isEditMode && _product?.source == 'local') ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Bestand ausbuchen'),
+                value: _doDeduct,
+                onChanged: (v) => setState(() => _doDeduct = v),
+              ),
+              if (_doDeduct) ...[
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                        value: 'consumed',
+                        label: Text('Verbraucht'),
+                        icon: Icon(Icons.restaurant, size: 14)),
+                    ButtonSegment(
+                        value: 'expired',
+                        label: Text('Abgelaufen'),
+                        icon: Icon(Icons.event_busy, size: 14)),
+                    ButtonSegment(
+                        value: 'discarded',
+                        label: Text('Entsorgt'),
+                        icon: Icon(Icons.delete_outline, size: 14)),
+                    ButtonSegment(
+                        value: 'gifted',
+                        label: Text('Verschenkt'),
+                        icon: Icon(Icons.card_giftcard, size: 14)),
+                  ],
+                  selected: {_consumptionReason},
+                  onSelectionChanged: (s) =>
+                      setState(() => _consumptionReason = s.first),
+                  style: const ButtonStyle(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
 
             // ── Manual macro fields ─────────────────────────────────────────
             if (_showManualMacros) ...[
