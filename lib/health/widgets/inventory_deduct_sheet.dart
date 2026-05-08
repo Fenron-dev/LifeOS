@@ -7,20 +7,42 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../providers/nutrition_provider.dart';
 
-/// Data for one ingredient/food that may be deducted from inventory.
+// ── Unit option ───────────────────────────────────────────────────────────────
+
+/// One selectable deduction unit.
+/// [factor] = how many inventory-native units equal 1 logical unit.
+/// E.g. if inventory is "g" and logical unit is "Portion" (20g): factor = 20.
+class _UnitOption {
+  final String unit;
+  final double factor;
+  final double defaultQty;
+  const _UnitOption(this.unit, this.factor, this.defaultQty);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _UnitOption && other.unit.toLowerCase() == unit.toLowerCase();
+
+  @override
+  int get hashCode => unit.toLowerCase().hashCode;
+}
+
+// ── Row data model ────────────────────────────────────────────────────────────
+
 class _DeductRow {
   final String label;
   final String? brand;
   final String? itemId;
-  final double requestedQty;  // amount the diary logged (grams or count)
-  final String requestedUnit; // unit shown in diary (g, Stück, Packung…)
+  final double requestedQty;
+  final String requestedUnit;
   List<InventoryEntry> inventoryEntries;
   InventoryEntry? selectedEntry;
   bool skip;
 
-  // The TextEditingController holds what the user will actually deduct,
-  // expressed in the inventory entry's native unit.
+  /// Holds qty in the LOGICAL unit (what the user thinks in).
   final TextEditingController qtyController;
+
+  final List<_UnitOption> unitOptions;
+  _UnitOption selectedUnit;
 
   _DeductRow({
     required this.label,
@@ -31,20 +53,27 @@ class _DeductRow {
     this.inventoryEntries = const [],
     this.selectedEntry,
     this.skip = false,
-    required double initialDeductQty,
+    required this.unitOptions,
+    required this.selectedUnit,
   }) : qtyController =
-            TextEditingController(text: _fmt(initialDeductQty));
+            TextEditingController(text: _fmt(selectedUnit.defaultQty));
 
   static String _fmt(double v) =>
       v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 
-  double get deductQty =>
+  double get logicalQty =>
       double.tryParse(qtyController.text.replaceAll(',', '.')) ?? 0;
 
+  /// Physical quantity to subtract from the inventory entry (in inventory unit).
+  double get deductQty => logicalQty * selectedUnit.factor;
+
+  /// Always the inventory entry's native unit – used by _confirm().
   String get deductUnit => selectedEntry?.unit ?? requestedUnit;
 
   void dispose() => qtyController.dispose();
 }
+
+// ── Main sheet ────────────────────────────────────────────────────────────────
 
 /// Bottom sheet shown after a diary entry is saved. Lets the user confirm
 /// (or skip) deducting the logged quantities from inventory.
@@ -82,6 +111,8 @@ class _InventoryDeductSheetState
     super.dispose();
   }
 
+  // ── Unit helpers ────────────────────────────────────────────────────────────
+
   static bool _isWeightVolUnit(String unit) {
     switch (unit.toLowerCase().trim()) {
       case 'g':
@@ -102,8 +133,6 @@ class _InventoryDeductSheetState
     }
   }
 
-  /// Converts [qty] from [from] to [to] for weight/volume units.
-  /// Returns null when units differ and no conversion rule exists.
   static double? _convertWeightVol(double qty, String from, String to) {
     final f = from.toLowerCase().trim();
     final t = to.toLowerCase().trim();
@@ -119,41 +148,133 @@ class _InventoryDeductSheetState
     return null;
   }
 
-  /// Best-guess deduction quantity in [inventoryUnit] given the diary log
-  /// [quantityG] (always grams, or raw count when no servingSizeG) and the
-  /// item's explicit [consumeQty]/[consumeUnit] override or [servingSizeG].
+  /// Returns F such that 1 [logicalUnit] = F [inventoryUnit].
   ///
-  /// Rules (highest priority first):
-  ///  • item has consumeQty + consumeUnit and units match inventory → use that
-  ///  • inventory in weight/vol  → use quantityG, convert g→inventoryUnit
-  ///  • inventory in count unit  → quantityG / servingSizeG  (if known)
-  ///  • no servingSizeG          → fall back to 1 (one inventory unit)
-  static double _defaultDeductQty({
+  /// [logicalToUnit] + [logicalFactor] define: 1 logicalUnit = logicalFactor logicalToUnit.
+  /// We chain this to [inventoryUnit] using [allConversions] or weight/vol rules.
+  static double? _factorToInventory({
+    required String logicalToUnit,
+    required double logicalFactor,
+    required String inventoryUnit,
+    required List<UnitConversion> allConversions,
+  }) {
+    final toLo = logicalToUnit.toLowerCase().trim();
+    final invLo = inventoryUnit.toLowerCase().trim();
+
+    // Direct match
+    if (toLo == invLo) return logicalFactor;
+
+    // Weight/vol chain (g → kg, ml → l, etc.)
+    if (_isWeightVolUnit(toLo) && _isWeightVolUnit(invLo)) {
+      final w = _convertWeightVol(logicalFactor, logicalToUnit, inventoryUnit);
+      if (w != null) return w;
+    }
+
+    // One more hop via another conversion in the list
+    for (final c2 in allConversions) {
+      final c2f = c2.fromUnit.toLowerCase().trim();
+      final c2t = c2.toUnit.toLowerCase().trim();
+
+      // chain: logicalUnit → logicalToUnit → inventoryUnit (via c2: logicalToUnit → inventoryUnit)
+      if (c2f == toLo && c2t == invLo) {
+        return logicalFactor * c2.factor;
+      }
+      // chain: logicalUnit → logicalToUnit → inventoryUnit via reverse c2
+      if (c2t == toLo && c2f == invLo && c2.factor > 0) {
+        return logicalFactor / c2.factor;
+      }
+      // chain: logicalUnit → logicalToUnit (weight) → c2.toUnit → inventoryUnit
+      if (c2f == toLo && _isWeightVolUnit(c2t) && _isWeightVolUnit(invLo)) {
+        final w = _convertWeightVol(
+            logicalFactor * c2.factor, c2.toUnit, inventoryUnit);
+        if (w != null) return w;
+      }
+    }
+
+    return null;
+  }
+
+  /// Builds the list of selectable unit options for one row.
+  ///
+  /// Always includes the raw [inventoryUnit] (factor = 1). Additional options
+  /// come from [conversions]: any unit that can be converted to [inventoryUnit]
+  /// via a direct rule, weight/vol chain, or one-hop through the list.
+  static List<_UnitOption> _buildUnitOptions({
+    required String inventoryUnit,
+    required List<UnitConversion> conversions,
+    double? consumeQty,
+    String? consumeUnit,
+    required double fallbackQty,
+  }) {
+    final invLo = inventoryUnit.toLowerCase().trim();
+    final options = <_UnitOption>[];
+    final seen = <String>{invLo};
+
+    double defQtyFor(String unit) {
+      if (consumeUnit?.toLowerCase().trim() == unit.toLowerCase().trim()) {
+        return consumeQty ?? 1.0;
+      }
+      return unit.toLowerCase().trim() == invLo ? fallbackQty : 1.0;
+    }
+
+    // Raw inventory unit always first
+    options.add(_UnitOption(inventoryUnit, 1.0, defQtyFor(inventoryUnit)));
+
+    for (final conv in conversions) {
+      final fromLo = conv.fromUnit.toLowerCase().trim();
+      final toLo = conv.toUnit.toLowerCase().trim();
+
+      // Try conv.fromUnit as a logical unit (1 fromUnit = conv.factor toUnit → inventoryUnit)
+      if (!seen.contains(fromLo)) {
+        final factor = _factorToInventory(
+          logicalToUnit: conv.toUnit,
+          logicalFactor: conv.factor,
+          inventoryUnit: inventoryUnit,
+          allConversions: conversions,
+        );
+        if (factor != null) {
+          options.add(
+              _UnitOption(conv.fromUnit, factor, defQtyFor(conv.fromUnit)));
+          seen.add(fromLo);
+        }
+      }
+
+      // Try conv.toUnit as a logical unit (reverse: 1 toUnit = 1/conv.factor fromUnit → inventoryUnit)
+      if (!seen.contains(toLo) && conv.factor > 0) {
+        final factor = _factorToInventory(
+          logicalToUnit: conv.fromUnit,
+          logicalFactor: 1.0 / conv.factor,
+          inventoryUnit: inventoryUnit,
+          allConversions: conversions,
+        );
+        if (factor != null) {
+          options
+              .add(_UnitOption(conv.toUnit, factor, defQtyFor(conv.toUnit)));
+          seen.add(toLo);
+        }
+      }
+    }
+
+    return options;
+  }
+
+  // ── Heuristic fallback (when no consumeUnit conversion applies) ─────────────
+
+  static double _heuristicQty({
     required double quantityG,
     required String inventoryUnit,
     required double? servingSizeG,
-    double? consumeQty,
-    String? consumeUnit,
   }) {
-    // Explicit per-item override takes precedence when the unit matches
-    if (consumeQty != null &&
-        consumeQty > 0 &&
-        consumeUnit != null &&
-        consumeUnit.toLowerCase().trim() ==
-            inventoryUnit.toLowerCase().trim()) {
-      return consumeQty;
-    }
     if (_isWeightVolUnit(inventoryUnit)) {
-      // Convert grams to the inventory's weight unit
       return _convertWeightVol(quantityG, 'g', inventoryUnit) ?? quantityG;
     }
-    // Counting unit: reverse the diary's g-per-serving multiplication
     if (servingSizeG != null && servingSizeG > 0) {
       return quantityG / servingSizeG;
     }
-    // No serving size info — default to 1 (one inventory unit)
     return 1.0;
   }
+
+  // ── Load rows ───────────────────────────────────────────────────────────────
 
   Future<void> _loadRows() async {
     final db = ref.read(databaseProvider);
@@ -165,88 +286,106 @@ class _InventoryDeductSheetState
     final log = widget.log;
     final rows = <_DeductRow>[];
 
+    Future<List<UnitConversion>> loadConvs(String? itemId) async {
+      if (itemId == null) return [];
+      final item = await db.watchConversionsForItem(itemId).first;
+      final global = await db.watchConversionsGlobal().first;
+      return [...item, ...global];
+    }
+
+    Future<_DeductRow> makeRow({
+      required String label,
+      String? brand,
+      required String? itemId,
+      required double qty,
+      required String unit,
+      required List<InventoryEntry> entries,
+      required Item? item,
+    }) async {
+      final inventoryUnit = entries.isNotEmpty ? entries.first.unit : unit;
+      final convs = await loadConvs(itemId);
+
+      final fallback = _heuristicQty(
+        quantityG: qty,
+        inventoryUnit: inventoryUnit,
+        servingSizeG: item?.servingSizeG,
+      );
+
+      final unitOptions = _buildUnitOptions(
+        inventoryUnit: inventoryUnit,
+        conversions: convs,
+        consumeQty: item?.consumeQty,
+        consumeUnit: item?.consumeUnit,
+        fallbackQty: fallback,
+      );
+
+      // Pre-select the option matching item.consumeUnit (if it exists)
+      final cu = item?.consumeUnit?.toLowerCase().trim();
+      final selected = cu != null
+          ? unitOptions.firstWhere(
+              (o) => o.unit.toLowerCase().trim() == cu,
+              orElse: () => unitOptions.first,
+            )
+          : unitOptions.first;
+
+      return _DeductRow(
+        label: label,
+        brand: brand,
+        itemId: itemId,
+        requestedQty: qty,
+        requestedUnit: unit,
+        inventoryEntries: entries,
+        selectedEntry: entries.isNotEmpty ? entries.first : null,
+        skip: entries.isEmpty,
+        unitOptions: unitOptions,
+        selectedUnit: selected,
+      );
+    }
+
     if (log.source == 'meal' && log.itemId != null) {
-      // Standard meal → deduct each ingredient
       final ings = await db.ingredientsForMeal(log.itemId!);
       final servings = log.quantityG > 0 ? log.quantityG : 1.0;
       for (final ing in ings) {
         if (ing.itemId == null) continue;
         final entries = await db.inventoryEntriesForItem(ing.itemId!);
         final item = await db.itemById(ing.itemId!);
-        final qty = ing.quantity * servings;
-        final inventoryUnit =
-            entries.isNotEmpty ? entries.first.unit : ing.unit;
-        final initial = _defaultDeductQty(
-          quantityG: qty,
-          inventoryUnit: inventoryUnit,
-          servingSizeG: item?.servingSizeG,
-          consumeQty: item?.consumeQty,
-          consumeUnit: item?.consumeUnit,
-        );
-        rows.add(_DeductRow(
+        rows.add(await makeRow(
           label: ing.name,
           itemId: ing.itemId,
-          requestedQty: qty,
-          requestedUnit: ing.unit,
-          inventoryEntries: entries,
-          selectedEntry: entries.isNotEmpty ? entries.first : null,
-          skip: entries.isEmpty,
-          initialDeductQty: initial,
+          qty: ing.quantity * servings,
+          unit: ing.unit,
+          entries: entries,
+          item: item,
         ));
       }
     } else if (log.source == 'recipe' && log.itemId != null) {
-      // Recipe → deduct each ingredient
       final ings = await db.ingredientsForRecipe(log.itemId!);
       final servings = log.quantityG > 0 ? log.quantityG : 1.0;
       for (final ing in ings) {
         if (ing.itemId == null) continue;
         final entries = await db.inventoryEntriesForItem(ing.itemId!);
         final item = await db.itemById(ing.itemId!);
-        final qty = ing.quantity * servings;
-        final inventoryUnit =
-            entries.isNotEmpty ? entries.first.unit : ing.unit;
-        final initial = _defaultDeductQty(
-          quantityG: qty,
-          inventoryUnit: inventoryUnit,
-          servingSizeG: item?.servingSizeG,
-          consumeQty: item?.consumeQty,
-          consumeUnit: item?.consumeUnit,
-        );
-        rows.add(_DeductRow(
+        rows.add(await makeRow(
           label: ing.name,
           itemId: ing.itemId,
-          requestedQty: qty,
-          requestedUnit: ing.unit,
-          inventoryEntries: entries,
-          selectedEntry: entries.isNotEmpty ? entries.first : null,
-          skip: entries.isEmpty,
-          initialDeductQty: initial,
+          qty: ing.quantity * servings,
+          unit: ing.unit,
+          entries: entries,
+          item: item,
         ));
       }
     } else if (log.itemId != null) {
-      // Single local item
       final item = await db.itemById(log.itemId!);
       final entries = await db.inventoryEntriesForItem(log.itemId!);
       if (item != null) {
-        final inventoryUnit =
-            entries.isNotEmpty ? entries.first.unit : log.displayUnit;
-        final initial = _defaultDeductQty(
-          quantityG: log.quantityG,
-          inventoryUnit: inventoryUnit,
-          servingSizeG: item.servingSizeG,
-          consumeQty: item.consumeQty,
-          consumeUnit: item.consumeUnit,
-        );
-        rows.add(_DeductRow(
+        rows.add(await makeRow(
           label: item.name,
           brand: item.brand,
           itemId: item.id,
-          requestedQty: log.quantityG,
-          requestedUnit: log.displayUnit,
-          inventoryEntries: entries,
-          selectedEntry: entries.isNotEmpty ? entries.first : null,
-          skip: entries.isEmpty,
-          initialDeductQty: initial,
+          qty: log.quantityG,
+          unit: log.displayUnit,
+          entries: entries,
+          item: item,
         ));
       }
     }
@@ -259,6 +398,8 @@ class _InventoryDeductSheetState
     }
   }
 
+  // ── Confirm ─────────────────────────────────────────────────────────────────
+
   Future<void> _confirm() async {
     final db = ref.read(databaseProvider);
     if (db == null) return;
@@ -268,15 +409,9 @@ class _InventoryDeductSheetState
       for (final row in _rows) {
         if (row.skip || row.selectedEntry == null) continue;
         final entry = row.selectedEntry!;
-        final deductQty = row.deductQty;
-        if (deductQty <= 0) continue;
-
-        // deductQty is already in the inventory entry's native unit
-        // (the user edited the field in that unit directly).
-        // Convert only for well-known weight/vol pairs where both sides differ.
-        final native =
-            _convertWeightVol(deductQty, row.deductUnit, entry.unit) ??
-                deductQty;
+        // row.deductQty is already in entry.unit (logical * factor)
+        final native = row.deductQty;
+        if (native <= 0) continue;
 
         final remaining =
             (entry.quantity - native).clamp(0.0, double.infinity);
@@ -299,6 +434,8 @@ class _InventoryDeductSheetState
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -329,12 +466,11 @@ class _InventoryDeductSheetState
             ),
             const SizedBox(height: 4),
             Text(
-              'Menge anpassen falls nötig, dann „Ausbuchen" tippen.',
+              'Einheit wählen, Menge anpassen, dann „Ausbuchen" tippen.',
               style:
                   TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 10),
-            // Consumption reason
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(
@@ -456,7 +592,13 @@ class _RowTileState extends State<_RowTile> {
     super.dispose();
   }
 
-  void _onQtyChanged() {
+  void _onQtyChanged() => widget.onChanged();
+
+  void _selectUnit(_UnitOption opt) {
+    setState(() {
+      row.selectedUnit = opt;
+      row.qtyController.text = _fmtQty(opt.defaultQty);
+    });
     widget.onChanged();
   }
 
@@ -467,19 +609,17 @@ class _RowTileState extends State<_RowTile> {
     final entry = row.selectedEntry;
     final inventoryUnit = entry?.unit ?? row.requestedUnit;
 
-    // Show remaining after deduction for live feedback
     final currentQty = entry?.quantity ?? 0.0;
-    final deductQty = row.deductQty;
-    final remaining = (currentQty - deductQty).clamp(0.0, double.infinity);
+    final deductPhysical = row.deductQty; // in inventoryUnit
+    final remaining = (currentQty - deductPhysical).clamp(0.0, double.infinity);
 
-    // Whether units differ (informational hint)
-    final unitsDiffer = row.requestedUnit.toLowerCase().trim() !=
-        inventoryUnit.toLowerCase().trim();
+    final multiUnit = row.unitOptions.length > 1;
+    final isRawUnit =
+        row.selectedUnit.unit.toLowerCase() == inventoryUnit.toLowerCase();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Checkbox + label
         CheckboxListTile(
           value: !row.skip,
           onChanged: hasStock
@@ -511,9 +651,8 @@ class _RowTileState extends State<_RowTile> {
                   style: TextStyle(
                       fontSize: 12, color: cs.onSurfaceVariant))
               : Text(
-                  // Logged amount as hint (reference)
                   'Tagebuch: ${_fmtQty(row.requestedQty)} ${row.requestedUnit}'
-                  '${unitsDiffer ? '  ·  Bestand in $inventoryUnit' : ''}',
+                  '  ·  Bestand: ${_fmtQty(currentQty)} $inventoryUnit',
                   style: TextStyle(
                       fontSize: 12, color: cs.onSurfaceVariant),
                 ),
@@ -522,14 +661,32 @@ class _RowTileState extends State<_RowTile> {
           dense: true,
         ),
 
-        // Editable deduction field + remaining preview
         if (hasStock && !row.skip) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(40, 0, 0, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Amount row: editable qty + unit label
+                // Unit chips (only when multiple units available)
+                if (multiUnit) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: row.unitOptions.map((opt) {
+                      final sel = opt == row.selectedUnit;
+                      return ChoiceChip(
+                        label: Text(opt.unit,
+                            style: const TextStyle(fontSize: 12)),
+                        selected: sel,
+                        onSelected: (_) => _selectUnit(opt),
+                        visualDensity: VisualDensity.compact,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+
+                // Qty field + unit label + remaining preview
                 Row(
                   children: [
                     SizedBox(
@@ -548,43 +705,55 @@ class _RowTileState extends State<_RowTile> {
                               horizontal: 8, vertical: 6),
                           border: const OutlineInputBorder(),
                           filled: true,
-                          fillColor:
-                              cs.surfaceContainerHighest.withValues(
-                                  alpha: 0.5),
+                          fillColor: cs.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
                         ),
                         style: const TextStyle(fontSize: 14),
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Text(
-                      inventoryUnit,
+                      row.selectedUnit.unit,
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w500),
                     ),
-                    const SizedBox(width: 12),
-                    // Live remaining preview
-                    Text(
-                      '→ verbleibend: ${_fmtQty(remaining)} $inventoryUnit',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: remaining <= 0
-                            ? cs.error
-                            : cs.onSurfaceVariant,
-                        fontStyle: FontStyle.italic,
+                    // Conversion hint when not in native inventory unit
+                    if (!isRawUnit) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '= ${_fmtQty(deductPhysical)} $inventoryUnit',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: cs.primary,
+                            fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        '→ ${_fmtQty(remaining)} $inventoryUnit',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: remaining <= 0
+                              ? cs.error
+                              : cs.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-                // Inventory entry selector if multiple entries
+
+                // Entry selector when multiple inventory entries exist
                 if (row.inventoryEntries.length > 1)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Wrap(
                       spacing: 8,
                       children: row.inventoryEntries.map((e) {
-                        final selected =
-                            row.selectedEntry?.id == e.id;
+                        final selected = row.selectedEntry?.id == e.id;
                         final label =
                             '${_fmtQty(e.quantity)} ${e.unit}'
                             '${e.expiryDate != null ? ' (MHD ${e.expiryDate!.day}.${e.expiryDate!.month}.)' : ''}';
@@ -593,7 +762,7 @@ class _RowTileState extends State<_RowTile> {
                               style: const TextStyle(fontSize: 11)),
                           selected: selected,
                           onSelected: (_) {
-                            row.selectedEntry = e;
+                            setState(() => row.selectedEntry = e);
                             widget.onChanged();
                           },
                           visualDensity: VisualDensity.compact,

@@ -569,6 +569,23 @@ class _ConsumePickerSheetState extends ConsumerState<_ConsumePickerSheet> {
 // Quick-deduct sheet for a single item (no diary log needed)
 // ---------------------------------------------------------------------------
 
+/// Unit option for the quick-deduct sheet.
+/// [factor] = how many inventory-native units equal 1 logical unit.
+class _QDUnitOption {
+  final String unit;
+  final double factor;
+  final double defaultQty;
+  const _QDUnitOption(this.unit, this.factor, this.defaultQty);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _QDUnitOption &&
+      other.unit.toLowerCase() == unit.toLowerCase();
+
+  @override
+  int get hashCode => unit.toLowerCase().hashCode;
+}
+
 class _QuickDeductSheet extends ConsumerStatefulWidget {
   final Item item;
   const _QuickDeductSheet({required this.item});
@@ -585,15 +602,13 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
   late final TextEditingController _qtyCtrl;
   String _reason = 'consumed';
 
+  List<_QDUnitOption> _unitOptions = [];
+  _QDUnitOption? _selectedUnit;
+
   @override
   void initState() {
     super.initState();
-    final item = widget.item;
-    final preQty = item.consumeQty ?? 1.0;
-    _qtyCtrl = TextEditingController(
-        text: preQty % 1 == 0
-            ? preQty.toStringAsFixed(0)
-            : preQty.toStringAsFixed(2));
+    _qtyCtrl = TextEditingController(text: '1');
     _loadEntries();
   }
 
@@ -603,44 +618,191 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
     super.dispose();
   }
 
+  // ── Unit conversion helpers (mirror of inventory_deduct_sheet.dart) ──────
+
+  static bool _isWeightVol(String u) {
+    switch (u.toLowerCase().trim()) {
+      case 'g':
+      case 'gr':
+      case 'gramm':
+      case 'mg':
+      case 'kg':
+      case 'kilogramm':
+      case 'ml':
+      case 'milliliter':
+      case 'cl':
+      case 'dl':
+      case 'l':
+      case 'liter':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  static double? _cvtWV(double qty, String from, String to) {
+    final f = from.toLowerCase().trim();
+    final t = to.toLowerCase().trim();
+    if (f == t) return qty;
+    if (f == 'g' && (t == 'kg' || t == 'kilogramm')) return qty / 1000;
+    if ((f == 'kg' || f == 'kilogramm') && t == 'g') return qty * 1000;
+    if (f == 'ml' && (t == 'l' || t == 'liter')) return qty / 1000;
+    if ((f == 'l' || f == 'liter') && t == 'ml') return qty * 1000;
+    if (f == 'cl' && t == 'ml') return qty * 10;
+    if (f == 'ml' && t == 'cl') return qty / 10;
+    if (f == 'dl' && t == 'ml') return qty * 100;
+    if (f == 'ml' && t == 'dl') return qty / 100;
+    return null;
+  }
+
+  static double? _factorToInv({
+    required String logicalToUnit,
+    required double logicalFactor,
+    required String inventoryUnit,
+    required List<UnitConversion> convs,
+  }) {
+    final toLo = logicalToUnit.toLowerCase().trim();
+    final invLo = inventoryUnit.toLowerCase().trim();
+    if (toLo == invLo) return logicalFactor;
+    if (_isWeightVol(toLo) && _isWeightVol(invLo)) {
+      final w = _cvtWV(logicalFactor, logicalToUnit, inventoryUnit);
+      if (w != null) return w;
+    }
+    for (final c2 in convs) {
+      final c2f = c2.fromUnit.toLowerCase().trim();
+      final c2t = c2.toUnit.toLowerCase().trim();
+      if (c2f == toLo && c2t == invLo) return logicalFactor * c2.factor;
+      if (c2t == toLo && c2f == invLo && c2.factor > 0) {
+        return logicalFactor / c2.factor;
+      }
+      if (c2f == toLo && _isWeightVol(c2t) && _isWeightVol(invLo)) {
+        final w = _cvtWV(logicalFactor * c2.factor, c2.toUnit, inventoryUnit);
+        if (w != null) return w;
+      }
+    }
+    return null;
+  }
+
+  static List<_QDUnitOption> _buildOptions({
+    required String inventoryUnit,
+    required List<UnitConversion> convs,
+    double? consumeQty,
+    String? consumeUnit,
+  }) {
+    final invLo = inventoryUnit.toLowerCase().trim();
+    final options = <_QDUnitOption>[];
+    final seen = <String>{invLo};
+
+    double defQty(String u) {
+      if (consumeUnit?.toLowerCase().trim() == u.toLowerCase().trim()) {
+        return consumeQty ?? 1.0;
+      }
+      return 1.0;
+    }
+
+    options.add(_QDUnitOption(inventoryUnit, 1.0, defQty(inventoryUnit)));
+
+    for (final conv in convs) {
+      final fromLo = conv.fromUnit.toLowerCase().trim();
+      final toLo = conv.toUnit.toLowerCase().trim();
+
+      if (!seen.contains(fromLo)) {
+        final f = _factorToInv(
+          logicalToUnit: conv.toUnit,
+          logicalFactor: conv.factor,
+          inventoryUnit: inventoryUnit,
+          convs: convs,
+        );
+        if (f != null) {
+          options.add(_QDUnitOption(conv.fromUnit, f, defQty(conv.fromUnit)));
+          seen.add(fromLo);
+        }
+      }
+
+      if (!seen.contains(toLo) && conv.factor > 0) {
+        final f = _factorToInv(
+          logicalToUnit: conv.fromUnit,
+          logicalFactor: 1.0 / conv.factor,
+          inventoryUnit: inventoryUnit,
+          convs: convs,
+        );
+        if (f != null) {
+          options.add(_QDUnitOption(conv.toUnit, f, defQty(conv.toUnit)));
+          seen.add(toLo);
+        }
+      }
+    }
+
+    return options;
+  }
+
+  // ── Load ─────────────────────────────────────────────────────────────────
+
   Future<void> _loadEntries() async {
     final db = ref.read(databaseProvider);
     if (db == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
+
     final entries = await db.inventoryEntriesForItem(widget.item.id);
     if (!mounted) return;
-    InventoryEntry? sel = entries.isNotEmpty ? entries.first : null;
-    // If item has a consumeUnit, prefer an entry matching that unit
-    final cu = widget.item.consumeUnit;
-    if (cu != null && entries.isNotEmpty) {
-      sel = entries.firstWhere(
-        (e) => e.unit.toLowerCase() == cu.toLowerCase(),
-        orElse: () => entries.first,
-      );
-    }
+
+    final item = widget.item;
+    final inventoryUnit =
+        entries.isNotEmpty ? entries.first.unit : (item.consumeUnit ?? 'Stück');
+
+    final itemConvs = await db.watchConversionsForItem(item.id).first;
+    final globalConvs = await db.watchConversionsGlobal().first;
+    final allConvs = [...itemConvs, ...globalConvs];
+
+    final opts = _buildOptions(
+      inventoryUnit: inventoryUnit,
+      convs: allConvs,
+      consumeQty: item.consumeQty,
+      consumeUnit: item.consumeUnit,
+    );
+
+    // Pre-select consumeUnit option (or first)
+    final cu = item.consumeUnit?.toLowerCase().trim();
+    final sel = cu != null
+        ? opts.firstWhere(
+            (o) => o.unit.toLowerCase().trim() == cu,
+            orElse: () => opts.first,
+          )
+        : opts.first;
+
+    InventoryEntry? selectedEntry = entries.isNotEmpty ? entries.first : null;
+
     setState(() {
       _entries = entries;
-      _selected = sel;
+      _selected = selectedEntry;
+      _unitOptions = opts;
+      _selectedUnit = sel;
+      _qtyCtrl.text =
+          sel.defaultQty % 1 == 0
+              ? sel.defaultQty.toStringAsFixed(0)
+              : sel.defaultQty.toStringAsFixed(2);
       _loading = false;
     });
   }
 
-  double get _deductQty =>
+  double get _logicalQty =>
       double.tryParse(_qtyCtrl.text.replaceAll(',', '.')) ?? 0;
+
+  double get _physicalQty => _logicalQty * (_selectedUnit?.factor ?? 1.0);
 
   Future<void> _confirm() async {
     final entry = _selected;
-    if (entry == null || _deductQty <= 0) return;
+    if (entry == null || _physicalQty <= 0) return;
     setState(() => _saving = true);
     try {
       final remaining =
-          (entry.quantity - _deductQty).clamp(0.0, double.infinity);
+          (entry.quantity - _physicalQty).clamp(0.0, double.infinity);
       await ref.read(inventoryOpsProvider.notifier).consume(
             itemId: widget.item.id,
             inventoryEntryId: entry.id,
-            quantity: _deductQty,
+            quantity: _physicalQty,
             unit: entry.unit,
             remainingQuantity: remaining,
             consumptionReason: _reason,
@@ -654,15 +816,26 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
   static String _fmtQty(double v) =>
       v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 
+  void _selectUnit(_QDUnitOption opt) {
+    setState(() {
+      _selectedUnit = opt;
+      _qtyCtrl.text = _fmtQty(opt.defaultQty);
+    });
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final item = widget.item;
     final entry = _selected;
-    final unit = entry?.unit ?? item.consumeUnit ?? '—';
+    final invUnit = entry?.unit ?? _selectedUnit?.unit ?? '—';
+    final physical = _physicalQty;
     final remaining = entry != null
-        ? (entry.quantity - _deductQty).clamp(0.0, double.infinity)
+        ? (entry.quantity - physical).clamp(0.0, double.infinity)
         : 0.0;
+    final isRawUnit = _selectedUnit?.unit.toLowerCase() == invUnit.toLowerCase();
 
     return SafeArea(
       child: Padding(
@@ -683,10 +856,12 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(item.name, style: Theme.of(context).textTheme.titleMedium),
+            Text(item.name,
+                style: Theme.of(context).textTheme.titleMedium),
             if (item.brand != null)
               Text(item.brand!,
-                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  style:
+                      TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
             const SizedBox(height: 14),
             if (_loading)
               const Center(child: CircularProgressIndicator())
@@ -694,7 +869,26 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
               Text('Kein Bestand vorhanden.',
                   style: TextStyle(color: cs.onSurfaceVariant))
             else ...[
-              // Qty row
+              // Unit chips (shown when multiple units available)
+              if (_unitOptions.length > 1) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _unitOptions.map((opt) {
+                    final sel = opt == _selectedUnit;
+                    return ChoiceChip(
+                      label: Text(opt.unit,
+                          style: const TextStyle(fontSize: 12)),
+                      selected: sel,
+                      onSelected: (_) => _selectUnit(opt),
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Qty field row
               Row(
                 children: [
                   SizedBox(
@@ -709,27 +903,42 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
                             horizontal: 8, vertical: 8),
                         border: const OutlineInputBorder(),
                         filled: true,
-                        fillColor:
-                            cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        fillColor: cs.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
                       ),
                       textAlign: TextAlign.center,
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(unit,
-                      style: const TextStyle(fontWeight: FontWeight.w500)),
-                  const SizedBox(width: 16),
-                  Text(
-                    '→ verbleibend: ${_fmtQty(remaining)} $unit',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: remaining <= 0 ? cs.error : cs.onSurfaceVariant,
-                      fontStyle: FontStyle.italic,
+                  Text(_selectedUnit?.unit ?? invUnit,
+                      style:
+                          const TextStyle(fontWeight: FontWeight.w500)),
+                  if (!isRawUnit) ...[
+                    const SizedBox(width: 6),
+                    Text('= ${_fmtQty(physical)} $invUnit',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: cs.primary,
+                            fontStyle: FontStyle.italic)),
+                  ],
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      '→ ${_fmtQty(remaining)} $invUnit',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: remaining <= 0
+                            ? cs.error
+                            : cs.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
+
               // Entry selector when multiple
               if (_entries.length > 1)
                 Padding(
@@ -751,8 +960,8 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
                     }).toList(),
                   ),
                 ),
+
               const SizedBox(height: 12),
-              // Reason selector
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(
@@ -791,7 +1000,7 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
                   onPressed: (_saving ||
                           _loading ||
                           _entries.isEmpty ||
-                          _deductQty <= 0)
+                          _physicalQty <= 0)
                       ? null
                       : _confirm,
                   child: _saving
