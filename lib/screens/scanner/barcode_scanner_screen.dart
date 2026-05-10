@@ -76,7 +76,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
             ),
           ),
           Positioned(
-            bottom: 48,
+            bottom: 96,
             left: 0,
             right: 0,
             child: Text(
@@ -86,6 +86,20 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                     color: Colors.white,
                     shadows: const [Shadow(blurRadius: 4, color: Colors.black54)],
                   ),
+            ),
+          ),
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: TextButton(
+                onPressed: () => Navigator.pop(context, ''),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                ),
+                child: const Text('Kein Barcode – manuell eingeben'),
+              ),
             ),
           ),
         ],

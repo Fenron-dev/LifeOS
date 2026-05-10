@@ -214,6 +214,11 @@ class _MobileShell extends ConsumerWidget {
   Future<void> _handleScan(BuildContext context, WidgetRef ref) async {
     final ean = await context.push<String>('/scan');
     if (ean == null || !context.mounted) return;
+    // ean == '' means user tapped "Kein Barcode – manuell eingeben"
+    if (ean.isEmpty) {
+      context.push('/haushalt/item/new');
+      return;
+    }
     final dao = ref.read(itemsDaoProvider);
     final existing = await dao?.itemByEan(ean);
     if (!context.mounted) return;
@@ -227,7 +232,7 @@ class _MobileShell extends ConsumerWidget {
   Future<void> _handleConsumeWithScan(
       BuildContext context, WidgetRef ref) async {
     final ean = await context.push<String>('/scan');
-    if (ean == null || !context.mounted) return;
+    if (ean == null || ean.isEmpty || !context.mounted) return;
     final dao = ref.read(itemsDaoProvider);
     final item = await dao?.itemByEan(ean);
     if (!context.mounted) return;
@@ -246,7 +251,7 @@ class _MobileShell extends ConsumerWidget {
 
   Future<void> _handleQuickDeduct(BuildContext context, WidgetRef ref) async {
     final ean = await context.push<String>('/scan');
-    if (ean == null || !context.mounted) return;
+    if (ean == null || ean.isEmpty || !context.mounted) return;
     final dao = ref.read(itemsDaoProvider);
     final item = await dao?.itemByEan(ean);
     if (!context.mounted) return;
