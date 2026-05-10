@@ -2717,20 +2717,23 @@ class _RelocateSheetState extends ConsumerState<_RelocateSheet> {
             style: TextStyle(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String?>(
-            value: _locationId,
-            isExpanded: true,
+          InputDecorator(
             decoration: const InputDecoration(
               labelText: 'Neuer Lagerort',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.place_outlined),
             ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('— kein Ort —')),
-              ...widget.locations.map(
-                  (l) => DropdownMenuItem(value: l.id, child: Text(l.name))),
-            ],
-            onChanged: (v) => setState(() => _locationId = v),
+            child: DropdownButton<String?>(
+              value: _locationId,
+              isExpanded: true,
+              underline: const SizedBox.shrink(),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('— kein Ort —')),
+                ...widget.locations.map(
+                    (l) => DropdownMenuItem(value: l.id, child: Text(l.name))),
+              ],
+              onChanged: (v) => setState(() => _locationId = v),
+            ),
           ),
           const SizedBox(height: 16),
           FilledButton(

@@ -718,22 +718,26 @@ class _MealFormState extends ConsumerState<_MealForm> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String?>(
-                      value: _freezeLocationId,
-                      isExpanded: true,
+                    InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'Standard-Einfrierlagerort (optional)',
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('— kein Standard —')),
-                        ...allLocations.map((l) => DropdownMenuItem(
-                              value: l.id,
-                              child: Text(l.name),
-                            )),
-                      ],
-                      onChanged: (v) => setState(() => _freezeLocationId = v),
+                      child: DropdownButton<String?>(
+                        value: _freezeLocationId,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        isDense: true,
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('— kein Standard —')),
+                          ...allLocations.map((l) => DropdownMenuItem(
+                                value: l.id,
+                                child: Text(l.name),
+                              )),
+                        ],
+                        onChanged: (v) => setState(() => _freezeLocationId = v),
+                      ),
                     ),
                   ],
 
@@ -1445,22 +1449,26 @@ class _FreezeDishSheetState extends ConsumerState<_FreezeDishSheet> {
                   ),
                 ),
               ),
-            DropdownButtonFormField<String?>(
-              value: _locationId,
-              isExpanded: true,
+            InputDecorator(
               decoration: const InputDecoration(
                 labelText: 'Lagerort (optional)',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('— kein Lagerort —')),
-                ...allLocations.map((l) => DropdownMenuItem(
-                      value: l.id,
-                      child: Text(l.name),
-                    )),
-              ],
-              onChanged: (v) => setState(() => _locationId = v),
+              child: DropdownButton<String?>(
+                value: _locationId,
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                isDense: true,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('— kein Lagerort —')),
+                  ...allLocations.map((l) => DropdownMenuItem(
+                        value: l.id,
+                        child: Text(l.name),
+                      )),
+                ],
+                onChanged: (v) => setState(() => _locationId = v),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
