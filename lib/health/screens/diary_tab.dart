@@ -48,6 +48,13 @@ class _DiaryTabState extends ConsumerState<DiaryTab> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text('Tagebuch'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Eintrag hinzufügen',
+            onPressed: () => _openEntry(context),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -80,11 +87,6 @@ class _DiaryTabState extends ConsumerState<DiaryTab> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEntry(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Hinzufügen'),
       ),
     );
   }

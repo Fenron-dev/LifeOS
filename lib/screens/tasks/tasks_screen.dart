@@ -235,12 +235,20 @@ class _SectionHeader extends StatelessWidget {
 
 // ── Task tile ─────────────────────────────────────────────────────────────────
 
-class _TaskTile extends ConsumerWidget {
+class _TaskTile extends ConsumerStatefulWidget {
   final Task task;
   const _TaskTile({required this.task});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TaskTile> createState() => _TaskTileState();
+}
+
+class _TaskTileState extends ConsumerState<_TaskTile> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final task = widget.task;
     final isDone = task.status == 'done';
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -252,6 +260,7 @@ class _TaskTile extends ConsumerWidget {
     final linkedItem = task.linkedItemId != null
         ? allItems.where((i) => i.id == task.linkedItemId).firstOrNull
         : null;
+    final hasSubtasks = subtasks.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
@@ -262,6 +271,7 @@ class _TaskTile extends ConsumerWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Priority bar
                 Container(
                   width: 4,
                   color: isDone ? Colors.transparent : priorityColor,
@@ -282,39 +292,58 @@ class _TaskTile extends ConsumerWidget {
                     ),
                     subtitle: _buildSubtitle(
                         context, linkedItem, subtasks.length),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (v) async {
-                        if (v == 'edit') {
-                          _showDialog(context, ref);
-                        } else if (v == 'add_subtask') {
-                          _showDialog(context, ref, parentId: task.id);
-                        } else if (v == 'delete') {
-                          await notifier.delete(task.id);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(children: [
-                              Icon(Icons.edit_outlined),
-                              SizedBox(width: 8),
-                              Text('Bearbeiten')
-                            ])),
-                        const PopupMenuItem(
-                            value: 'add_subtask',
-                            child: Row(children: [
-                              Icon(Icons.subdirectory_arrow_right_outlined),
-                              SizedBox(width: 8),
-                              Text('Unteraufgabe')
-                            ])),
-                        const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(children: [
-                              Icon(Icons.delete_outline, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Löschen',
-                                  style: TextStyle(color: Colors.red))
-                            ])),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Expand/collapse toggle — only shown when subtasks exist
+                        if (hasSubtasks)
+                          AnimatedRotation(
+                            turns: _expanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: IconButton(
+                              icon: const Icon(Icons.expand_more, size: 20),
+                              onPressed: () =>
+                                  setState(() => _expanded = !_expanded),
+                              color: cs.outline,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        PopupMenuButton<String>(
+                          onSelected: (v) async {
+                            if (v == 'edit') {
+                              _showDialog(context);
+                            } else if (v == 'add_subtask') {
+                              _showDialog(context, parentId: task.id);
+                            } else if (v == 'delete') {
+                              await notifier.delete(task.id);
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(children: [
+                                  Icon(Icons.edit_outlined),
+                                  SizedBox(width: 8),
+                                  Text('Bearbeiten')
+                                ])),
+                            const PopupMenuItem(
+                                value: 'add_subtask',
+                                child: Row(children: [
+                                  Icon(Icons.subdirectory_arrow_right_outlined),
+                                  SizedBox(width: 8),
+                                  Text('Unteraufgabe')
+                                ])),
+                            const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(children: [
+                                  Icon(Icons.delete_outline,
+                                      color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Löschen',
+                                      style: TextStyle(color: Colors.red))
+                                ])),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -322,21 +351,17 @@ class _TaskTile extends ConsumerWidget {
               ],
             ),
           ),
-          // Subtasks
-          if (subtasks.isNotEmpty) ...[
+          // Subtasks (collapsible — auto-expand when first subtask is added)
+          if (hasSubtasks && _expanded) ...[
             const Divider(height: 1, indent: 60, endIndent: 16),
             ...subtasks.map((sub) => _SubtaskTile(task: sub)),
-          ],
-          // Add subtask button (always visible when expanded or accessible via popup)
-          if (subtasks.isNotEmpty)
             InkWell(
-              onTap: () => _showDialog(context, ref, parentId: task.id),
+              onTap: () => _showDialog(context, parentId: task.id),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(60, 4, 16, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.add, size: 14,
-                        color: cs.outline),
+                    Icon(Icons.add, size: 14, color: cs.outline),
                     const SizedBox(width: 4),
                     Text('Unteraufgabe',
                         style: theme.textTheme.labelSmall
@@ -345,6 +370,7 @@ class _TaskTile extends ConsumerWidget {
                 ),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -352,6 +378,7 @@ class _TaskTile extends ConsumerWidget {
 
   Widget? _buildSubtitle(
       BuildContext context, Item? linkedItem, int subtaskCount) {
+    final task = widget.task;
     final cs = Theme.of(context).colorScheme;
     final isDone = task.status == 'done';
     final now = DateTime.now();
@@ -420,21 +447,21 @@ class _TaskTile extends ConsumerWidget {
     }
 
     if (chips.isEmpty) return null;
-    return Wrap(
-      spacing: 4,
-      runSpacing: 2,
-      children: chips,
-    );
+    return Wrap(spacing: 4, runSpacing: 2, children: chips);
   }
 
-  void _showDialog(BuildContext context, WidgetRef ref, {String? parentId}) {
+  void _showDialog(BuildContext context, {String? parentId}) {
+    final task = widget.task;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _TaskDialog(
           task: parentId == null ? task : null, parentId: parentId),
-    );
+    ).then((_) {
+      // Auto-expand when a subtask was just added
+      if (parentId != null && mounted) setState(() => _expanded = true);
+    });
   }
 }
 
@@ -612,18 +639,11 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+    return ListView(
+      shrinkWrap: true,
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, MediaQuery.viewInsetsOf(context).bottom + 24),
+      children: [
             Text(
               widget.task == null ? 'Neue Aufgabe' : 'Aufgabe bearbeiten',
               style: Theme.of(context).textTheme.titleMedium,
@@ -826,9 +846,7 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Text('Speichern'),
             ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
