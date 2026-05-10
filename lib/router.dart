@@ -26,6 +26,9 @@ import 'screens/settings/units_screen.dart';
 import 'screens/settings/meal_types_screen.dart';
 import 'screens/settings/custom_categories_screen.dart';
 import 'screens/settings/help_screen.dart';
+import 'screens/settings/templates_screen.dart';
+import 'screens/settings/template_detail_screen.dart';
+import 'screens/settings/product_types_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'health/screens/me_screen.dart';
 import 'widgets/adaptive_shell.dart';
@@ -88,6 +91,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'help',
             builder: (context, state) => const HelpScreen(),
+          ),
+          GoRoute(
+            path: 'templates',
+            builder: (context, state) => const TemplatesScreen(),
+            routes: [
+              GoRoute(
+                path: ':templateId',
+                builder: (context, state) => TemplateDetailScreen(
+                    templateId: state.pathParameters['templateId']!),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'product-types',
+            builder: (context, state) => const ProductTypesScreen(),
           ),
         ],
       ),

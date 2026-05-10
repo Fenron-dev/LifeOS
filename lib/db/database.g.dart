@@ -824,6 +824,17 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _templateIdMeta = const VerificationMeta(
+    'templateId',
+  );
+  @override
+  late final GeneratedColumn<String> templateId = GeneratedColumn<String>(
+    'template_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _starRatingMeta = const VerificationMeta(
     'starRating',
   );
@@ -922,6 +933,7 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     minStockQuantity,
     minStockUnit,
     preferredShopId,
+    templateId,
     starRating,
     isFavorite,
     isTrashed,
@@ -1186,6 +1198,12 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         ),
       );
     }
+    if (data.containsKey('template_id')) {
+      context.handle(
+        _templateIdMeta,
+        templateId.isAcceptableOrUnknown(data['template_id']!, _templateIdMeta),
+      );
+    }
     if (data.containsKey('star_rating')) {
       context.handle(
         _starRatingMeta,
@@ -1349,6 +1367,10 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}preferred_shop_id'],
       ),
+      templateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}template_id'],
+      ),
       starRating: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}star_rating'],
@@ -1431,6 +1453,9 @@ class Item extends DataClass implements Insertable<Item> {
   /// Shop where this item is usually purchased (references Shops.id).
   /// Used to group the shopping list by store.
   final String? preferredShopId;
+
+  /// Template assigned to this item (optional).
+  final String? templateId;
   final int? starRating;
   final bool isFavorite;
   final bool isTrashed;
@@ -1468,6 +1493,7 @@ class Item extends DataClass implements Insertable<Item> {
     this.minStockQuantity,
     this.minStockUnit,
     this.preferredShopId,
+    this.templateId,
     this.starRating,
     required this.isFavorite,
     required this.isTrashed,
@@ -1555,6 +1581,9 @@ class Item extends DataClass implements Insertable<Item> {
     }
     if (!nullToAbsent || preferredShopId != null) {
       map['preferred_shop_id'] = Variable<String>(preferredShopId);
+    }
+    if (!nullToAbsent || templateId != null) {
+      map['template_id'] = Variable<String>(templateId);
     }
     if (!nullToAbsent || starRating != null) {
       map['star_rating'] = Variable<int>(starRating);
@@ -1645,6 +1674,9 @@ class Item extends DataClass implements Insertable<Item> {
       preferredShopId: preferredShopId == null && nullToAbsent
           ? const Value.absent()
           : Value(preferredShopId),
+      templateId: templateId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(templateId),
       starRating: starRating == null && nullToAbsent
           ? const Value.absent()
           : Value(starRating),
@@ -1698,6 +1730,7 @@ class Item extends DataClass implements Insertable<Item> {
       minStockQuantity: serializer.fromJson<double?>(json['minStockQuantity']),
       minStockUnit: serializer.fromJson<String?>(json['minStockUnit']),
       preferredShopId: serializer.fromJson<String?>(json['preferredShopId']),
+      templateId: serializer.fromJson<String?>(json['templateId']),
       starRating: serializer.fromJson<int?>(json['starRating']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       isTrashed: serializer.fromJson<bool>(json['isTrashed']),
@@ -1740,6 +1773,7 @@ class Item extends DataClass implements Insertable<Item> {
       'minStockQuantity': serializer.toJson<double?>(minStockQuantity),
       'minStockUnit': serializer.toJson<String?>(minStockUnit),
       'preferredShopId': serializer.toJson<String?>(preferredShopId),
+      'templateId': serializer.toJson<String?>(templateId),
       'starRating': serializer.toJson<int?>(starRating),
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'isTrashed': serializer.toJson<bool>(isTrashed),
@@ -1780,6 +1814,7 @@ class Item extends DataClass implements Insertable<Item> {
     Value<double?> minStockQuantity = const Value.absent(),
     Value<String?> minStockUnit = const Value.absent(),
     Value<String?> preferredShopId = const Value.absent(),
+    Value<String?> templateId = const Value.absent(),
     Value<int?> starRating = const Value.absent(),
     bool? isFavorite,
     bool? isTrashed,
@@ -1837,6 +1872,7 @@ class Item extends DataClass implements Insertable<Item> {
     preferredShopId: preferredShopId.present
         ? preferredShopId.value
         : this.preferredShopId,
+    templateId: templateId.present ? templateId.value : this.templateId,
     starRating: starRating.present ? starRating.value : this.starRating,
     isFavorite: isFavorite ?? this.isFavorite,
     isTrashed: isTrashed ?? this.isTrashed,
@@ -1924,6 +1960,9 @@ class Item extends DataClass implements Insertable<Item> {
       preferredShopId: data.preferredShopId.present
           ? data.preferredShopId.value
           : this.preferredShopId,
+      templateId: data.templateId.present
+          ? data.templateId.value
+          : this.templateId,
       starRating: data.starRating.present
           ? data.starRating.value
           : this.starRating,
@@ -1970,6 +2009,7 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('minStockQuantity: $minStockQuantity, ')
           ..write('minStockUnit: $minStockUnit, ')
           ..write('preferredShopId: $preferredShopId, ')
+          ..write('templateId: $templateId, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -2012,6 +2052,7 @@ class Item extends DataClass implements Insertable<Item> {
     minStockQuantity,
     minStockUnit,
     preferredShopId,
+    templateId,
     starRating,
     isFavorite,
     isTrashed,
@@ -2053,6 +2094,7 @@ class Item extends DataClass implements Insertable<Item> {
           other.minStockQuantity == this.minStockQuantity &&
           other.minStockUnit == this.minStockUnit &&
           other.preferredShopId == this.preferredShopId &&
+          other.templateId == this.templateId &&
           other.starRating == this.starRating &&
           other.isFavorite == this.isFavorite &&
           other.isTrashed == this.isTrashed &&
@@ -2092,6 +2134,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<double?> minStockQuantity;
   final Value<String?> minStockUnit;
   final Value<String?> preferredShopId;
+  final Value<String?> templateId;
   final Value<int?> starRating;
   final Value<bool> isFavorite;
   final Value<bool> isTrashed;
@@ -2130,6 +2173,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.minStockQuantity = const Value.absent(),
     this.minStockUnit = const Value.absent(),
     this.preferredShopId = const Value.absent(),
+    this.templateId = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -2169,6 +2213,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.minStockQuantity = const Value.absent(),
     this.minStockUnit = const Value.absent(),
     this.preferredShopId = const Value.absent(),
+    this.templateId = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -2210,6 +2255,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<double>? minStockQuantity,
     Expression<String>? minStockUnit,
     Expression<String>? preferredShopId,
+    Expression<String>? templateId,
     Expression<int>? starRating,
     Expression<bool>? isFavorite,
     Expression<bool>? isTrashed,
@@ -2251,6 +2297,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (minStockQuantity != null) 'min_stock_quantity': minStockQuantity,
       if (minStockUnit != null) 'min_stock_unit': minStockUnit,
       if (preferredShopId != null) 'preferred_shop_id': preferredShopId,
+      if (templateId != null) 'template_id': templateId,
       if (starRating != null) 'star_rating': starRating,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (isTrashed != null) 'is_trashed': isTrashed,
@@ -2292,6 +2339,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<double?>? minStockQuantity,
     Value<String?>? minStockUnit,
     Value<String?>? preferredShopId,
+    Value<String?>? templateId,
     Value<int?>? starRating,
     Value<bool>? isFavorite,
     Value<bool>? isTrashed,
@@ -2331,6 +2379,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       minStockQuantity: minStockQuantity ?? this.minStockQuantity,
       minStockUnit: minStockUnit ?? this.minStockUnit,
       preferredShopId: preferredShopId ?? this.preferredShopId,
+      templateId: templateId ?? this.templateId,
       starRating: starRating ?? this.starRating,
       isFavorite: isFavorite ?? this.isFavorite,
       isTrashed: isTrashed ?? this.isTrashed,
@@ -2438,6 +2487,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (preferredShopId.present) {
       map['preferred_shop_id'] = Variable<String>(preferredShopId.value);
     }
+    if (templateId.present) {
+      map['template_id'] = Variable<String>(templateId.value);
+    }
     if (starRating.present) {
       map['star_rating'] = Variable<int>(starRating.value);
     }
@@ -2493,6 +2545,7 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('minStockQuantity: $minStockQuantity, ')
           ..write('minStockUnit: $minStockUnit, ')
           ..write('preferredShopId: $preferredShopId, ')
+          ..write('templateId: $templateId, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -22226,6 +22279,1715 @@ class ItemRelationsCompanion extends UpdateCompanion<ItemRelation> {
   }
 }
 
+class $ItemTemplatesTable extends ItemTemplates
+    with TableInfo<$ItemTemplatesTable, ItemTemplate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ItemTemplatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _categoryIdMeta = const VerificationMeta(
+    'categoryId',
+  );
+  @override
+  late final GeneratedColumn<String> categoryId = GeneratedColumn<String>(
+    'category_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isBuiltInMeta = const VerificationMeta(
+    'isBuiltIn',
+  );
+  @override
+  late final GeneratedColumn<bool> isBuiltIn = GeneratedColumn<bool>(
+    'is_built_in',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_built_in" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    description,
+    categoryId,
+    isBuiltIn,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'item_templates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ItemTemplate> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('category_id')) {
+      context.handle(
+        _categoryIdMeta,
+        categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    }
+    if (data.containsKey('is_built_in')) {
+      context.handle(
+        _isBuiltInMeta,
+        isBuiltIn.isAcceptableOrUnknown(data['is_built_in']!, _isBuiltInMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ItemTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ItemTemplate(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      categoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_id'],
+      ),
+      isBuiltIn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_built_in'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ItemTemplatesTable createAlias(String alias) {
+    return $ItemTemplatesTable(attachedDatabase, alias);
+  }
+}
+
+class ItemTemplate extends DataClass implements Insertable<ItemTemplate> {
+  final String id;
+  final String name;
+  final String? description;
+  final String? categoryId;
+  final bool isBuiltIn;
+  final DateTime createdAt;
+  const ItemTemplate({
+    required this.id,
+    required this.name,
+    this.description,
+    this.categoryId,
+    required this.isBuiltIn,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || categoryId != null) {
+      map['category_id'] = Variable<String>(categoryId);
+    }
+    map['is_built_in'] = Variable<bool>(isBuiltIn);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ItemTemplatesCompanion toCompanion(bool nullToAbsent) {
+    return ItemTemplatesCompanion(
+      id: Value(id),
+      name: Value(name),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      categoryId: categoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categoryId),
+      isBuiltIn: Value(isBuiltIn),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ItemTemplate.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ItemTemplate(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      description: serializer.fromJson<String?>(json['description']),
+      categoryId: serializer.fromJson<String?>(json['categoryId']),
+      isBuiltIn: serializer.fromJson<bool>(json['isBuiltIn']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'description': serializer.toJson<String?>(description),
+      'categoryId': serializer.toJson<String?>(categoryId),
+      'isBuiltIn': serializer.toJson<bool>(isBuiltIn),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ItemTemplate copyWith({
+    String? id,
+    String? name,
+    Value<String?> description = const Value.absent(),
+    Value<String?> categoryId = const Value.absent(),
+    bool? isBuiltIn,
+    DateTime? createdAt,
+  }) => ItemTemplate(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    description: description.present ? description.value : this.description,
+    categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ItemTemplate copyWithCompanion(ItemTemplatesCompanion data) {
+    return ItemTemplate(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      categoryId: data.categoryId.present
+          ? data.categoryId.value
+          : this.categoryId,
+      isBuiltIn: data.isBuiltIn.present ? data.isBuiltIn.value : this.isBuiltIn,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemTemplate(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('isBuiltIn: $isBuiltIn, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, description, categoryId, isBuiltIn, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ItemTemplate &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.description == this.description &&
+          other.categoryId == this.categoryId &&
+          other.isBuiltIn == this.isBuiltIn &&
+          other.createdAt == this.createdAt);
+}
+
+class ItemTemplatesCompanion extends UpdateCompanion<ItemTemplate> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> description;
+  final Value<String?> categoryId;
+  final Value<bool> isBuiltIn;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ItemTemplatesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.description = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.isBuiltIn = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ItemTemplatesCompanion.insert({
+    required String id,
+    required String name,
+    this.description = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.isBuiltIn = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name);
+  static Insertable<ItemTemplate> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? description,
+    Expression<String>? categoryId,
+    Expression<bool>? isBuiltIn,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (categoryId != null) 'category_id': categoryId,
+      if (isBuiltIn != null) 'is_built_in': isBuiltIn,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ItemTemplatesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? description,
+    Value<String?>? categoryId,
+    Value<bool>? isBuiltIn,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ItemTemplatesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      categoryId: categoryId ?? this.categoryId,
+      isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (categoryId.present) {
+      map['category_id'] = Variable<String>(categoryId.value);
+    }
+    if (isBuiltIn.present) {
+      map['is_built_in'] = Variable<bool>(isBuiltIn.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemTemplatesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('isBuiltIn: $isBuiltIn, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TemplateFieldsTable extends TemplateFields
+    with TableInfo<$TemplateFieldsTable, TemplateField> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TemplateFieldsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _templateIdMeta = const VerificationMeta(
+    'templateId',
+  );
+  @override
+  late final GeneratedColumn<String> templateId = GeneratedColumn<String>(
+    'template_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES item_templates (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _fieldNameMeta = const VerificationMeta(
+    'fieldName',
+  );
+  @override
+  late final GeneratedColumn<String> fieldName = GeneratedColumn<String>(
+    'field_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldTypeMeta = const VerificationMeta(
+    'fieldType',
+  );
+  @override
+  late final GeneratedColumn<String> fieldType = GeneratedColumn<String>(
+    'field_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _defaultValueMeta = const VerificationMeta(
+    'defaultValue',
+  );
+  @override
+  late final GeneratedColumn<String> defaultValue = GeneratedColumn<String>(
+    'default_value',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _requiredMeta = const VerificationMeta(
+    'required',
+  );
+  @override
+  late final GeneratedColumn<bool> required = GeneratedColumn<bool>(
+    'required',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("required" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    templateId,
+    fieldName,
+    fieldType,
+    defaultValue,
+    required,
+    sortOrder,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'template_fields';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TemplateField> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('template_id')) {
+      context.handle(
+        _templateIdMeta,
+        templateId.isAcceptableOrUnknown(data['template_id']!, _templateIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_templateIdMeta);
+    }
+    if (data.containsKey('field_name')) {
+      context.handle(
+        _fieldNameMeta,
+        fieldName.isAcceptableOrUnknown(data['field_name']!, _fieldNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldNameMeta);
+    }
+    if (data.containsKey('field_type')) {
+      context.handle(
+        _fieldTypeMeta,
+        fieldType.isAcceptableOrUnknown(data['field_type']!, _fieldTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldTypeMeta);
+    }
+    if (data.containsKey('default_value')) {
+      context.handle(
+        _defaultValueMeta,
+        defaultValue.isAcceptableOrUnknown(
+          data['default_value']!,
+          _defaultValueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('required')) {
+      context.handle(
+        _requiredMeta,
+        required.isAcceptableOrUnknown(data['required']!, _requiredMeta),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TemplateField map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TemplateField(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      templateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}template_id'],
+      )!,
+      fieldName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_name'],
+      )!,
+      fieldType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_type'],
+      )!,
+      defaultValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_value'],
+      ),
+      required: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}required'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+    );
+  }
+
+  @override
+  $TemplateFieldsTable createAlias(String alias) {
+    return $TemplateFieldsTable(attachedDatabase, alias);
+  }
+}
+
+class TemplateField extends DataClass implements Insertable<TemplateField> {
+  final String id;
+  final String templateId;
+  final String fieldName;
+  final String fieldType;
+  final String? defaultValue;
+  final bool required;
+  final int sortOrder;
+  const TemplateField({
+    required this.id,
+    required this.templateId,
+    required this.fieldName,
+    required this.fieldType,
+    this.defaultValue,
+    required this.required,
+    required this.sortOrder,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['template_id'] = Variable<String>(templateId);
+    map['field_name'] = Variable<String>(fieldName);
+    map['field_type'] = Variable<String>(fieldType);
+    if (!nullToAbsent || defaultValue != null) {
+      map['default_value'] = Variable<String>(defaultValue);
+    }
+    map['required'] = Variable<bool>(required);
+    map['sort_order'] = Variable<int>(sortOrder);
+    return map;
+  }
+
+  TemplateFieldsCompanion toCompanion(bool nullToAbsent) {
+    return TemplateFieldsCompanion(
+      id: Value(id),
+      templateId: Value(templateId),
+      fieldName: Value(fieldName),
+      fieldType: Value(fieldType),
+      defaultValue: defaultValue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultValue),
+      required: Value(required),
+      sortOrder: Value(sortOrder),
+    );
+  }
+
+  factory TemplateField.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TemplateField(
+      id: serializer.fromJson<String>(json['id']),
+      templateId: serializer.fromJson<String>(json['templateId']),
+      fieldName: serializer.fromJson<String>(json['fieldName']),
+      fieldType: serializer.fromJson<String>(json['fieldType']),
+      defaultValue: serializer.fromJson<String?>(json['defaultValue']),
+      required: serializer.fromJson<bool>(json['required']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'templateId': serializer.toJson<String>(templateId),
+      'fieldName': serializer.toJson<String>(fieldName),
+      'fieldType': serializer.toJson<String>(fieldType),
+      'defaultValue': serializer.toJson<String?>(defaultValue),
+      'required': serializer.toJson<bool>(required),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+    };
+  }
+
+  TemplateField copyWith({
+    String? id,
+    String? templateId,
+    String? fieldName,
+    String? fieldType,
+    Value<String?> defaultValue = const Value.absent(),
+    bool? required,
+    int? sortOrder,
+  }) => TemplateField(
+    id: id ?? this.id,
+    templateId: templateId ?? this.templateId,
+    fieldName: fieldName ?? this.fieldName,
+    fieldType: fieldType ?? this.fieldType,
+    defaultValue: defaultValue.present ? defaultValue.value : this.defaultValue,
+    required: required ?? this.required,
+    sortOrder: sortOrder ?? this.sortOrder,
+  );
+  TemplateField copyWithCompanion(TemplateFieldsCompanion data) {
+    return TemplateField(
+      id: data.id.present ? data.id.value : this.id,
+      templateId: data.templateId.present
+          ? data.templateId.value
+          : this.templateId,
+      fieldName: data.fieldName.present ? data.fieldName.value : this.fieldName,
+      fieldType: data.fieldType.present ? data.fieldType.value : this.fieldType,
+      defaultValue: data.defaultValue.present
+          ? data.defaultValue.value
+          : this.defaultValue,
+      required: data.required.present ? data.required.value : this.required,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TemplateField(')
+          ..write('id: $id, ')
+          ..write('templateId: $templateId, ')
+          ..write('fieldName: $fieldName, ')
+          ..write('fieldType: $fieldType, ')
+          ..write('defaultValue: $defaultValue, ')
+          ..write('required: $required, ')
+          ..write('sortOrder: $sortOrder')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    templateId,
+    fieldName,
+    fieldType,
+    defaultValue,
+    required,
+    sortOrder,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TemplateField &&
+          other.id == this.id &&
+          other.templateId == this.templateId &&
+          other.fieldName == this.fieldName &&
+          other.fieldType == this.fieldType &&
+          other.defaultValue == this.defaultValue &&
+          other.required == this.required &&
+          other.sortOrder == this.sortOrder);
+}
+
+class TemplateFieldsCompanion extends UpdateCompanion<TemplateField> {
+  final Value<String> id;
+  final Value<String> templateId;
+  final Value<String> fieldName;
+  final Value<String> fieldType;
+  final Value<String?> defaultValue;
+  final Value<bool> required;
+  final Value<int> sortOrder;
+  final Value<int> rowid;
+  const TemplateFieldsCompanion({
+    this.id = const Value.absent(),
+    this.templateId = const Value.absent(),
+    this.fieldName = const Value.absent(),
+    this.fieldType = const Value.absent(),
+    this.defaultValue = const Value.absent(),
+    this.required = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TemplateFieldsCompanion.insert({
+    required String id,
+    required String templateId,
+    required String fieldName,
+    required String fieldType,
+    this.defaultValue = const Value.absent(),
+    this.required = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       templateId = Value(templateId),
+       fieldName = Value(fieldName),
+       fieldType = Value(fieldType);
+  static Insertable<TemplateField> custom({
+    Expression<String>? id,
+    Expression<String>? templateId,
+    Expression<String>? fieldName,
+    Expression<String>? fieldType,
+    Expression<String>? defaultValue,
+    Expression<bool>? required,
+    Expression<int>? sortOrder,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (templateId != null) 'template_id': templateId,
+      if (fieldName != null) 'field_name': fieldName,
+      if (fieldType != null) 'field_type': fieldType,
+      if (defaultValue != null) 'default_value': defaultValue,
+      if (required != null) 'required': required,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TemplateFieldsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? templateId,
+    Value<String>? fieldName,
+    Value<String>? fieldType,
+    Value<String?>? defaultValue,
+    Value<bool>? required,
+    Value<int>? sortOrder,
+    Value<int>? rowid,
+  }) {
+    return TemplateFieldsCompanion(
+      id: id ?? this.id,
+      templateId: templateId ?? this.templateId,
+      fieldName: fieldName ?? this.fieldName,
+      fieldType: fieldType ?? this.fieldType,
+      defaultValue: defaultValue ?? this.defaultValue,
+      required: required ?? this.required,
+      sortOrder: sortOrder ?? this.sortOrder,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (templateId.present) {
+      map['template_id'] = Variable<String>(templateId.value);
+    }
+    if (fieldName.present) {
+      map['field_name'] = Variable<String>(fieldName.value);
+    }
+    if (fieldType.present) {
+      map['field_type'] = Variable<String>(fieldType.value);
+    }
+    if (defaultValue.present) {
+      map['default_value'] = Variable<String>(defaultValue.value);
+    }
+    if (required.present) {
+      map['required'] = Variable<bool>(required.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TemplateFieldsCompanion(')
+          ..write('id: $id, ')
+          ..write('templateId: $templateId, ')
+          ..write('fieldName: $fieldName, ')
+          ..write('fieldType: $fieldType, ')
+          ..write('defaultValue: $defaultValue, ')
+          ..write('required: $required, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ItemPropertyValuesTable extends ItemPropertyValues
+    with TableInfo<$ItemPropertyValuesTable, ItemPropertyValue> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ItemPropertyValuesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<String> itemId = GeneratedColumn<String>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _fieldKeyMeta = const VerificationMeta(
+    'fieldKey',
+  );
+  @override
+  late final GeneratedColumn<String> fieldKey = GeneratedColumn<String>(
+    'field_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldTypeMeta = const VerificationMeta(
+    'fieldType',
+  );
+  @override
+  late final GeneratedColumn<String> fieldType = GeneratedColumn<String>(
+    'field_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    fieldKey,
+    fieldType,
+    value,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'item_property_values';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ItemPropertyValue> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('field_key')) {
+      context.handle(
+        _fieldKeyMeta,
+        fieldKey.isAcceptableOrUnknown(data['field_key']!, _fieldKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldKeyMeta);
+    }
+    if (data.containsKey('field_type')) {
+      context.handle(
+        _fieldTypeMeta,
+        fieldType.isAcceptableOrUnknown(data['field_type']!, _fieldTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldTypeMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ItemPropertyValue map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ItemPropertyValue(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_id'],
+      )!,
+      fieldKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_key'],
+      )!,
+      fieldType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_type'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ItemPropertyValuesTable createAlias(String alias) {
+    return $ItemPropertyValuesTable(attachedDatabase, alias);
+  }
+}
+
+class ItemPropertyValue extends DataClass
+    implements Insertable<ItemPropertyValue> {
+  final String id;
+  final String itemId;
+  final String fieldKey;
+  final String fieldType;
+  final String value;
+  final DateTime createdAt;
+  const ItemPropertyValue({
+    required this.id,
+    required this.itemId,
+    required this.fieldKey,
+    required this.fieldType,
+    required this.value,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['item_id'] = Variable<String>(itemId);
+    map['field_key'] = Variable<String>(fieldKey);
+    map['field_type'] = Variable<String>(fieldType);
+    map['value'] = Variable<String>(value);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ItemPropertyValuesCompanion toCompanion(bool nullToAbsent) {
+    return ItemPropertyValuesCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      fieldKey: Value(fieldKey),
+      fieldType: Value(fieldType),
+      value: Value(value),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ItemPropertyValue.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ItemPropertyValue(
+      id: serializer.fromJson<String>(json['id']),
+      itemId: serializer.fromJson<String>(json['itemId']),
+      fieldKey: serializer.fromJson<String>(json['fieldKey']),
+      fieldType: serializer.fromJson<String>(json['fieldType']),
+      value: serializer.fromJson<String>(json['value']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'itemId': serializer.toJson<String>(itemId),
+      'fieldKey': serializer.toJson<String>(fieldKey),
+      'fieldType': serializer.toJson<String>(fieldType),
+      'value': serializer.toJson<String>(value),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ItemPropertyValue copyWith({
+    String? id,
+    String? itemId,
+    String? fieldKey,
+    String? fieldType,
+    String? value,
+    DateTime? createdAt,
+  }) => ItemPropertyValue(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    fieldKey: fieldKey ?? this.fieldKey,
+    fieldType: fieldType ?? this.fieldType,
+    value: value ?? this.value,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ItemPropertyValue copyWithCompanion(ItemPropertyValuesCompanion data) {
+    return ItemPropertyValue(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      fieldKey: data.fieldKey.present ? data.fieldKey.value : this.fieldKey,
+      fieldType: data.fieldType.present ? data.fieldType.value : this.fieldType,
+      value: data.value.present ? data.value.value : this.value,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemPropertyValue(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('fieldKey: $fieldKey, ')
+          ..write('fieldType: $fieldType, ')
+          ..write('value: $value, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, itemId, fieldKey, fieldType, value, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ItemPropertyValue &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.fieldKey == this.fieldKey &&
+          other.fieldType == this.fieldType &&
+          other.value == this.value &&
+          other.createdAt == this.createdAt);
+}
+
+class ItemPropertyValuesCompanion extends UpdateCompanion<ItemPropertyValue> {
+  final Value<String> id;
+  final Value<String> itemId;
+  final Value<String> fieldKey;
+  final Value<String> fieldType;
+  final Value<String> value;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ItemPropertyValuesCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.fieldKey = const Value.absent(),
+    this.fieldType = const Value.absent(),
+    this.value = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ItemPropertyValuesCompanion.insert({
+    required String id,
+    required String itemId,
+    required String fieldKey,
+    required String fieldType,
+    required String value,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       itemId = Value(itemId),
+       fieldKey = Value(fieldKey),
+       fieldType = Value(fieldType),
+       value = Value(value);
+  static Insertable<ItemPropertyValue> custom({
+    Expression<String>? id,
+    Expression<String>? itemId,
+    Expression<String>? fieldKey,
+    Expression<String>? fieldType,
+    Expression<String>? value,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (fieldKey != null) 'field_key': fieldKey,
+      if (fieldType != null) 'field_type': fieldType,
+      if (value != null) 'value': value,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ItemPropertyValuesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? itemId,
+    Value<String>? fieldKey,
+    Value<String>? fieldType,
+    Value<String>? value,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ItemPropertyValuesCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      fieldKey: fieldKey ?? this.fieldKey,
+      fieldType: fieldType ?? this.fieldType,
+      value: value ?? this.value,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<String>(itemId.value);
+    }
+    if (fieldKey.present) {
+      map['field_key'] = Variable<String>(fieldKey.value);
+    }
+    if (fieldType.present) {
+      map['field_type'] = Variable<String>(fieldType.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemPropertyValuesCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('fieldKey: $fieldKey, ')
+          ..write('fieldType: $fieldType, ')
+          ..write('value: $value, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ProductTypeDefinitionsTable extends ProductTypeDefinitions
+    with TableInfo<$ProductTypeDefinitionsTable, ProductTypeDefinition> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProductTypeDefinitionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameDeMeta = const VerificationMeta('nameDe');
+  @override
+  late final GeneratedColumn<String> nameDe = GeneratedColumn<String>(
+    'name_de',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameEnMeta = const VerificationMeta('nameEn');
+  @override
+  late final GeneratedColumn<String> nameEn = GeneratedColumn<String>(
+    'name_en',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _iconNameMeta = const VerificationMeta(
+    'iconName',
+  );
+  @override
+  late final GeneratedColumn<String> iconName = GeneratedColumn<String>(
+    'icon_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isBuiltInMeta = const VerificationMeta(
+    'isBuiltIn',
+  );
+  @override
+  late final GeneratedColumn<bool> isBuiltIn = GeneratedColumn<bool>(
+    'is_built_in',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_built_in" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    nameDe,
+    nameEn,
+    iconName,
+    isBuiltIn,
+    sortOrder,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'product_type_definitions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProductTypeDefinition> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name_de')) {
+      context.handle(
+        _nameDeMeta,
+        nameDe.isAcceptableOrUnknown(data['name_de']!, _nameDeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameDeMeta);
+    }
+    if (data.containsKey('name_en')) {
+      context.handle(
+        _nameEnMeta,
+        nameEn.isAcceptableOrUnknown(data['name_en']!, _nameEnMeta),
+      );
+    }
+    if (data.containsKey('icon_name')) {
+      context.handle(
+        _iconNameMeta,
+        iconName.isAcceptableOrUnknown(data['icon_name']!, _iconNameMeta),
+      );
+    }
+    if (data.containsKey('is_built_in')) {
+      context.handle(
+        _isBuiltInMeta,
+        isBuiltIn.isAcceptableOrUnknown(data['is_built_in']!, _isBuiltInMeta),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ProductTypeDefinition map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProductTypeDefinition(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      nameDe: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name_de'],
+      )!,
+      nameEn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name_en'],
+      ),
+      iconName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_name'],
+      ),
+      isBuiltIn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_built_in'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+    );
+  }
+
+  @override
+  $ProductTypeDefinitionsTable createAlias(String alias) {
+    return $ProductTypeDefinitionsTable(attachedDatabase, alias);
+  }
+}
+
+class ProductTypeDefinition extends DataClass
+    implements Insertable<ProductTypeDefinition> {
+  final String id;
+  final String nameDe;
+  final String? nameEn;
+  final String? iconName;
+  final bool isBuiltIn;
+  final int sortOrder;
+  const ProductTypeDefinition({
+    required this.id,
+    required this.nameDe,
+    this.nameEn,
+    this.iconName,
+    required this.isBuiltIn,
+    required this.sortOrder,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name_de'] = Variable<String>(nameDe);
+    if (!nullToAbsent || nameEn != null) {
+      map['name_en'] = Variable<String>(nameEn);
+    }
+    if (!nullToAbsent || iconName != null) {
+      map['icon_name'] = Variable<String>(iconName);
+    }
+    map['is_built_in'] = Variable<bool>(isBuiltIn);
+    map['sort_order'] = Variable<int>(sortOrder);
+    return map;
+  }
+
+  ProductTypeDefinitionsCompanion toCompanion(bool nullToAbsent) {
+    return ProductTypeDefinitionsCompanion(
+      id: Value(id),
+      nameDe: Value(nameDe),
+      nameEn: nameEn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nameEn),
+      iconName: iconName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(iconName),
+      isBuiltIn: Value(isBuiltIn),
+      sortOrder: Value(sortOrder),
+    );
+  }
+
+  factory ProductTypeDefinition.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProductTypeDefinition(
+      id: serializer.fromJson<String>(json['id']),
+      nameDe: serializer.fromJson<String>(json['nameDe']),
+      nameEn: serializer.fromJson<String?>(json['nameEn']),
+      iconName: serializer.fromJson<String?>(json['iconName']),
+      isBuiltIn: serializer.fromJson<bool>(json['isBuiltIn']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'nameDe': serializer.toJson<String>(nameDe),
+      'nameEn': serializer.toJson<String?>(nameEn),
+      'iconName': serializer.toJson<String?>(iconName),
+      'isBuiltIn': serializer.toJson<bool>(isBuiltIn),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+    };
+  }
+
+  ProductTypeDefinition copyWith({
+    String? id,
+    String? nameDe,
+    Value<String?> nameEn = const Value.absent(),
+    Value<String?> iconName = const Value.absent(),
+    bool? isBuiltIn,
+    int? sortOrder,
+  }) => ProductTypeDefinition(
+    id: id ?? this.id,
+    nameDe: nameDe ?? this.nameDe,
+    nameEn: nameEn.present ? nameEn.value : this.nameEn,
+    iconName: iconName.present ? iconName.value : this.iconName,
+    isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+    sortOrder: sortOrder ?? this.sortOrder,
+  );
+  ProductTypeDefinition copyWithCompanion(
+    ProductTypeDefinitionsCompanion data,
+  ) {
+    return ProductTypeDefinition(
+      id: data.id.present ? data.id.value : this.id,
+      nameDe: data.nameDe.present ? data.nameDe.value : this.nameDe,
+      nameEn: data.nameEn.present ? data.nameEn.value : this.nameEn,
+      iconName: data.iconName.present ? data.iconName.value : this.iconName,
+      isBuiltIn: data.isBuiltIn.present ? data.isBuiltIn.value : this.isBuiltIn,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProductTypeDefinition(')
+          ..write('id: $id, ')
+          ..write('nameDe: $nameDe, ')
+          ..write('nameEn: $nameEn, ')
+          ..write('iconName: $iconName, ')
+          ..write('isBuiltIn: $isBuiltIn, ')
+          ..write('sortOrder: $sortOrder')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, nameDe, nameEn, iconName, isBuiltIn, sortOrder);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProductTypeDefinition &&
+          other.id == this.id &&
+          other.nameDe == this.nameDe &&
+          other.nameEn == this.nameEn &&
+          other.iconName == this.iconName &&
+          other.isBuiltIn == this.isBuiltIn &&
+          other.sortOrder == this.sortOrder);
+}
+
+class ProductTypeDefinitionsCompanion
+    extends UpdateCompanion<ProductTypeDefinition> {
+  final Value<String> id;
+  final Value<String> nameDe;
+  final Value<String?> nameEn;
+  final Value<String?> iconName;
+  final Value<bool> isBuiltIn;
+  final Value<int> sortOrder;
+  final Value<int> rowid;
+  const ProductTypeDefinitionsCompanion({
+    this.id = const Value.absent(),
+    this.nameDe = const Value.absent(),
+    this.nameEn = const Value.absent(),
+    this.iconName = const Value.absent(),
+    this.isBuiltIn = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProductTypeDefinitionsCompanion.insert({
+    required String id,
+    required String nameDe,
+    this.nameEn = const Value.absent(),
+    this.iconName = const Value.absent(),
+    this.isBuiltIn = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       nameDe = Value(nameDe);
+  static Insertable<ProductTypeDefinition> custom({
+    Expression<String>? id,
+    Expression<String>? nameDe,
+    Expression<String>? nameEn,
+    Expression<String>? iconName,
+    Expression<bool>? isBuiltIn,
+    Expression<int>? sortOrder,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nameDe != null) 'name_de': nameDe,
+      if (nameEn != null) 'name_en': nameEn,
+      if (iconName != null) 'icon_name': iconName,
+      if (isBuiltIn != null) 'is_built_in': isBuiltIn,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProductTypeDefinitionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? nameDe,
+    Value<String?>? nameEn,
+    Value<String?>? iconName,
+    Value<bool>? isBuiltIn,
+    Value<int>? sortOrder,
+    Value<int>? rowid,
+  }) {
+    return ProductTypeDefinitionsCompanion(
+      id: id ?? this.id,
+      nameDe: nameDe ?? this.nameDe,
+      nameEn: nameEn ?? this.nameEn,
+      iconName: iconName ?? this.iconName,
+      isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+      sortOrder: sortOrder ?? this.sortOrder,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (nameDe.present) {
+      map['name_de'] = Variable<String>(nameDe.value);
+    }
+    if (nameEn.present) {
+      map['name_en'] = Variable<String>(nameEn.value);
+    }
+    if (iconName.present) {
+      map['icon_name'] = Variable<String>(iconName.value);
+    }
+    if (isBuiltIn.present) {
+      map['is_built_in'] = Variable<bool>(isBuiltIn.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProductTypeDefinitionsCompanion(')
+          ..write('id: $id, ')
+          ..write('nameDe: $nameDe, ')
+          ..write('nameEn: $nameEn, ')
+          ..write('iconName: $iconName, ')
+          ..write('isBuiltIn: $isBuiltIn, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -22286,6 +24048,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CustomShoppingItemsTable customShoppingItems =
       $CustomShoppingItemsTable(this);
   late final $ItemRelationsTable itemRelations = $ItemRelationsTable(this);
+  late final $ItemTemplatesTable itemTemplates = $ItemTemplatesTable(this);
+  late final $TemplateFieldsTable templateFields = $TemplateFieldsTable(this);
+  late final $ItemPropertyValuesTable itemPropertyValues =
+      $ItemPropertyValuesTable(this);
+  late final $ProductTypeDefinitionsTable productTypeDefinitions =
+      $ProductTypeDefinitionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -22329,6 +24097,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     workoutSets,
     customShoppingItems,
     itemRelations,
+    itemTemplates,
+    templateFields,
+    itemPropertyValues,
+    productTypeDefinitions,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -22575,6 +24347,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('item_relations', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'item_templates',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('template_fields', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_property_values', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -23174,6 +24960,7 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<double?> minStockQuantity,
       Value<String?> minStockUnit,
       Value<String?> preferredShopId,
+      Value<String?> templateId,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -23214,6 +25001,7 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<double?> minStockQuantity,
       Value<String?> minStockUnit,
       Value<String?> preferredShopId,
+      Value<String?> templateId,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -23510,6 +25298,30 @@ final class $$ItemsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$ItemPropertyValuesTable, List<ItemPropertyValue>>
+  _itemPropertyValuesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.itemPropertyValues,
+        aliasName: $_aliasNameGenerator(
+          db.items.id,
+          db.itemPropertyValues.itemId,
+        ),
+      );
+
+  $$ItemPropertyValuesTableProcessedTableManager get itemPropertyValuesRefs {
+    final manager = $$ItemPropertyValuesTableTableManager(
+      $_db,
+      $_db.itemPropertyValues,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _itemPropertyValuesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
@@ -23662,6 +25474,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get preferredShopId => $composableBuilder(
     column: $table.preferredShopId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get templateId => $composableBuilder(
+    column: $table.templateId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -24036,6 +25853,31 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
     );
     return f(composer);
   }
+
+  Expression<bool> itemPropertyValuesRefs(
+    Expression<bool> Function($$ItemPropertyValuesTableFilterComposer f) f,
+  ) {
+    final $$ItemPropertyValuesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemPropertyValues,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemPropertyValuesTableFilterComposer(
+            $db: $db,
+            $table: $db.itemPropertyValues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ItemsTableOrderingComposer
@@ -24189,6 +26031,11 @@ class $$ItemsTableOrderingComposer
 
   ColumnOrderings<String> get preferredShopId => $composableBuilder(
     column: $table.preferredShopId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get templateId => $composableBuilder(
+    column: $table.templateId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -24401,6 +26248,11 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<String> get preferredShopId => $composableBuilder(
     column: $table.preferredShopId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get templateId => $composableBuilder(
+    column: $table.templateId,
     builder: (column) => column,
   );
 
@@ -24771,6 +26623,32 @@ class $$ItemsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> itemPropertyValuesRefs<T extends Object>(
+    Expression<T> Function($$ItemPropertyValuesTableAnnotationComposer a) f,
+  ) {
+    final $$ItemPropertyValuesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.itemPropertyValues,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ItemPropertyValuesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.itemPropertyValues,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$ItemsTableTableManager
@@ -24801,6 +26679,7 @@ class $$ItemsTableTableManager
             bool mealPlanItemRefs,
             bool fromRelations,
             bool toRelations,
+            bool itemPropertyValuesRefs,
           })
         > {
   $$ItemsTableTableManager(_$AppDatabase db, $ItemsTable table)
@@ -24847,6 +26726,7 @@ class $$ItemsTableTableManager
                 Value<double?> minStockQuantity = const Value.absent(),
                 Value<String?> minStockUnit = const Value.absent(),
                 Value<String?> preferredShopId = const Value.absent(),
+                Value<String?> templateId = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -24885,6 +26765,7 @@ class $$ItemsTableTableManager
                 minStockQuantity: minStockQuantity,
                 minStockUnit: minStockUnit,
                 preferredShopId: preferredShopId,
+                templateId: templateId,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
@@ -24925,6 +26806,7 @@ class $$ItemsTableTableManager
                 Value<double?> minStockQuantity = const Value.absent(),
                 Value<String?> minStockUnit = const Value.absent(),
                 Value<String?> preferredShopId = const Value.absent(),
+                Value<String?> templateId = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -24963,6 +26845,7 @@ class $$ItemsTableTableManager
                 minStockQuantity: minStockQuantity,
                 minStockUnit: minStockUnit,
                 preferredShopId: preferredShopId,
+                templateId: templateId,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
@@ -24992,6 +26875,7 @@ class $$ItemsTableTableManager
                 mealPlanItemRefs = false,
                 fromRelations = false,
                 toRelations = false,
+                itemPropertyValuesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -25008,6 +26892,7 @@ class $$ItemsTableTableManager
                     if (mealPlanItemRefs) db.mealPlanEntries,
                     if (fromRelations) db.itemRelations,
                     if (toRelations) db.itemRelations,
+                    if (itemPropertyValuesRefs) db.itemPropertyValues,
                   ],
                   addJoins:
                       <
@@ -25292,6 +27177,27 @@ class $$ItemsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (itemPropertyValuesRefs)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          ItemPropertyValue
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._itemPropertyValuesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).itemPropertyValuesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -25327,6 +27233,7 @@ typedef $$ItemsTableProcessedTableManager =
         bool mealPlanItemRefs,
         bool fromRelations,
         bool toRelations,
+        bool itemPropertyValuesRefs,
       })
     >;
 typedef $$InventoryEntriesTableCreateCompanionBuilder =
@@ -40732,6 +42639,1296 @@ typedef $$ItemRelationsTableProcessedTableManager =
       ItemRelation,
       PrefetchHooks Function({bool fromItemId, bool toItemId})
     >;
+typedef $$ItemTemplatesTableCreateCompanionBuilder =
+    ItemTemplatesCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> description,
+      Value<String?> categoryId,
+      Value<bool> isBuiltIn,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$ItemTemplatesTableUpdateCompanionBuilder =
+    ItemTemplatesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> description,
+      Value<String?> categoryId,
+      Value<bool> isBuiltIn,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$ItemTemplatesTableReferences
+    extends BaseReferences<_$AppDatabase, $ItemTemplatesTable, ItemTemplate> {
+  $$ItemTemplatesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$TemplateFieldsTable, List<TemplateField>>
+  _templateFieldsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.templateFields,
+    aliasName: $_aliasNameGenerator(
+      db.itemTemplates.id,
+      db.templateFields.templateId,
+    ),
+  );
+
+  $$TemplateFieldsTableProcessedTableManager get templateFieldsRefs {
+    final manager = $$TemplateFieldsTableTableManager(
+      $_db,
+      $_db.templateFields,
+    ).filter((f) => f.templateId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_templateFieldsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ItemTemplatesTableFilterComposer
+    extends Composer<_$AppDatabase, $ItemTemplatesTable> {
+  $$ItemTemplatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isBuiltIn => $composableBuilder(
+    column: $table.isBuiltIn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> templateFieldsRefs(
+    Expression<bool> Function($$TemplateFieldsTableFilterComposer f) f,
+  ) {
+    final $$TemplateFieldsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.templateFields,
+      getReferencedColumn: (t) => t.templateId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TemplateFieldsTableFilterComposer(
+            $db: $db,
+            $table: $db.templateFields,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ItemTemplatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ItemTemplatesTable> {
+  $$ItemTemplatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isBuiltIn => $composableBuilder(
+    column: $table.isBuiltIn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ItemTemplatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ItemTemplatesTable> {
+  $$ItemTemplatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isBuiltIn =>
+      $composableBuilder(column: $table.isBuiltIn, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  Expression<T> templateFieldsRefs<T extends Object>(
+    Expression<T> Function($$TemplateFieldsTableAnnotationComposer a) f,
+  ) {
+    final $$TemplateFieldsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.templateFields,
+      getReferencedColumn: (t) => t.templateId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TemplateFieldsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.templateFields,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ItemTemplatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ItemTemplatesTable,
+          ItemTemplate,
+          $$ItemTemplatesTableFilterComposer,
+          $$ItemTemplatesTableOrderingComposer,
+          $$ItemTemplatesTableAnnotationComposer,
+          $$ItemTemplatesTableCreateCompanionBuilder,
+          $$ItemTemplatesTableUpdateCompanionBuilder,
+          (ItemTemplate, $$ItemTemplatesTableReferences),
+          ItemTemplate,
+          PrefetchHooks Function({bool templateFieldsRefs})
+        > {
+  $$ItemTemplatesTableTableManager(_$AppDatabase db, $ItemTemplatesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ItemTemplatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ItemTemplatesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ItemTemplatesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> categoryId = const Value.absent(),
+                Value<bool> isBuiltIn = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ItemTemplatesCompanion(
+                id: id,
+                name: name,
+                description: description,
+                categoryId: categoryId,
+                isBuiltIn: isBuiltIn,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> description = const Value.absent(),
+                Value<String?> categoryId = const Value.absent(),
+                Value<bool> isBuiltIn = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ItemTemplatesCompanion.insert(
+                id: id,
+                name: name,
+                description: description,
+                categoryId: categoryId,
+                isBuiltIn: isBuiltIn,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ItemTemplatesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({templateFieldsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (templateFieldsRefs) db.templateFields,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (templateFieldsRefs)
+                    await $_getPrefetchedData<
+                      ItemTemplate,
+                      $ItemTemplatesTable,
+                      TemplateField
+                    >(
+                      currentTable: table,
+                      referencedTable: $$ItemTemplatesTableReferences
+                          ._templateFieldsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$ItemTemplatesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).templateFieldsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.templateId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ItemTemplatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ItemTemplatesTable,
+      ItemTemplate,
+      $$ItemTemplatesTableFilterComposer,
+      $$ItemTemplatesTableOrderingComposer,
+      $$ItemTemplatesTableAnnotationComposer,
+      $$ItemTemplatesTableCreateCompanionBuilder,
+      $$ItemTemplatesTableUpdateCompanionBuilder,
+      (ItemTemplate, $$ItemTemplatesTableReferences),
+      ItemTemplate,
+      PrefetchHooks Function({bool templateFieldsRefs})
+    >;
+typedef $$TemplateFieldsTableCreateCompanionBuilder =
+    TemplateFieldsCompanion Function({
+      required String id,
+      required String templateId,
+      required String fieldName,
+      required String fieldType,
+      Value<String?> defaultValue,
+      Value<bool> required,
+      Value<int> sortOrder,
+      Value<int> rowid,
+    });
+typedef $$TemplateFieldsTableUpdateCompanionBuilder =
+    TemplateFieldsCompanion Function({
+      Value<String> id,
+      Value<String> templateId,
+      Value<String> fieldName,
+      Value<String> fieldType,
+      Value<String?> defaultValue,
+      Value<bool> required,
+      Value<int> sortOrder,
+      Value<int> rowid,
+    });
+
+final class $$TemplateFieldsTableReferences
+    extends BaseReferences<_$AppDatabase, $TemplateFieldsTable, TemplateField> {
+  $$TemplateFieldsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ItemTemplatesTable _templateIdTable(_$AppDatabase db) =>
+      db.itemTemplates.createAlias(
+        $_aliasNameGenerator(db.templateFields.templateId, db.itemTemplates.id),
+      );
+
+  $$ItemTemplatesTableProcessedTableManager get templateId {
+    final $_column = $_itemColumn<String>('template_id')!;
+
+    final manager = $$ItemTemplatesTableTableManager(
+      $_db,
+      $_db.itemTemplates,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_templateIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TemplateFieldsTableFilterComposer
+    extends Composer<_$AppDatabase, $TemplateFieldsTable> {
+  $$TemplateFieldsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldName => $composableBuilder(
+    column: $table.fieldName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldType => $composableBuilder(
+    column: $table.fieldType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defaultValue => $composableBuilder(
+    column: $table.defaultValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get required => $composableBuilder(
+    column: $table.required,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ItemTemplatesTableFilterComposer get templateId {
+    final $$ItemTemplatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.templateId,
+      referencedTable: $db.itemTemplates,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemTemplatesTableFilterComposer(
+            $db: $db,
+            $table: $db.itemTemplates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TemplateFieldsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TemplateFieldsTable> {
+  $$TemplateFieldsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldName => $composableBuilder(
+    column: $table.fieldName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldType => $composableBuilder(
+    column: $table.fieldType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get defaultValue => $composableBuilder(
+    column: $table.defaultValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get required => $composableBuilder(
+    column: $table.required,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ItemTemplatesTableOrderingComposer get templateId {
+    final $$ItemTemplatesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.templateId,
+      referencedTable: $db.itemTemplates,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemTemplatesTableOrderingComposer(
+            $db: $db,
+            $table: $db.itemTemplates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TemplateFieldsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TemplateFieldsTable> {
+  $$TemplateFieldsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldName =>
+      $composableBuilder(column: $table.fieldName, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldType =>
+      $composableBuilder(column: $table.fieldType, builder: (column) => column);
+
+  GeneratedColumn<String> get defaultValue => $composableBuilder(
+    column: $table.defaultValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get required =>
+      $composableBuilder(column: $table.required, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  $$ItemTemplatesTableAnnotationComposer get templateId {
+    final $$ItemTemplatesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.templateId,
+      referencedTable: $db.itemTemplates,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemTemplatesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemTemplates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TemplateFieldsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TemplateFieldsTable,
+          TemplateField,
+          $$TemplateFieldsTableFilterComposer,
+          $$TemplateFieldsTableOrderingComposer,
+          $$TemplateFieldsTableAnnotationComposer,
+          $$TemplateFieldsTableCreateCompanionBuilder,
+          $$TemplateFieldsTableUpdateCompanionBuilder,
+          (TemplateField, $$TemplateFieldsTableReferences),
+          TemplateField,
+          PrefetchHooks Function({bool templateId})
+        > {
+  $$TemplateFieldsTableTableManager(
+    _$AppDatabase db,
+    $TemplateFieldsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TemplateFieldsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TemplateFieldsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TemplateFieldsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> templateId = const Value.absent(),
+                Value<String> fieldName = const Value.absent(),
+                Value<String> fieldType = const Value.absent(),
+                Value<String?> defaultValue = const Value.absent(),
+                Value<bool> required = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TemplateFieldsCompanion(
+                id: id,
+                templateId: templateId,
+                fieldName: fieldName,
+                fieldType: fieldType,
+                defaultValue: defaultValue,
+                required: required,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String templateId,
+                required String fieldName,
+                required String fieldType,
+                Value<String?> defaultValue = const Value.absent(),
+                Value<bool> required = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TemplateFieldsCompanion.insert(
+                id: id,
+                templateId: templateId,
+                fieldName: fieldName,
+                fieldType: fieldType,
+                defaultValue: defaultValue,
+                required: required,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TemplateFieldsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({templateId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (templateId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.templateId,
+                                referencedTable: $$TemplateFieldsTableReferences
+                                    ._templateIdTable(db),
+                                referencedColumn:
+                                    $$TemplateFieldsTableReferences
+                                        ._templateIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TemplateFieldsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TemplateFieldsTable,
+      TemplateField,
+      $$TemplateFieldsTableFilterComposer,
+      $$TemplateFieldsTableOrderingComposer,
+      $$TemplateFieldsTableAnnotationComposer,
+      $$TemplateFieldsTableCreateCompanionBuilder,
+      $$TemplateFieldsTableUpdateCompanionBuilder,
+      (TemplateField, $$TemplateFieldsTableReferences),
+      TemplateField,
+      PrefetchHooks Function({bool templateId})
+    >;
+typedef $$ItemPropertyValuesTableCreateCompanionBuilder =
+    ItemPropertyValuesCompanion Function({
+      required String id,
+      required String itemId,
+      required String fieldKey,
+      required String fieldType,
+      required String value,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$ItemPropertyValuesTableUpdateCompanionBuilder =
+    ItemPropertyValuesCompanion Function({
+      Value<String> id,
+      Value<String> itemId,
+      Value<String> fieldKey,
+      Value<String> fieldType,
+      Value<String> value,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$ItemPropertyValuesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ItemPropertyValuesTable,
+          ItemPropertyValue
+        > {
+  $$ItemPropertyValuesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ItemsTable _itemIdTable(_$AppDatabase db) => db.items.createAlias(
+    $_aliasNameGenerator(db.itemPropertyValues.itemId, db.items.id),
+  );
+
+  $$ItemsTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<String>('item_id')!;
+
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ItemPropertyValuesTableFilterComposer
+    extends Composer<_$AppDatabase, $ItemPropertyValuesTable> {
+  $$ItemPropertyValuesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldKey => $composableBuilder(
+    column: $table.fieldKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldType => $composableBuilder(
+    column: $table.fieldType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ItemsTableFilterComposer get itemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ItemPropertyValuesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ItemPropertyValuesTable> {
+  $$ItemPropertyValuesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldKey => $composableBuilder(
+    column: $table.fieldKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldType => $composableBuilder(
+    column: $table.fieldType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ItemsTableOrderingComposer get itemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ItemPropertyValuesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ItemPropertyValuesTable> {
+  $$ItemPropertyValuesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldKey =>
+      $composableBuilder(column: $table.fieldKey, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldType =>
+      $composableBuilder(column: $table.fieldType, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$ItemsTableAnnotationComposer get itemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ItemPropertyValuesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ItemPropertyValuesTable,
+          ItemPropertyValue,
+          $$ItemPropertyValuesTableFilterComposer,
+          $$ItemPropertyValuesTableOrderingComposer,
+          $$ItemPropertyValuesTableAnnotationComposer,
+          $$ItemPropertyValuesTableCreateCompanionBuilder,
+          $$ItemPropertyValuesTableUpdateCompanionBuilder,
+          (ItemPropertyValue, $$ItemPropertyValuesTableReferences),
+          ItemPropertyValue,
+          PrefetchHooks Function({bool itemId})
+        > {
+  $$ItemPropertyValuesTableTableManager(
+    _$AppDatabase db,
+    $ItemPropertyValuesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ItemPropertyValuesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ItemPropertyValuesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ItemPropertyValuesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> itemId = const Value.absent(),
+                Value<String> fieldKey = const Value.absent(),
+                Value<String> fieldType = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ItemPropertyValuesCompanion(
+                id: id,
+                itemId: itemId,
+                fieldKey: fieldKey,
+                fieldType: fieldType,
+                value: value,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String itemId,
+                required String fieldKey,
+                required String fieldType,
+                required String value,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ItemPropertyValuesCompanion.insert(
+                id: id,
+                itemId: itemId,
+                fieldKey: fieldKey,
+                fieldType: fieldType,
+                value: value,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ItemPropertyValuesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({itemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable:
+                                    $$ItemPropertyValuesTableReferences
+                                        ._itemIdTable(db),
+                                referencedColumn:
+                                    $$ItemPropertyValuesTableReferences
+                                        ._itemIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ItemPropertyValuesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ItemPropertyValuesTable,
+      ItemPropertyValue,
+      $$ItemPropertyValuesTableFilterComposer,
+      $$ItemPropertyValuesTableOrderingComposer,
+      $$ItemPropertyValuesTableAnnotationComposer,
+      $$ItemPropertyValuesTableCreateCompanionBuilder,
+      $$ItemPropertyValuesTableUpdateCompanionBuilder,
+      (ItemPropertyValue, $$ItemPropertyValuesTableReferences),
+      ItemPropertyValue,
+      PrefetchHooks Function({bool itemId})
+    >;
+typedef $$ProductTypeDefinitionsTableCreateCompanionBuilder =
+    ProductTypeDefinitionsCompanion Function({
+      required String id,
+      required String nameDe,
+      Value<String?> nameEn,
+      Value<String?> iconName,
+      Value<bool> isBuiltIn,
+      Value<int> sortOrder,
+      Value<int> rowid,
+    });
+typedef $$ProductTypeDefinitionsTableUpdateCompanionBuilder =
+    ProductTypeDefinitionsCompanion Function({
+      Value<String> id,
+      Value<String> nameDe,
+      Value<String?> nameEn,
+      Value<String?> iconName,
+      Value<bool> isBuiltIn,
+      Value<int> sortOrder,
+      Value<int> rowid,
+    });
+
+class $$ProductTypeDefinitionsTableFilterComposer
+    extends Composer<_$AppDatabase, $ProductTypeDefinitionsTable> {
+  $$ProductTypeDefinitionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nameDe => $composableBuilder(
+    column: $table.nameDe,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nameEn => $composableBuilder(
+    column: $table.nameEn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconName => $composableBuilder(
+    column: $table.iconName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isBuiltIn => $composableBuilder(
+    column: $table.isBuiltIn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ProductTypeDefinitionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProductTypeDefinitionsTable> {
+  $$ProductTypeDefinitionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nameDe => $composableBuilder(
+    column: $table.nameDe,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nameEn => $composableBuilder(
+    column: $table.nameEn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconName => $composableBuilder(
+    column: $table.iconName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isBuiltIn => $composableBuilder(
+    column: $table.isBuiltIn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProductTypeDefinitionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProductTypeDefinitionsTable> {
+  $$ProductTypeDefinitionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nameDe =>
+      $composableBuilder(column: $table.nameDe, builder: (column) => column);
+
+  GeneratedColumn<String> get nameEn =>
+      $composableBuilder(column: $table.nameEn, builder: (column) => column);
+
+  GeneratedColumn<String> get iconName =>
+      $composableBuilder(column: $table.iconName, builder: (column) => column);
+
+  GeneratedColumn<bool> get isBuiltIn =>
+      $composableBuilder(column: $table.isBuiltIn, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+}
+
+class $$ProductTypeDefinitionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ProductTypeDefinitionsTable,
+          ProductTypeDefinition,
+          $$ProductTypeDefinitionsTableFilterComposer,
+          $$ProductTypeDefinitionsTableOrderingComposer,
+          $$ProductTypeDefinitionsTableAnnotationComposer,
+          $$ProductTypeDefinitionsTableCreateCompanionBuilder,
+          $$ProductTypeDefinitionsTableUpdateCompanionBuilder,
+          (
+            ProductTypeDefinition,
+            BaseReferences<
+              _$AppDatabase,
+              $ProductTypeDefinitionsTable,
+              ProductTypeDefinition
+            >,
+          ),
+          ProductTypeDefinition,
+          PrefetchHooks Function()
+        > {
+  $$ProductTypeDefinitionsTableTableManager(
+    _$AppDatabase db,
+    $ProductTypeDefinitionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProductTypeDefinitionsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$ProductTypeDefinitionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ProductTypeDefinitionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> nameDe = const Value.absent(),
+                Value<String?> nameEn = const Value.absent(),
+                Value<String?> iconName = const Value.absent(),
+                Value<bool> isBuiltIn = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProductTypeDefinitionsCompanion(
+                id: id,
+                nameDe: nameDe,
+                nameEn: nameEn,
+                iconName: iconName,
+                isBuiltIn: isBuiltIn,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String nameDe,
+                Value<String?> nameEn = const Value.absent(),
+                Value<String?> iconName = const Value.absent(),
+                Value<bool> isBuiltIn = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProductTypeDefinitionsCompanion.insert(
+                id: id,
+                nameDe: nameDe,
+                nameEn: nameEn,
+                iconName: iconName,
+                isBuiltIn: isBuiltIn,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ProductTypeDefinitionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ProductTypeDefinitionsTable,
+      ProductTypeDefinition,
+      $$ProductTypeDefinitionsTableFilterComposer,
+      $$ProductTypeDefinitionsTableOrderingComposer,
+      $$ProductTypeDefinitionsTableAnnotationComposer,
+      $$ProductTypeDefinitionsTableCreateCompanionBuilder,
+      $$ProductTypeDefinitionsTableUpdateCompanionBuilder,
+      (
+        ProductTypeDefinition,
+        BaseReferences<
+          _$AppDatabase,
+          $ProductTypeDefinitionsTable,
+          ProductTypeDefinition
+        >,
+      ),
+      ProductTypeDefinition,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -40815,4 +44012,15 @@ class $AppDatabaseManager {
       $$CustomShoppingItemsTableTableManager(_db, _db.customShoppingItems);
   $$ItemRelationsTableTableManager get itemRelations =>
       $$ItemRelationsTableTableManager(_db, _db.itemRelations);
+  $$ItemTemplatesTableTableManager get itemTemplates =>
+      $$ItemTemplatesTableTableManager(_db, _db.itemTemplates);
+  $$TemplateFieldsTableTableManager get templateFields =>
+      $$TemplateFieldsTableTableManager(_db, _db.templateFields);
+  $$ItemPropertyValuesTableTableManager get itemPropertyValues =>
+      $$ItemPropertyValuesTableTableManager(_db, _db.itemPropertyValues);
+  $$ProductTypeDefinitionsTableTableManager get productTypeDefinitions =>
+      $$ProductTypeDefinitionsTableTableManager(
+        _db,
+        _db.productTypeDefinitions,
+      );
 }

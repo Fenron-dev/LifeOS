@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/item_categories.dart';
 import '../../core/product_types.dart';
 import '../../providers/tags_provider.dart';
+import '../../providers/templates_provider.dart';
+import '../../providers/product_types_provider.dart';
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
@@ -80,6 +82,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   bool _openedFlag = true;
   int? _daysAfterOpening;
   String _categoryId = ItemCategory.food;
+  String? _templateId;
   String? _nutriscore;
   int? _novaGroup;
   bool _loadingOff = false;
@@ -143,6 +146,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _openedFlag = i.openedFlag;
       _daysAfterOpening = i.daysAfterOpening;
       _categoryId = i.categoryId;
+      _templateId = i.templateId;
       _nutriscore = i.nutriscore;
       _novaGroup = i.novaGroup;
       _stockUnit = i.stockUnit;
@@ -431,6 +435,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockQuantity: minStockQty,
         minStockUnit: minStockQty != null ? _minStockUnit : null,
         preferredShopId: _preferredShopId,
+        templateId: _templateId,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -463,6 +468,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockQuantity: Value(minStockQty),
         minStockUnit: Value(minStockQty != null ? _minStockUnit : null),
         preferredShopId: Value(_preferredShopId),
+        templateId: Value(_templateId),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -620,23 +626,64 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               );
             }),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              // ignore: deprecated_member_use
-              value: _productType,
-              decoration: const InputDecoration(labelText: 'Produkttyp'),
-              items: ProductType.all.map((t) => DropdownMenuItem(
-                value: t,
-                child: Row(
-                  children: [
-                    Icon(ProductType.iconFor(t),
-                        size: 18, color: ProductType.colorFor(t)),
-                    const SizedBox(width: 8),
-                    Text(ProductType.labelDe(t)),
-                  ],
-                ),
-              )).toList(),
-              onChanged: (v) => setState(() => _productType = v!),
-            ),
+            Consumer(builder: (context, ref, _) {
+              final templatesAsync = ref.watch(allTemplatesProvider);
+              final templates = templatesAsync.valueOrNull ?? [];
+              return DropdownButtonFormField<String?>(
+                // ignore: deprecated_member_use
+                value: _templateId,
+                decoration: const InputDecoration(labelText: 'Template'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Kein Template')),
+                  ...templates.map((t) => DropdownMenuItem(
+                        value: t.id,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.description_outlined, size: 16),
+                            const SizedBox(width: 8),
+                            Text(t.name),
+                          ],
+                        ),
+                      )),
+                ],
+                onChanged: (v) => setState(() => _templateId = v),
+              );
+            }),
+            const SizedBox(height: 12),
+            Consumer(builder: (context, ref, _) {
+              final dbTypes = ref.watch(allProductTypesProvider).valueOrNull ?? [];
+              // Merge DB types (primary) with ProductType.all fallback for display
+              final items = dbTypes.isNotEmpty
+                  ? dbTypes.map((t) => DropdownMenuItem<String>(
+                        value: t.id,
+                        child: Row(
+                          children: [
+                            Icon(ProductType.iconFor(t.id),
+                                size: 18, color: ProductType.colorFor(t.id)),
+                            const SizedBox(width: 8),
+                            Text(t.nameDe),
+                          ],
+                        ),
+                      )).toList()
+                  : ProductType.all.map((t) => DropdownMenuItem<String>(
+                        value: t,
+                        child: Row(
+                          children: [
+                            Icon(ProductType.iconFor(t),
+                                size: 18, color: ProductType.colorFor(t)),
+                            const SizedBox(width: 8),
+                            Text(ProductType.labelDe(t)),
+                          ],
+                        ),
+                      )).toList();
+              return DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
+                value: _productType,
+                decoration: const InputDecoration(labelText: 'Produkttyp'),
+                items: items,
+                onChanged: (v) => setState(() => _productType = v!),
+              );
+            }),
             const SizedBox(height: 8),
             SwitchListTile(
               value: _alwaysConsumedFully,

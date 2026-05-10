@@ -18,6 +18,7 @@ import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../providers/tags_provider.dart';
 import '../../providers/relations_provider.dart';
+import '../../providers/templates_provider.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
   final String itemId;
@@ -119,6 +120,10 @@ class _ItemDetailBody extends ConsumerWidget {
           ],
           const SizedBox(height: 12),
           _TagsSection(item: item),
+          if (item.templateId != null) ...[
+            const SizedBox(height: 12),
+            _PropertiesSection(item: item),
+          ],
           const SizedBox(height: 12),
           _StockSection(
             item: item,
@@ -1561,6 +1566,334 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
         ),
       ],
     );
+  }
+}
+
+// ── Properties section ───────────────────────────────────────────────────────
+
+class _PropertiesSection extends ConsumerWidget {
+  final Item item;
+  const _PropertiesSection({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fieldsAsync =
+        ref.watch(templateFieldsProvider(item.templateId!));
+    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
+    final theme = Theme.of(context);
+
+    final fields = fieldsAsync.valueOrNull ?? [];
+    final props = propsAsync.valueOrNull ?? [];
+    final propMap = {for (final p in props) p.fieldKey: p};
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.description_outlined,
+                    size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('Eigenschaften',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: theme.colorScheme.primary)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () =>
+                      _showPropertyEditor(context, ref, fields, propMap),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Bearbeiten'),
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      textStyle: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (fields.isEmpty)
+              Text('Keine Felder definiert.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline))
+            else
+              ...fields.map((field) {
+                final prop = propMap[field.fieldName];
+                final value = prop?.value ?? '';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 120,
+                        child: Text(
+                          field.fieldName,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                      Expanded(
+                        child: _PropertyValueWidget(
+                            field: field, value: value, item: item),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPropertyEditor(
+    BuildContext context,
+    WidgetRef ref,
+    List<TemplateField> fields,
+    Map<String, ItemPropertyValue> propMap,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _PropertyEditorSheet(
+          item: item, fields: fields, propMap: propMap),
+    );
+  }
+}
+
+class _PropertyValueWidget extends StatelessWidget {
+  final TemplateField field;
+  final String value;
+  final Item item;
+  const _PropertyValueWidget(
+      {required this.field, required this.value, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    if (value.isEmpty) {
+      return Text('–',
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.outlineVariant));
+    }
+    switch (field.fieldType) {
+      case 'boolean':
+        return Text(value == 'true' ? 'Ja' : 'Nein');
+      case 'link':
+        try {
+          final decoded = value; // raw URL or item id stored as plain text
+          if (decoded.startsWith('http')) {
+            return Text(decoded,
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline));
+          } else {
+            return Row(
+              children: [
+                Icon(Icons.inventory_2_outlined,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 4),
+                Text(decoded,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary)),
+              ],
+            );
+          }
+        } catch (_) {
+          return Text(value);
+        }
+      case 'liste':
+        final lines = value.split('\n').where((l) => l.isNotEmpty).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: lines
+              .map((l) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• ', style: TextStyle(fontSize: 12)),
+                      Expanded(child: Text(l)),
+                    ],
+                  ))
+              .toList(),
+        );
+      default:
+        return Text(value);
+    }
+  }
+}
+
+class _PropertyEditorSheet extends ConsumerStatefulWidget {
+  final Item item;
+  final List<TemplateField> fields;
+  final Map<String, ItemPropertyValue> propMap;
+  const _PropertyEditorSheet(
+      {required this.item, required this.fields, required this.propMap});
+
+  @override
+  ConsumerState<_PropertyEditorSheet> createState() =>
+      _PropertyEditorSheetState();
+}
+
+class _PropertyEditorSheetState extends ConsumerState<_PropertyEditorSheet> {
+  late final Map<String, TextEditingController> _ctrls;
+  late final Map<String, bool> _boolValues;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrls = {};
+    _boolValues = {};
+    for (final field in widget.fields) {
+      final existing = widget.propMap[field.fieldName]?.value ?? '';
+      if (field.fieldType == 'boolean') {
+        _boolValues[field.fieldName] = existing == 'true';
+      } else {
+        _ctrls[field.fieldName] = TextEditingController(text: existing);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final ctrl in _ctrls.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, scrollCtrl) => Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Eigenschaften bearbeiten',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: widget.fields.map((field) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildFieldEditor(field),
+                  );
+                }).toList(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _save,
+                      child: const Text('Speichern'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFieldEditor(TemplateField field) {
+    switch (field.fieldType) {
+      case 'boolean':
+        return SwitchListTile(
+          title: Text(field.fieldName),
+          value: _boolValues[field.fieldName] ?? false,
+          onChanged: (v) => setState(() => _boolValues[field.fieldName] = v),
+          contentPadding: EdgeInsets.zero,
+        );
+      case 'date':
+        return TextField(
+          controller: _ctrls[field.fieldName],
+          decoration: InputDecoration(
+            labelText: field.fieldName,
+            hintText: 'TT.MM.JJJJ',
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.calendar_today_outlined),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) {
+                  _ctrls[field.fieldName]?.text =
+                      '${picked.day.toString().padLeft(2, '0')}.${picked.month.toString().padLeft(2, '0')}.${picked.year}';
+                }
+              },
+            ),
+          ),
+        );
+      case 'number':
+        return TextField(
+          controller: _ctrls[field.fieldName],
+          keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: field.fieldName),
+        );
+      case 'liste':
+        return TextField(
+          controller: _ctrls[field.fieldName],
+          maxLines: 4,
+          decoration: InputDecoration(
+            labelText: field.fieldName,
+            hintText: 'Einen Eintrag pro Zeile',
+          ),
+        );
+      default:
+        return TextField(
+          controller: _ctrls[field.fieldName],
+          decoration: InputDecoration(labelText: field.fieldName),
+        );
+    }
+  }
+
+  Future<void> _save() async {
+    final notifier = ref.read(propertiesNotifierProvider.notifier);
+    for (final field in widget.fields) {
+      String value;
+      if (field.fieldType == 'boolean') {
+        value = (_boolValues[field.fieldName] ?? false).toString();
+      } else {
+        value = _ctrls[field.fieldName]?.text.trim() ?? '';
+      }
+      if (value.isEmpty && widget.propMap[field.fieldName] == null) continue;
+      await notifier.upsert(
+        itemId: widget.item.id,
+        fieldKey: field.fieldName,
+        fieldType: field.fieldType,
+        value: value,
+        existingId: widget.propMap[field.fieldName]?.id,
+      );
+    }
+    if (mounted) Navigator.of(context).pop();
   }
 }
 

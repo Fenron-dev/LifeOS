@@ -122,6 +122,20 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/categories'),
           ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('Templates'),
+            subtitle: const Text('Felder-Vorlagen für Artikel (Laptop, Gerät…)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/templates'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.layers_outlined),
+            title: const Text('Produkttypen'),
+            subtitle: const Text('Eigene Typen anlegen und verwalten'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/product-types'),
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.help_outline),

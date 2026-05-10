@@ -71,6 +71,9 @@ class Items extends Table {
   /// Used to group the shopping list by store.
   TextColumn get preferredShopId => text().nullable()();
 
+  /// Template assigned to this item (optional).
+  TextColumn get templateId => text().nullable()();
+
   // User ratings
   IntColumn get starRating => integer().nullable()(); // 1–5
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();

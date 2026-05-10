@@ -136,6 +136,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
     double? minStockQuantity,
     String? minStockUnit,
     String? preferredShopId,
+    String? templateId,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -169,6 +170,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       minStockQuantity: Value(minStockQuantity),
       minStockUnit: Value(minStockUnit),
       preferredShopId: Value(preferredShopId),
+      templateId: Value(templateId),
     ));
     return id;
   }
@@ -206,6 +208,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       minStockQuantity: Value(item.minStockQuantity),
       minStockUnit: Value(item.minStockUnit),
       preferredShopId: Value(item.preferredShopId),
+      templateId: Value(item.templateId),
       updatedAt: Value(DateTime.now()),
     ));
   }

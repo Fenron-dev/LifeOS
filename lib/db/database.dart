@@ -27,6 +27,8 @@ import 'tables/body_photos_table.dart';
 import 'tables/fitness_table.dart';
 import 'tables/shopping_table.dart';
 import 'tables/relations_table.dart';
+import 'tables/templates_table.dart';
+import 'tables/product_types_table.dart';
 
 part 'database.g.dart';
 
@@ -86,6 +88,12 @@ part 'database.g.dart';
   CustomShoppingItems,
   // Item relations (Obsidian-style)
   ItemRelations,
+  // Templates & custom properties (Sprint B)
+  ItemTemplates,
+  TemplateFields,
+  ItemPropertyValues,
+  // User-manageable product type definitions
+  ProductTypeDefinitions,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -100,7 +108,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +118,8 @@ class AppDatabase extends _$AppDatabase {
           await _seedDefaultConversions();
           await _seedDefaultMealTypes();
           await _seedDefaultExercises();
+          await _seedProductTypeDefinitions();
+          await _seedBuiltInTemplates();
           await _createIndexes();
         },
         onUpgrade: (m, from, to) async {
@@ -293,6 +303,16 @@ class AppDatabase extends _$AppDatabase {
           if (from < 27) {
             // Phase 7.3 — item relations (Obsidian-style bidirectional links).
             await m.createTable(itemRelations);
+          }
+          if (from < 28) {
+            // Sprint B — templates, custom properties, product type definitions.
+            await m.createTable(itemTemplates);
+            await m.createTable(templateFields);
+            await m.createTable(itemPropertyValues);
+            await m.createTable(productTypeDefinitions);
+            await m.addColumn(items, items.templateId);
+            await _seedProductTypeDefinitions();
+            await _seedBuiltInTemplates();
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -1885,4 +1905,174 @@ extension BodyPhotosDao on AppDatabase {
 
   Future<void> deleteCheckedCustomShoppingItems() =>
       (delete(customShoppingItems)..where((t) => t.checked.equals(true))).go();
+
+  // ── Product type definitions ─────────────────────────────────────────────
+
+  Stream<List<ProductTypeDefinition>> watchAllProductTypes() =>
+      (select(productTypeDefinitions)
+            ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+          .watch();
+
+  Future<void> upsertProductTypeDefinition(
+          ProductTypeDefinitionsCompanion entry) =>
+      into(productTypeDefinitions).insertOnConflictUpdate(entry);
+
+  Future<void> deleteProductTypeDefinition(String id) =>
+      (delete(productTypeDefinitions)..where((t) => t.id.equals(id))).go();
+
+  Future<void> _seedProductTypeDefinitions() async {
+    const types = [
+      ('readyToEat', 'Fertiggericht', 'ready_to_eat', 0),
+      ('needsCooking', 'Muss gekocht werden', 'soup_kitchen', 1),
+      ('ingredient', 'Zutat', 'spa', 2),
+      ('device', 'Gerät / Ausstattung', 'devices_other', 3),
+      ('tool', 'Werkzeug / Zubehör', 'build', 4),
+      ('consumable', 'Verbrauchsmaterial', 'inventory_2', 5),
+      ('general', 'Allgemein / Sonstiges', 'category', 6),
+    ];
+    for (final (id, name, icon, order) in types) {
+      await into(productTypeDefinitions).insertOnConflictUpdate(
+        ProductTypeDefinitionsCompanion.insert(
+          id: id,
+          nameDe: name,
+          isBuiltIn: const Value(true),
+          iconName: Value(icon),
+          sortOrder: Value(order),
+        ),
+      );
+    }
+  }
+
+  // ── Templates & fields ───────────────────────────────────────────────────
+
+  Stream<List<ItemTemplate>> watchAllTemplates() =>
+      (select(itemTemplates)
+            ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          .watch();
+
+  Stream<List<TemplateField>> watchFieldsForTemplate(String templateId) =>
+      (select(templateFields)
+            ..where((f) => f.templateId.equals(templateId))
+            ..orderBy([(f) => OrderingTerm.asc(f.sortOrder)]))
+          .watch();
+
+  Future<ItemTemplate?> templateById(String id) =>
+      (select(itemTemplates)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Future<String> insertTemplate(ItemTemplatesCompanion entry) async {
+    await into(itemTemplates).insertOnConflictUpdate(entry);
+    return entry.id.value;
+  }
+
+  Future<void> updateTemplate(ItemTemplatesCompanion entry) =>
+      (update(itemTemplates)..where((t) => t.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteTemplate(String id) =>
+      (delete(itemTemplates)..where((t) => t.id.equals(id))).go();
+
+  Future<void> upsertTemplateField(TemplateFieldsCompanion entry) =>
+      into(templateFields).insertOnConflictUpdate(entry);
+
+  Future<void> deleteTemplateField(String id) =>
+      (delete(templateFields)..where((f) => f.id.equals(id))).go();
+
+  Future<void> reorderTemplateFields(
+      List<({String id, int sortOrder})> updates) async {
+    await transaction(() async {
+      for (final u in updates) {
+        await (update(templateFields)..where((f) => f.id.equals(u.id)))
+            .write(TemplateFieldsCompanion(sortOrder: Value(u.sortOrder)));
+      }
+    });
+  }
+
+  // ── Item property values ─────────────────────────────────────────────────
+
+  Stream<List<ItemPropertyValue>> watchPropertiesForItem(String itemId) =>
+      (select(itemPropertyValues)
+            ..where((p) => p.itemId.equals(itemId)))
+          .watch();
+
+  Future<void> upsertProperty(ItemPropertyValuesCompanion entry) =>
+      into(itemPropertyValues).insertOnConflictUpdate(entry);
+
+  Future<void> deleteProperty(String id) =>
+      (delete(itemPropertyValues)..where((p) => p.id.equals(id))).go();
+
+  Future<void> deletePropertiesForItem(String itemId) =>
+      (delete(itemPropertyValues)..where((p) => p.itemId.equals(itemId))).go();
+
+  // ── Template seeds ───────────────────────────────────────────────────────
+
+  Future<void> _seedBuiltInTemplates() async {
+    final templates = [
+      (
+        id: 'tpl_laptop',
+        name: 'Laptop / Computer',
+        fields: [
+          ('Seriennummer', 'text', false, 0),
+          ('RAM', 'text', false, 1),
+          ('Speicher', 'text', false, 2),
+          ('Betriebssystem', 'text', false, 3),
+          ('Kaufdatum', 'date', false, 4),
+          ('Garantieende', 'date', false, 5),
+          ('Hersteller-Link', 'link', false, 6),
+        ]
+      ),
+      (
+        id: 'tpl_smartphone',
+        name: 'Smartphone',
+        fields: [
+          ('IMEI', 'text', false, 0),
+          ('Speicher', 'text', false, 1),
+          ('Kaufdatum', 'date', false, 2),
+          ('Garantieende', 'date', false, 3),
+        ]
+      ),
+      (
+        id: 'tpl_haushaltsgeraet',
+        name: 'Haushaltsgerät',
+        fields: [
+          ('Modellnummer', 'text', false, 0),
+          ('Kaufdatum', 'date', false, 1),
+          ('Garantieende', 'date', false, 2),
+          ('Hat Netzteil', 'boolean', false, 3),
+          ('Hersteller-Link', 'link', false, 4),
+        ]
+      ),
+      (
+        id: 'tpl_werkzeug',
+        name: 'Werkzeug / Zubehör',
+        fields: [
+          ('Kompatible Modelle', 'liste', false, 0),
+          ('Kaufdatum', 'date', false, 1),
+        ]
+      ),
+    ];
+
+    for (final tpl in templates) {
+      await into(itemTemplates).insertOnConflictUpdate(
+        ItemTemplatesCompanion.insert(
+          id: tpl.id,
+          name: tpl.name,
+          isBuiltIn: const Value(true),
+        ),
+      );
+      int order = 0;
+      for (final (fieldName, fieldType, required, sortOrder) in tpl.fields) {
+        final fId = '${tpl.id}_f${order++}';
+        await into(templateFields).insertOnConflictUpdate(
+          TemplateFieldsCompanion.insert(
+            id: fId,
+            templateId: tpl.id,
+            fieldName: fieldName,
+            fieldType: fieldType,
+            required: Value(required),
+            sortOrder: Value(sortOrder),
+          ),
+        );
+      }
+    }
+  }
 }

@@ -25,10 +25,10 @@ void main() {
     await db.close();
   });
 
-  test('fresh database opens and exposes schemaVersion 27', () async {
+  test('fresh database opens and exposes schemaVersion 28', () async {
     // Triggers onCreate → createAll + seeds + _createIndexes
     await db.customSelect('SELECT 1').get();
-    expect(db.schemaVersion, 27);
+    expect(db.schemaVersion, 28);
   });
 
   test('every declared table is reachable', () async {
@@ -63,6 +63,10 @@ void main() {
     await db.select(db.workoutSets).get();
     await db.select(db.customShoppingItems).get();
     await db.select(db.itemRelations).get();
+    await db.select(db.itemTemplates).get();
+    await db.select(db.templateFields).get();
+    await db.select(db.itemPropertyValues).get();
+    await db.select(db.productTypeDefinitions).get();
   });
 
   test('weight log persists full body composition payload', () async {
@@ -138,6 +142,21 @@ void main() {
     expect(mealTypes, isNotEmpty, reason: 'onCreate must seed meal types');
     expect(exs.length, greaterThanOrEqualTo(40),
         reason: 'onCreate must seed default exercises');
+  });
+
+  test('product type definitions and built-in templates are seeded on create',
+      () async {
+    final types = await db.select(db.productTypeDefinitions).get();
+    final templates = await db.select(db.itemTemplates).get();
+    final fields = await db.select(db.templateFields).get();
+    expect(types.length, 7,
+        reason: 'onCreate must seed 7 built-in product types');
+    expect(templates, isNotEmpty,
+        reason: 'onCreate must seed built-in templates');
+    expect(fields, isNotEmpty,
+        reason: 'built-in templates must have fields');
+    // All seeded types are built-in
+    expect(types.every((t) => t.isBuiltIn), isTrue);
   });
 
   test('hot-path indexes exist', () async {
