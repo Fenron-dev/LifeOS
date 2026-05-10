@@ -8,6 +8,7 @@ import '../../db/database.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/tasks_provider.dart';
 import '../../widgets/adaptive_shell.dart';
+import '../../widgets/entity_photo_section.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -835,6 +836,13 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
                   ],
                 ),
               ),
+
+            if (widget.task != null) ...[
+              const Divider(height: 24),
+              EntityPhotoSection(
+                  entityId: widget.task!.id, entityType: 'task'),
+              const SizedBox(height: 8),
+            ],
 
             const SizedBox(height: 20),
             FilledButton(

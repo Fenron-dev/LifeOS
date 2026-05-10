@@ -7,6 +7,7 @@ import '../../health/widgets/diary_entry_sheet.dart';
 import '../../health/widgets/food_search_sheet.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../widgets/entity_photo_section.dart';
 
 final _recipeCostProvider = FutureProvider.family<double?, String>((ref, recipeId) async {
   final db = ref.watch(databaseProvider);
@@ -238,6 +239,9 @@ class RecipeContentView extends ConsumerWidget {
             ),
           ),
         if (recipe.imageUrl != null) const SizedBox(height: 16),
+
+        EntityPhotoSection(entityId: recipe.id, entityType: 'recipe'),
+        const SizedBox(height: 12),
 
         Wrap(
           spacing: 16,

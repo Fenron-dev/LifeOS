@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
 import '../../providers/locations_provider.dart';
+import '../../widgets/entity_photo_section.dart';
 
 class LocationsScreen extends ConsumerWidget {
   const LocationsScreen({super.key});
@@ -80,13 +81,23 @@ class _LocationTile extends ConsumerWidget {
         subtitle: parent != null ? Text('in: ${parent.name}') : null,
         trailing: PopupMenuButton<String>(
           onSelected: (v) async {
-            if (v == 'edit') {
+            if (v == 'photos') {
+              _showPhotos(context, location);
+            } else if (v == 'edit') {
               _showEditDialog(context, ref, location);
             } else if (v == 'delete') {
               await _confirmDelete(context, ref, location);
             }
           },
           itemBuilder: (_) => [
+            const PopupMenuItem(
+              value: 'photos',
+              child: Row(children: [
+                Icon(Icons.photo_library_outlined),
+                SizedBox(width: 8),
+                Text('Fotos'),
+              ]),
+            ),
             const PopupMenuItem(
               value: 'edit',
               child: Row(children: [
@@ -114,6 +125,27 @@ class _LocationTile extends ConsumerWidget {
         'freezer' => Icons.ac_unit,
         _ => Icons.inventory_2_outlined,
       };
+
+  void _showPhotos(BuildContext context, Location loc) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, 20, 16, MediaQuery.viewInsetsOf(ctx).bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(loc.name,
+                style: Theme.of(ctx).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            EntityPhotoSection(entityId: loc.id, entityType: 'location'),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showEditDialog(BuildContext context, WidgetRef ref, Location loc) {
     showDialog(
@@ -228,16 +260,20 @@ class _LocationDialogState extends ConsumerState<_LocationDialog> {
             autofocus: true,
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String?>(
-            // ignore: deprecated_member_use
-            value: _parentId,
+          InputDecorator(
             decoration: const InputDecoration(labelText: 'Übergeordneter Ort'),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('— keiner —')),
-              ...parentOptions.map((l) =>
-                  DropdownMenuItem(value: l.id, child: Text(l.name))),
-            ],
-            onChanged: (v) => setState(() => _parentId = v),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: _parentId,
+                isDense: true,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('— keiner —')),
+                  ...parentOptions.map((l) =>
+                      DropdownMenuItem(value: l.id, child: Text(l.name))),
+                ],
+                onChanged: (v) => setState(() => _parentId = v),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           const SizedBox(height: 12),

@@ -19,6 +19,7 @@ import '../../providers/vault_provider.dart';
 import '../../providers/tags_provider.dart';
 import '../../providers/relations_provider.dart';
 import '../../providers/templates_provider.dart';
+import '../../widgets/entity_photo_section.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
   final String itemId;
@@ -118,6 +119,8 @@ class _ItemDetailBody extends ConsumerWidget {
             const SizedBox(height: 12),
             _NutritionCard(item: item),
           ],
+          const SizedBox(height: 12),
+          EntityPhotoSection(entityId: item.id, entityType: 'item'),
           const SizedBox(height: 12),
           _TagsSection(item: item),
           if (item.templateId != null) ...[

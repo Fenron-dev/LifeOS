@@ -110,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 33;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -338,6 +338,10 @@ class AppDatabase extends _$AppDatabase {
             // Sprint D — openedLocationId + taraWeightG on items.
             await m.addColumn(items, items.openedLocationId);
             await m.addColumn(items, items.taraWeightG);
+          }
+          if (from < 33) {
+            // Sprint H — entity photos (general photo attachments).
+            await m.createTable(entityPhotos);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -2315,4 +2319,25 @@ extension BodyPhotosDao on AppDatabase {
       }
     }
   }
+
+  // ── Entity Photos ────────────────────────────────────────────────────────
+
+  Stream<List<EntityPhoto>> watchEntityPhotos(String entityId) =>
+      (select(entityPhotos)
+            ..where((p) => p.entityId.equals(entityId))
+            ..orderBy([(p) => OrderingTerm.asc(p.createdAt)]))
+          .watch();
+
+  Future<void> insertEntityPhoto(EntityPhotosCompanion entry) =>
+      into(entityPhotos).insert(entry);
+
+  Future<void> deleteEntityPhoto(String id) =>
+      (delete(entityPhotos)..where((p) => p.id.equals(id))).go();
+
+  Future<void> deleteEntityPhotosForEntity(String entityId) =>
+      (delete(entityPhotos)..where((p) => p.entityId.equals(entityId))).go();
+
+  Future<void> updateEntityPhotoCaption(String id, String? caption) =>
+      (update(entityPhotos)..where((p) => p.id.equals(id)))
+          .write(EntityPhotosCompanion(caption: Value(caption)));
 }
