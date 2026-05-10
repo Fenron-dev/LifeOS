@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
@@ -177,6 +178,7 @@ class _ShelfLifeTile extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
+        onTap: () => context.push('/haushalt/item/${item.id}'),
         leading: Container(
           width: 4,
           height: 48,

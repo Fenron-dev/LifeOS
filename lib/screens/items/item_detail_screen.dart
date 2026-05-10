@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/product_types.dart';
 import '../../db/database.dart';
 import '../../health/widgets/diary_entry_sheet.dart';
 import '../../health/widgets/food_search_sheet.dart';
@@ -15,6 +16,8 @@ import '../../providers/shops_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
 import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../providers/tags_provider.dart';
+import '../../providers/relations_provider.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
   final String itemId;
@@ -115,6 +118,8 @@ class _ItemDetailBody extends ConsumerWidget {
             _NutritionCard(item: item),
           ],
           const SizedBox(height: 12),
+          _TagsSection(item: item),
+          const SizedBox(height: 12),
           _StockSection(
             item: item,
             entriesAsync: entriesAsync,
@@ -122,6 +127,8 @@ class _ItemDetailBody extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _EventsSection(itemId: item.id),
+          const SizedBox(height: 12),
+          _RelationsSection(item: item),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -317,11 +324,9 @@ class _ProductTypeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, icon, color) = switch (type) {
-      'readyToEat' => ('Fertiggericht', Icons.lunch_dining, Colors.orange),
-      'ingredient' => ('Zutat', Icons.spa, Colors.green),
-      _ => ('Zuzubereiten', Icons.kitchen, Theme.of(context).colorScheme.primary),
-    };
+    final label = ProductType.labelDe(type);
+    final icon = ProductType.iconFor(type);
+    final color = ProductType.colorFor(type);
     return Chip(
       avatar: Icon(icon, size: 16, color: color),
       label: Text(label),
@@ -1555,6 +1560,513 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
               : const Text('Verbrauchen'),
         ),
       ],
+    );
+  }
+}
+
+// ── Tags section ─────────────────────────────────────────────────────────────
+
+class _TagsSection extends ConsumerWidget {
+  final Item item;
+  const _TagsSection({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tagsAsync = ref.watch(tagsForItemProvider(item.id));
+    final tags = tagsAsync.valueOrNull ?? [];
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.label_outline,
+                    size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('Tags',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: theme.colorScheme.primary)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () =>
+                      _showTagPicker(context, ref, tags),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Hinzufügen'),
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      textStyle: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            if (tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: tags.map((tag) {
+                  Color color;
+                  try {
+                    color = Color(
+                        int.parse(tag.color.replaceFirst('#', ''), radix: 16) |
+                            0xFF000000);
+                  } catch (_) {
+                    color = theme.colorScheme.secondary;
+                  }
+                  return InputChip(
+                    label: Text(tag.name,
+                        style: const TextStyle(fontSize: 12)),
+                    avatar: tag.icon != null
+                        ? Icon(
+                            IconData(int.parse(tag.icon!),
+                                fontFamily: 'MaterialIcons'),
+                            size: 14,
+                            color: color)
+                        : null,
+                    backgroundColor:
+                        color.withValues(alpha: 0.12),
+                    side: BorderSide(
+                        color: color.withValues(alpha: 0.4)),
+                    visualDensity: VisualDensity.compact,
+                    onDeleted: () => ref
+                        .read(tagsNotifierProvider.notifier)
+                        .removeTagFromItem(
+                            item.id, item.categoryId, tag.name),
+                  );
+                }).toList(),
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('Noch keine Tags.',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTagPicker(
+      BuildContext context, WidgetRef ref, List<TagDefinition> current) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _TagPickerSheet(
+        item: item,
+        currentTags: current,
+      ),
+    );
+  }
+}
+
+class _TagPickerSheet extends ConsumerStatefulWidget {
+  final Item item;
+  final List<TagDefinition> currentTags;
+  const _TagPickerSheet({required this.item, required this.currentTags});
+
+  @override
+  ConsumerState<_TagPickerSheet> createState() => _TagPickerSheetState();
+}
+
+class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
+  final _ctrl = TextEditingController();
+  late List<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.currentTags.map((t) => t.name).toList();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allAsync =
+        ref.watch(tagDefinitionsForCategoryProvider(widget.item.categoryId));
+    final all = allAsync.valueOrNull ?? [];
+    final query = _ctrl.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? all
+        : all
+            .where((t) => t.name.toLowerCase().contains(query))
+            .toList();
+    final showCreate =
+        query.isNotEmpty && !all.any((t) => t.name.toLowerCase() == query);
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (_, scrollCtrl) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: TextField(
+                controller: _ctrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Tag suchen oder neu erstellen…',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                children: [
+                  if (showCreate)
+                    ListTile(
+                      leading: const Icon(Icons.add),
+                      title: Text('Neu erstellen: "${_ctrl.text.trim()}"'),
+                      onTap: () {
+                        final name = _ctrl.text.trim();
+                        if (!_selected.contains(name)) {
+                          setState(() => _selected.add(name));
+                        }
+                        _ctrl.clear();
+                        setState(() {});
+                      },
+                    ),
+                  ...filtered.map((tag) {
+                    final checked = _selected.contains(tag.name);
+                    return CheckboxListTile(
+                      title: Text(tag.name),
+                      value: checked,
+                      onChanged: (v) => setState(() {
+                        if (v == true) {
+                          _selected.add(tag.name);
+                        } else {
+                          _selected.remove(tag.name);
+                        }
+                      }),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () async {
+                        await ref
+                            .read(tagsNotifierProvider.notifier)
+                            .setTagsForItem(widget.item.id,
+                                widget.item.categoryId, _selected);
+                        if (context.mounted) Navigator.of(context).pop();
+                      },
+                      child: const Text('Speichern'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Relations section ─────────────────────────────────────────────────────────
+
+class _RelationsSection extends ConsumerWidget {
+  final Item item;
+  const _RelationsSection({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final relAsync = ref.watch(relationsForItemProvider(item.id));
+    final relations = relAsync.valueOrNull ?? [];
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.link,
+                    size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('Verwandte Artikel',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: theme.colorScheme.primary)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _showRelationPicker(context, ref),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Verlinken'),
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      textStyle: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            if (relations.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...relations.map((r) => _RelationTile(
+                    sourceItemId: item.id,
+                    relation: r.relation,
+                    peer: r.peer,
+                  )),
+            ] else
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('Noch keine Verlinkungen.',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRelationPicker(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _RelationPickerSheet(sourceItem: item),
+    );
+  }
+}
+
+class _RelationTile extends ConsumerWidget {
+  final String sourceItemId;
+  final ItemRelation relation;
+  final Item peer;
+  const _RelationTile({
+    required this.sourceItemId,
+    required this.relation,
+    required this.peer,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(Icons.arrow_forward,
+          size: 16, color: theme.colorScheme.primary),
+      title: Text(peer.name),
+      subtitle: relation.notes != null
+          ? Text(relation.notes!,
+              style: const TextStyle(fontSize: 11))
+          : null,
+      onTap: () => context.push('/haushalt/item/${peer.id}'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            tooltip: 'Notiz bearbeiten',
+            onPressed: () =>
+                _editNotes(context, ref),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 16),
+            tooltip: 'Verlinkung entfernen',
+            onPressed: () => ref
+                .read(relationsNotifierProvider.notifier)
+                .delete(relation.id,
+                    fromId: relation.fromItemId,
+                    toId: relation.toItemId),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editNotes(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController(text: relation.notes ?? '');
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Notiz bearbeiten'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Notiz (optional)'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => ctx.pop(null),
+              child: const Text('Abbrechen')),
+          FilledButton(
+              onPressed: () => ctx.pop(ctrl.text.trim()),
+              child: const Text('Speichern')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result != null) {
+      await ref.read(relationsNotifierProvider.notifier).updateNotes(
+            relation.id,
+            result.isEmpty ? null : result,
+            fromId: relation.fromItemId,
+            toId: relation.toItemId,
+          );
+    }
+  }
+}
+
+class _RelationPickerSheet extends ConsumerStatefulWidget {
+  final Item sourceItem;
+  const _RelationPickerSheet({required this.sourceItem});
+
+  @override
+  ConsumerState<_RelationPickerSheet> createState() =>
+      _RelationPickerSheetState();
+}
+
+class _RelationPickerSheetState extends ConsumerState<_RelationPickerSheet> {
+  final _searchCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  Item? _selected;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allItemsAsync = ref.watch(filteredItemsProvider);
+    final allItems = (allItemsAsync.valueOrNull ?? [])
+        .where((i) => i.id != widget.sourceItem.id)
+        .toList();
+    final query = _searchCtrl.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? allItems
+        : allItems
+            .where((i) => i.name.toLowerCase().contains(query))
+            .toList();
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, scrollCtrl) => Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Artikel verlinken',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: _selected == null,
+                decoration: const InputDecoration(
+                  hintText: 'Artikel suchen…',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            if (_selected != null) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  controller: _notesCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Notiz (optional)',
+                    labelText: 'Verlinkung mit: ${_selected!.name}',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => setState(() => _selected = null),
+                        child: const Text('Anderen wählen'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () async {
+                          final notes = _notesCtrl.text.trim();
+                          await ref
+                              .read(relationsNotifierProvider.notifier)
+                              .add(widget.sourceItem.id, _selected!.id,
+                                  notes: notes.isEmpty ? null : notes);
+                          if (context.mounted) Navigator.of(context).pop();
+                        },
+                        child: const Text('Verlinken'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            Expanded(
+              child: ListView.builder(
+                controller: scrollCtrl,
+                itemCount: filtered.length,
+                itemBuilder: (_, i) {
+                  final itm = filtered[i];
+                  return ListTile(
+                    leading: const Icon(Icons.inventory_2_outlined),
+                    title: Text(itm.name),
+                    subtitle: itm.brand != null ? Text(itm.brand!) : null,
+                    onTap: () => setState(() {
+                      _selected = itm;
+                      _searchCtrl.clear();
+                    }),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

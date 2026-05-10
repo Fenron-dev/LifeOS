@@ -25,10 +25,10 @@ void main() {
     await db.close();
   });
 
-  test('fresh database opens and exposes schemaVersion 26', () async {
+  test('fresh database opens and exposes schemaVersion 27', () async {
     // Triggers onCreate → createAll + seeds + _createIndexes
     await db.customSelect('SELECT 1').get();
-    expect(db.schemaVersion, 26);
+    expect(db.schemaVersion, 27);
   });
 
   test('every declared table is reachable', () async {
@@ -61,6 +61,8 @@ void main() {
     await db.select(db.exercises).get();
     await db.select(db.workouts).get();
     await db.select(db.workoutSets).get();
+    await db.select(db.customShoppingItems).get();
+    await db.select(db.itemRelations).get();
   });
 
   test('weight log persists full body composition payload', () async {

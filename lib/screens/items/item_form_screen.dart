@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/item_categories.dart';
+import '../../core/product_types.dart';
+import '../../providers/tags_provider.dart';
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
@@ -105,6 +107,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   Set<String> _selectedGroupIds = {};
   Set<String> _originalGroupIds = {};
 
+  // Tags
+  List<String> _tagNames = [];
+
   // Item-specific unit conversions (local list, synced on save)
   List<({String fromUnit, String toUnit, double factor})> _conversions = [];
 
@@ -151,13 +156,14 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         _preferredShopId = i.preferredShopId;
       }
     }
-    // Load existing group memberships and item conversions
+    // Load existing group memberships, item conversions and tags
     if (i != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final db = ref.read(databaseProvider);
         if (db == null || !mounted) return;
         final members = await db.groupsForItem(i.id);
         final convs = await db.watchConversionsForItem(i.id).first;
+        final existingTags = await db.watchTagsForItem(i.id).first;
         if (!mounted) return;
         setState(() {
           _originalGroupIds = members.map((m) => m.groupId).toSet();
@@ -169,6 +175,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                     factor: c.factor,
                   ))
               .toList();
+          _tagNames = existingTags.map((t) => t.name).toList();
         });
       });
     }
@@ -356,6 +363,19 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   double? _parseNutrition(TextEditingController ctrl) =>
       double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
 
+  void _showTagPickerInForm(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _FormTagPickerSheet(
+        categoryId: _categoryId,
+        selected: List.from(_tagNames),
+        onSaved: (names) => setState(() => _tagNames = names),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final notifier = ref.read(itemsNotifierProvider.notifier);
@@ -470,6 +490,11 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         toUnit: c.toUnit,
         factor: c.factor,
       );
+    }
+
+    // Sync tags
+    if (_tagNames.isNotEmpty) {
+      await db.setTagsForItem(itemId, _categoryId, _tagNames);
     }
 
     if (mounted) context.pop();
@@ -599,20 +624,17 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               // ignore: deprecated_member_use
               value: _productType,
               decoration: const InputDecoration(labelText: 'Produkttyp'),
-              items: const [
-                DropdownMenuItem(
-                  value: 'readyToEat',
-                  child: Text('Fertiggericht / Konserve / TK'),
+              items: ProductType.all.map((t) => DropdownMenuItem(
+                value: t,
+                child: Row(
+                  children: [
+                    Icon(ProductType.iconFor(t),
+                        size: 18, color: ProductType.colorFor(t)),
+                    const SizedBox(width: 8),
+                    Text(ProductType.labelDe(t)),
+                  ],
                 ),
-                DropdownMenuItem(
-                  value: 'needsCooking',
-                  child: Text('Muss zubereitet werden'),
-                ),
-                DropdownMenuItem(
-                  value: 'ingredient',
-                  child: Text('Zutat / Gewürz'),
-                ),
-              ],
+              )).toList(),
               onChanged: (v) => setState(() => _productType = v!),
             ),
             const SizedBox(height: 8),
@@ -802,6 +824,41 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               decoration: const InputDecoration(labelText: 'Notizen'),
               maxLines: 3,
             ),
+
+            // ── Tags section ──────────────────────────────────────────────
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.label_outline, size: 20),
+                const SizedBox(width: 8),
+                Text('Tags', style: Theme.of(context).textTheme.titleSmall),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _showTagPickerInForm(context),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Tag hinzufügen'),
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      textStyle: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            if (_tagNames.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _tagNames
+                    .map((name) => InputChip(
+                          label: Text(name,
+                              style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          onDeleted: () =>
+                              setState(() => _tagNames.remove(name)),
+                        ))
+                    .toList(),
+              ),
+            ],
 
             // ── Groups section ────────────────────────────────────────────
             const SizedBox(height: 16),
@@ -1112,6 +1169,140 @@ class _NutritionField extends StatelessWidget {
         if (parsed == null) return 'Ungültige Zahl';
         return null;
       },
+    );
+  }
+}
+
+// ── Form tag picker sheet ─────────────────────────────────────────────────────
+
+class _FormTagPickerSheet extends ConsumerStatefulWidget {
+  final String categoryId;
+  final List<String> selected;
+  final ValueChanged<List<String>> onSaved;
+  const _FormTagPickerSheet({
+    required this.categoryId,
+    required this.selected,
+    required this.onSaved,
+  });
+
+  @override
+  ConsumerState<_FormTagPickerSheet> createState() =>
+      _FormTagPickerSheetState();
+}
+
+class _FormTagPickerSheetState extends ConsumerState<_FormTagPickerSheet> {
+  final _ctrl = TextEditingController();
+  late List<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List.from(widget.selected);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allAsync = ref
+        .watch(tagDefinitionsForCategoryProvider(widget.categoryId));
+    final all = allAsync.valueOrNull ?? [];
+    final query = _ctrl.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? all
+        : all.where((t) => t.name.toLowerCase().contains(query)).toList();
+    final showCreate =
+        query.isNotEmpty && !all.any((t) => t.name.toLowerCase() == query);
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (_, scrollCtrl) => Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: TextField(
+                controller: _ctrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Tag suchen oder neu erstellen…',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                children: [
+                  if (showCreate)
+                    ListTile(
+                      leading: const Icon(Icons.add),
+                      title:
+                          Text('Neu erstellen: "${_ctrl.text.trim()}"'),
+                      onTap: () {
+                        final name = _ctrl.text.trim();
+                        if (!_selected.contains(name)) {
+                          setState(() => _selected.add(name));
+                        }
+                        _ctrl.clear();
+                        setState(() {});
+                      },
+                    ),
+                  ...filtered.map((tag) {
+                    final checked = _selected.contains(tag.name);
+                    return CheckboxListTile(
+                      title: Text(tag.name),
+                      value: checked,
+                      onChanged: (v) => setState(() {
+                        if (v == true) {
+                          _selected.add(tag.name);
+                        } else {
+                          _selected.remove(tag.name);
+                        }
+                      }),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        widget.onSaved(_selected);
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Übernehmen'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

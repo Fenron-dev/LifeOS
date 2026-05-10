@@ -26,6 +26,7 @@ import 'tables/categories_table.dart';
 import 'tables/body_photos_table.dart';
 import 'tables/fitness_table.dart';
 import 'tables/shopping_table.dart';
+import 'tables/relations_table.dart';
 
 part 'database.g.dart';
 
@@ -83,6 +84,8 @@ part 'database.g.dart';
   WorkoutSets,
   // Custom shopping list entries
   CustomShoppingItems,
+  // Item relations (Obsidian-style)
+  ItemRelations,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -97,7 +100,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -286,6 +289,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 26) {
             // Phase 7.2 — custom shopping list entries.
             await m.createTable(customShoppingItems);
+          }
+          if (from < 27) {
+            // Phase 7.3 — item relations (Obsidian-style bidirectional links).
+            await m.createTable(itemRelations);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -1287,6 +1294,120 @@ class AppDatabase extends _$AppDatabase {
         );
       }
     }
+  }
+
+  // ── Item tags ───────────────────────────────────────────────────────────────
+
+  Stream<Set<String>> watchItemIdsByTag(String tagId) {
+    return (select(itemTags)..where((t) => t.tagId.equals(tagId)))
+        .watch()
+        .map((rows) => rows.map((r) => r.itemId).toSet());
+  }
+
+  Stream<List<TagDefinition>> watchTagsForItem(String itemId) {
+    final query = select(itemTags).join([
+      innerJoin(
+        tagDefinitions,
+        tagDefinitions.id.equalsExp(itemTags.tagId),
+      ),
+    ])
+      ..where(itemTags.itemId.equals(itemId))
+      ..orderBy([OrderingTerm.asc(tagDefinitions.name)]);
+    return query.watch().map(
+          (rows) => rows.map((r) => r.readTable(tagDefinitions)).toList());
+  }
+
+  Stream<List<TagDefinition>> watchTagDefinitionsForCategory(String categoryId) {
+    return (select(tagDefinitions)
+          ..where((t) => t.categoryId.equals(categoryId))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .watch();
+  }
+
+  Future<void> setTagsForItem(
+    String itemId,
+    String categoryId,
+    List<String> tagNames,
+  ) async {
+    final cleaned = tagNames
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList();
+
+    await transaction(() async {
+      await (delete(itemTags)..where((t) => t.itemId.equals(itemId))).go();
+      for (final name in cleaned) {
+        final tagId = await _ensureItemTag(name, categoryId);
+        await into(itemTags).insertOnConflictUpdate(
+          ItemTagsCompanion.insert(itemId: itemId, tagId: tagId),
+        );
+      }
+    });
+  }
+
+  Future<String> _ensureItemTag(String name, String categoryId) async {
+    final existing = await (select(tagDefinitions)
+          ..where((t) =>
+              t.categoryId.equals(categoryId) &
+              t.name.lower().equals(name.toLowerCase())))
+        .getSingleOrNull();
+    if (existing != null) return existing.id;
+    final id = _uuid.v4();
+    await into(tagDefinitions).insert(TagDefinitionsCompanion.insert(
+      id: id,
+      name: name,
+      categoryId: categoryId,
+    ));
+    return id;
+  }
+
+  // ── Item relations ──────────────────────────────────────────────────────────
+
+  Future<List<({ItemRelation relation, Item peer})>> relationsForItem(
+      String itemId) async {
+    final fromRows = await (select(itemRelations).join([
+      innerJoin(items, items.id.equalsExp(itemRelations.toItemId)),
+    ])
+          ..where(itemRelations.fromItemId.equals(itemId)))
+        .get();
+    final toRows = await (select(itemRelations).join([
+      innerJoin(items, items.id.equalsExp(itemRelations.fromItemId)),
+    ])
+          ..where(itemRelations.toItemId.equals(itemId)))
+        .get();
+
+    return [
+      ...fromRows.map((r) => (
+            relation: r.readTable(itemRelations),
+            peer: r.readTable(items),
+          )),
+      ...toRows.map((r) => (
+            relation: r.readTable(itemRelations),
+            peer: r.readTable(items),
+          )),
+    ];
+  }
+
+  Future<void> addItemRelation(String fromId, String toId,
+      {String? notes}) async {
+    await into(itemRelations).insert(ItemRelationsCompanion.insert(
+      id: _uuid.v4(),
+      fromItemId: fromId,
+      toItemId: toId,
+      notes: Value(notes),
+    ));
+  }
+
+  Future<void> deleteItemRelation(String relationId) async {
+    await (delete(itemRelations)
+          ..where((r) => r.id.equals(relationId)))
+        .go();
+  }
+
+  Future<void> updateItemRelationNotes(String id, String? notes) async {
+    await (update(itemRelations)..where((r) => r.id.equals(id)))
+        .write(ItemRelationsCompanion(notes: Value(notes)));
   }
 
   // ── Recipe nutrition ────────────────────────────────────────────────────────

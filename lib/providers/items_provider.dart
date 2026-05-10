@@ -24,8 +24,11 @@ final itemSearchQueryProvider = StateProvider<String>((ref) => '');
 /// null = all categories; non-null = filter by categoryId
 final itemCategoryFilterProvider = StateProvider<String?>((ref) => null);
 
+/// null = no tag filter; non-null = filter by tagId
+final itemTagFilterProvider = StateProvider<String?>((ref) => null);
+
 // ---------------------------------------------------------------------------
-// Filtered items (search + category filter)
+// Filtered items (search + category + tag filter)
 // ---------------------------------------------------------------------------
 
 final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
@@ -33,6 +36,7 @@ final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
   if (db == null) return const Stream.empty();
   final query = ref.watch(itemSearchQueryProvider).trim();
   final category = ref.watch(itemCategoryFilterProvider);
+  final tagId = ref.watch(itemTagFilterProvider);
 
   Stream<List<Item>> base;
   if (query.isEmpty && category == null) {
@@ -43,11 +47,19 @@ final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
     base = db.searchItems(query);
   }
 
-  // If both search and category are active, filter stream client-side
+  // Apply category filter when search is also active
   if (query.isNotEmpty && category != null) {
-    return base.map((items) =>
+    base = base.map((items) =>
         items.where((i) => i.categoryId == category).toList());
   }
+
+  // Apply tag filter client-side using a combined stream
+  if (tagId != null) {
+    return base.asyncExpand((items) =>
+        db.watchItemIdsByTag(tagId).map((ids) =>
+            items.where((i) => ids.contains(i.id)).toList()));
+  }
+
   return base;
 });
 

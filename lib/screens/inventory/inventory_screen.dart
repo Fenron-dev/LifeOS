@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/item_categories.dart';
+import '../../core/product_types.dart';
+import '../../providers/tags_provider.dart';
 import '../../db/database.dart';
 import '../../providers/categories_provider.dart';
 import '../../providers/inventory_provider.dart';
@@ -20,7 +22,6 @@ class InventoryScreen extends ConsumerWidget {
     final query = ref.watch(itemSearchQueryProvider);
     final quickActions = ref.watch(settingsProvider).valueOrNull?.quickActions
         ?? AppSettingsData.defaultQuickActions;
-    final hasScanAction = quickActions.contains(QuickAction.scanBarcode);
     final hasAddAction = quickActions.contains(QuickAction.addInventory);
 
     return Scaffold(
@@ -72,53 +73,29 @@ class InventoryScreen extends ConsumerWidget {
           ),
         ),
       ),
-      body: itemsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
-        data: (items) => items.isEmpty
-            ? _EmptyState(hasQuery: query.isNotEmpty)
-            : _ItemsList(items: items),
-      ),
-      floatingActionButton: (hasScanAction && hasAddAction) ? null : Column(
-        mainAxisSize: MainAxisSize.min,
+      body: Column(
         children: [
-          if (!hasScanAction)
-            FloatingActionButton.small(
-              heroTag: 'scan',
-              onPressed: () => _scanBarcode(context, ref),
-              tooltip: 'Barcode scannen',
-              child: const Icon(Icons.qr_code_scanner),
+          _TagFilterRow(),
+          Expanded(
+            child: itemsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Fehler: $e')),
+              data: (items) => items.isEmpty
+                  ? _EmptyState(hasQuery: query.isNotEmpty)
+                  : _ItemsList(items: items),
             ),
-          if (!hasScanAction && !hasAddAction) const SizedBox(height: 8),
-          if (!hasAddAction)
-            FloatingActionButton(
-              heroTag: 'add',
-              onPressed: () => context.push('/haushalt/item/new'),
-              tooltip: 'Artikel hinzufügen',
-              child: const Icon(Icons.add),
-            ),
+          ),
         ],
+      ),
+      floatingActionButton: hasAddAction ? null : FloatingActionButton(
+        heroTag: 'add',
+        onPressed: () => context.push('/haushalt/item/new'),
+        tooltip: 'Artikel hinzufügen',
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  Future<void> _scanBarcode(BuildContext context, WidgetRef ref) async {
-    final ean = await context.push<String>('/scan');
-    if (ean == null || !context.mounted) return;
-
-    // Check if item with this EAN already exists
-    final dao = ref.read(itemsDaoProvider);
-    final existing = await dao?.itemByEan(ean);
-    if (!context.mounted) return;
-
-    if (existing != null) {
-      // Navigate to item detail
-      context.push('/haushalt/item/${existing.id}');
-    } else {
-      // Create new item with pre-filled EAN
-      context.push('/haushalt/item/new', extra: ean);
-    }
-  }
 }
 
 class _ItemsList extends ConsumerWidget {
@@ -333,11 +310,8 @@ class _ProductTypeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, color) = switch (type) {
-      'readyToEat' => (Icons.lunch_dining, Colors.orange),
-      'ingredient' => (Icons.spa, Colors.green),
-      _ => (Icons.kitchen, Theme.of(context).colorScheme.primary),
-    };
+    final icon = ProductType.iconFor(type);
+    final color = ProductType.colorFor(type);
     return CircleAvatar(
       backgroundColor: color.withValues(alpha: 0.15),
       child: Icon(icon, color: color, size: 20),
@@ -375,6 +349,50 @@ class _CategoryFilterRow extends ConsumerWidget {
             onSelected: (_) => ref
                 .read(itemCategoryFilterProvider.notifier)
                 .state = isSelected ? null : id,
+            visualDensity: VisualDensity.compact,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TagFilterRow extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final category = ref.watch(itemCategoryFilterProvider);
+    final selectedTagId = ref.watch(itemTagFilterProvider);
+
+    // Show tags for the selected category, or nothing when no category chosen
+    if (category == null) {
+      if (selectedTagId == null) return const SizedBox.shrink();
+      // Tag was selected but category cleared — also clear tag
+      WidgetsBinding.instance.addPostFrameCallback((_) =>
+          ref.read(itemTagFilterProvider.notifier).state = null);
+      return const SizedBox.shrink();
+    }
+
+    final tagsAsync = ref.watch(tagDefinitionsForCategoryProvider(category));
+    final tags = tagsAsync.valueOrNull ?? [];
+    if (tags.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        itemCount: tags.length,
+        separatorBuilder: (context, i) => const SizedBox(width: 6),
+        itemBuilder: (_, i) {
+          final tag = tags[i];
+          final isSelected = selectedTagId == tag.id;
+          return FilterChip(
+            avatar: Icon(Icons.label_outline, size: 12),
+            label: Text(tag.name, style: const TextStyle(fontSize: 11)),
+            selected: isSelected,
+            onSelected: (_) => ref
+                .read(itemTagFilterProvider.notifier)
+                .state = isSelected ? null : tag.id,
             visualDensity: VisualDensity.compact,
           );
         },

@@ -21856,6 +21856,376 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
   }
 }
 
+class $ItemRelationsTable extends ItemRelations
+    with TableInfo<$ItemRelationsTable, ItemRelation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ItemRelationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fromItemIdMeta = const VerificationMeta(
+    'fromItemId',
+  );
+  @override
+  late final GeneratedColumn<String> fromItemId = GeneratedColumn<String>(
+    'from_item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _toItemIdMeta = const VerificationMeta(
+    'toItemId',
+  );
+  @override
+  late final GeneratedColumn<String> toItemId = GeneratedColumn<String>(
+    'to_item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    fromItemId,
+    toItemId,
+    notes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'item_relations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ItemRelation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('from_item_id')) {
+      context.handle(
+        _fromItemIdMeta,
+        fromItemId.isAcceptableOrUnknown(
+          data['from_item_id']!,
+          _fromItemIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fromItemIdMeta);
+    }
+    if (data.containsKey('to_item_id')) {
+      context.handle(
+        _toItemIdMeta,
+        toItemId.isAcceptableOrUnknown(data['to_item_id']!, _toItemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_toItemIdMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ItemRelation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ItemRelation(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      fromItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}from_item_id'],
+      )!,
+      toItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_item_id'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ItemRelationsTable createAlias(String alias) {
+    return $ItemRelationsTable(attachedDatabase, alias);
+  }
+}
+
+class ItemRelation extends DataClass implements Insertable<ItemRelation> {
+  final String id;
+  final String fromItemId;
+  final String toItemId;
+  final String? notes;
+  final DateTime createdAt;
+  const ItemRelation({
+    required this.id,
+    required this.fromItemId,
+    required this.toItemId,
+    this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['from_item_id'] = Variable<String>(fromItemId);
+    map['to_item_id'] = Variable<String>(toItemId);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ItemRelationsCompanion toCompanion(bool nullToAbsent) {
+    return ItemRelationsCompanion(
+      id: Value(id),
+      fromItemId: Value(fromItemId),
+      toItemId: Value(toItemId),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ItemRelation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ItemRelation(
+      id: serializer.fromJson<String>(json['id']),
+      fromItemId: serializer.fromJson<String>(json['fromItemId']),
+      toItemId: serializer.fromJson<String>(json['toItemId']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'fromItemId': serializer.toJson<String>(fromItemId),
+      'toItemId': serializer.toJson<String>(toItemId),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ItemRelation copyWith({
+    String? id,
+    String? fromItemId,
+    String? toItemId,
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+  }) => ItemRelation(
+    id: id ?? this.id,
+    fromItemId: fromItemId ?? this.fromItemId,
+    toItemId: toItemId ?? this.toItemId,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ItemRelation copyWithCompanion(ItemRelationsCompanion data) {
+    return ItemRelation(
+      id: data.id.present ? data.id.value : this.id,
+      fromItemId: data.fromItemId.present
+          ? data.fromItemId.value
+          : this.fromItemId,
+      toItemId: data.toItemId.present ? data.toItemId.value : this.toItemId,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemRelation(')
+          ..write('id: $id, ')
+          ..write('fromItemId: $fromItemId, ')
+          ..write('toItemId: $toItemId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, fromItemId, toItemId, notes, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ItemRelation &&
+          other.id == this.id &&
+          other.fromItemId == this.fromItemId &&
+          other.toItemId == this.toItemId &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class ItemRelationsCompanion extends UpdateCompanion<ItemRelation> {
+  final Value<String> id;
+  final Value<String> fromItemId;
+  final Value<String> toItemId;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ItemRelationsCompanion({
+    this.id = const Value.absent(),
+    this.fromItemId = const Value.absent(),
+    this.toItemId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ItemRelationsCompanion.insert({
+    required String id,
+    required String fromItemId,
+    required String toItemId,
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       fromItemId = Value(fromItemId),
+       toItemId = Value(toItemId);
+  static Insertable<ItemRelation> custom({
+    Expression<String>? id,
+    Expression<String>? fromItemId,
+    Expression<String>? toItemId,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (fromItemId != null) 'from_item_id': fromItemId,
+      if (toItemId != null) 'to_item_id': toItemId,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ItemRelationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? fromItemId,
+    Value<String>? toItemId,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ItemRelationsCompanion(
+      id: id ?? this.id,
+      fromItemId: fromItemId ?? this.fromItemId,
+      toItemId: toItemId ?? this.toItemId,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (fromItemId.present) {
+      map['from_item_id'] = Variable<String>(fromItemId.value);
+    }
+    if (toItemId.present) {
+      map['to_item_id'] = Variable<String>(toItemId.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemRelationsCompanion(')
+          ..write('id: $id, ')
+          ..write('fromItemId: $fromItemId, ')
+          ..write('toItemId: $toItemId, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -21915,6 +22285,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $WorkoutSetsTable workoutSets = $WorkoutSetsTable(this);
   late final $CustomShoppingItemsTable customShoppingItems =
       $CustomShoppingItemsTable(this);
+  late final $ItemRelationsTable itemRelations = $ItemRelationsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -21957,6 +22328,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     workouts,
     workoutSets,
     customShoppingItems,
+    itemRelations,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -22189,6 +22561,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('workout_sets', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_relations', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('item_relations', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -23088,6 +23474,42 @@ final class $$ItemsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$ItemRelationsTable, List<ItemRelation>>
+  _fromRelationsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.itemRelations,
+    aliasName: $_aliasNameGenerator(db.items.id, db.itemRelations.fromItemId),
+  );
+
+  $$ItemRelationsTableProcessedTableManager get fromRelations {
+    final manager = $$ItemRelationsTableTableManager(
+      $_db,
+      $_db.itemRelations,
+    ).filter((f) => f.fromItemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_fromRelationsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ItemRelationsTable, List<ItemRelation>>
+  _toRelationsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.itemRelations,
+    aliasName: $_aliasNameGenerator(db.items.id, db.itemRelations.toItemId),
+  );
+
+  $$ItemRelationsTableProcessedTableManager get toRelations {
+    final manager = $$ItemRelationsTableTableManager(
+      $_db,
+      $_db.itemRelations,
+    ).filter((f) => f.toItemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_toRelationsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
@@ -23556,6 +23978,56 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
           }) => $$MealPlanEntriesTableFilterComposer(
             $db: $db,
             $table: $db.mealPlanEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> fromRelations(
+    Expression<bool> Function($$ItemRelationsTableFilterComposer f) f,
+  ) {
+    final $$ItemRelationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemRelations,
+      getReferencedColumn: (t) => t.fromItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemRelationsTableFilterComposer(
+            $db: $db,
+            $table: $db.itemRelations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> toRelations(
+    Expression<bool> Function($$ItemRelationsTableFilterComposer f) f,
+  ) {
+    final $$ItemRelationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemRelations,
+      getReferencedColumn: (t) => t.toItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemRelationsTableFilterComposer(
+            $db: $db,
+            $table: $db.itemRelations,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -24249,6 +24721,56 @@ class $$ItemsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> fromRelations<T extends Object>(
+    Expression<T> Function($$ItemRelationsTableAnnotationComposer a) f,
+  ) {
+    final $$ItemRelationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemRelations,
+      getReferencedColumn: (t) => t.fromItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemRelationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemRelations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> toRelations<T extends Object>(
+    Expression<T> Function($$ItemRelationsTableAnnotationComposer a) f,
+  ) {
+    final $$ItemRelationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.itemRelations,
+      getReferencedColumn: (t) => t.toItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemRelationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.itemRelations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ItemsTableTableManager
@@ -24277,6 +24799,8 @@ class $$ItemsTableTableManager
             bool standardMealIngredientsRefs,
             bool wishListEntriesRefs,
             bool mealPlanItemRefs,
+            bool fromRelations,
+            bool toRelations,
           })
         > {
   $$ItemsTableTableManager(_$AppDatabase db, $ItemsTable table)
@@ -24466,6 +24990,8 @@ class $$ItemsTableTableManager
                 standardMealIngredientsRefs = false,
                 wishListEntriesRefs = false,
                 mealPlanItemRefs = false,
+                fromRelations = false,
+                toRelations = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -24480,6 +25006,8 @@ class $$ItemsTableTableManager
                     if (standardMealIngredientsRefs) db.standardMealIngredients,
                     if (wishListEntriesRefs) db.wishListEntries,
                     if (mealPlanItemRefs) db.mealPlanEntries,
+                    if (fromRelations) db.itemRelations,
+                    if (toRelations) db.itemRelations,
                   ],
                   addJoins:
                       <
@@ -24726,6 +25254,44 @@ class $$ItemsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (fromRelations)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          ItemRelation
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._fromRelationsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).fromRelations,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.fromItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (toRelations)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          ItemRelation
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._toRelationsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(db, table, p0).toRelations,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.toItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -24759,6 +25325,8 @@ typedef $$ItemsTableProcessedTableManager =
         bool standardMealIngredientsRefs,
         bool wishListEntriesRefs,
         bool mealPlanItemRefs,
+        bool fromRelations,
+        bool toRelations,
       })
     >;
 typedef $$InventoryEntriesTableCreateCompanionBuilder =
@@ -39755,6 +40323,415 @@ typedef $$CustomShoppingItemsTableProcessedTableManager =
       CustomShoppingItem,
       PrefetchHooks Function({bool shopId})
     >;
+typedef $$ItemRelationsTableCreateCompanionBuilder =
+    ItemRelationsCompanion Function({
+      required String id,
+      required String fromItemId,
+      required String toItemId,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$ItemRelationsTableUpdateCompanionBuilder =
+    ItemRelationsCompanion Function({
+      Value<String> id,
+      Value<String> fromItemId,
+      Value<String> toItemId,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$ItemRelationsTableReferences
+    extends BaseReferences<_$AppDatabase, $ItemRelationsTable, ItemRelation> {
+  $$ItemRelationsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ItemsTable _fromItemIdTable(_$AppDatabase db) => db.items.createAlias(
+    $_aliasNameGenerator(db.itemRelations.fromItemId, db.items.id),
+  );
+
+  $$ItemsTableProcessedTableManager get fromItemId {
+    final $_column = $_itemColumn<String>('from_item_id')!;
+
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_fromItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ItemsTable _toItemIdTable(_$AppDatabase db) => db.items.createAlias(
+    $_aliasNameGenerator(db.itemRelations.toItemId, db.items.id),
+  );
+
+  $$ItemsTableProcessedTableManager get toItemId {
+    final $_column = $_itemColumn<String>('to_item_id')!;
+
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_toItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ItemRelationsTableFilterComposer
+    extends Composer<_$AppDatabase, $ItemRelationsTable> {
+  $$ItemRelationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ItemsTableFilterComposer get fromItemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fromItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableFilterComposer get toItemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.toItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ItemRelationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ItemRelationsTable> {
+  $$ItemRelationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ItemsTableOrderingComposer get fromItemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fromItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableOrderingComposer get toItemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.toItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ItemRelationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ItemRelationsTable> {
+  $$ItemRelationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$ItemsTableAnnotationComposer get fromItemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fromItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableAnnotationComposer get toItemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.toItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ItemRelationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ItemRelationsTable,
+          ItemRelation,
+          $$ItemRelationsTableFilterComposer,
+          $$ItemRelationsTableOrderingComposer,
+          $$ItemRelationsTableAnnotationComposer,
+          $$ItemRelationsTableCreateCompanionBuilder,
+          $$ItemRelationsTableUpdateCompanionBuilder,
+          (ItemRelation, $$ItemRelationsTableReferences),
+          ItemRelation,
+          PrefetchHooks Function({bool fromItemId, bool toItemId})
+        > {
+  $$ItemRelationsTableTableManager(_$AppDatabase db, $ItemRelationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ItemRelationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ItemRelationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ItemRelationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> fromItemId = const Value.absent(),
+                Value<String> toItemId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ItemRelationsCompanion(
+                id: id,
+                fromItemId: fromItemId,
+                toItemId: toItemId,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String fromItemId,
+                required String toItemId,
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ItemRelationsCompanion.insert(
+                id: id,
+                fromItemId: fromItemId,
+                toItemId: toItemId,
+                notes: notes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ItemRelationsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({fromItemId = false, toItemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (fromItemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.fromItemId,
+                                referencedTable: $$ItemRelationsTableReferences
+                                    ._fromItemIdTable(db),
+                                referencedColumn: $$ItemRelationsTableReferences
+                                    ._fromItemIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (toItemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.toItemId,
+                                referencedTable: $$ItemRelationsTableReferences
+                                    ._toItemIdTable(db),
+                                referencedColumn: $$ItemRelationsTableReferences
+                                    ._toItemIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ItemRelationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ItemRelationsTable,
+      ItemRelation,
+      $$ItemRelationsTableFilterComposer,
+      $$ItemRelationsTableOrderingComposer,
+      $$ItemRelationsTableAnnotationComposer,
+      $$ItemRelationsTableCreateCompanionBuilder,
+      $$ItemRelationsTableUpdateCompanionBuilder,
+      (ItemRelation, $$ItemRelationsTableReferences),
+      ItemRelation,
+      PrefetchHooks Function({bool fromItemId, bool toItemId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -39836,4 +40813,6 @@ class $AppDatabaseManager {
       $$WorkoutSetsTableTableManager(_db, _db.workoutSets);
   $$CustomShoppingItemsTableTableManager get customShoppingItems =>
       $$CustomShoppingItemsTableTableManager(_db, _db.customShoppingItems);
+  $$ItemRelationsTableTableManager get itemRelations =>
+      $$ItemRelationsTableTableManager(_db, _db.itemRelations);
 }
