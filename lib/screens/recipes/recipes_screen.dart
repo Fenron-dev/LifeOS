@@ -34,12 +34,12 @@ class RecipesScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.calendar_month),
             tooltip: 'Mahlzeitenplan',
-            onPressed: () => context.push('/recipes/plan'),
+            onPressed: () => context.push('/haushalt/plan'),
           ),
           IconButton(
             icon: const Icon(Icons.restaurant_menu),
             tooltip: 'Gerichte',
-            onPressed: () => context.push('/recipes/meals'),
+            onPressed: () => context.push('/haushalt/meals'),
           ),
           ...shellMenuActions(context),
         ],
@@ -85,14 +85,14 @@ class RecipesScreen extends ConsumerWidget {
         children: [
           FloatingActionButton.small(
             heroTag: 'import',
-            onPressed: () => context.push('/recipes/import'),
+            onPressed: () => context.push('/haushalt/recipe/import'),
             tooltip: 'Von Mealie importieren',
             child: const Icon(Icons.cloud_download_outlined),
           ),
           const SizedBox(height: 8),
           FloatingActionButton(
             heroTag: 'add_recipe',
-            onPressed: () => context.push('/recipes/new'),
+            onPressed: () => context.push('/haushalt/recipe/new'),
             tooltip: 'Rezept hinzufügen',
             child: const Icon(Icons.add),
           ),
@@ -121,7 +121,7 @@ class _RecipesList extends ConsumerWidget {
           if (splitMode) {
             ref.read(selectedRecipeIdProvider.notifier).state = recipes[i].id;
           } else {
-            context.push('/recipes/${recipes[i].id}');
+            context.push('/haushalt/recipe/${recipes[i].id}');
           }
         },
       ),

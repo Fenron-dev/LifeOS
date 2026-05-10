@@ -38,7 +38,7 @@ class RecipeDetailScreen extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
-                onPressed: () => context.push('/recipes/${recipe.id}/edit'),
+                onPressed: () => context.push('/haushalt/recipe/${recipe.id}/edit'),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
@@ -160,7 +160,7 @@ class RecipeSplitDetailPane extends ConsumerWidget {
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: 'Bearbeiten',
                       onPressed: () =>
-                          context.push('/recipes/${recipe.id}/edit'),
+                          context.push('/haushalt/recipe/${recipe.id}/edit'),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline),

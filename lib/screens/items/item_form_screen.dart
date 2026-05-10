@@ -11,6 +11,7 @@ import '../../providers/locations_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
 import '../../providers/units_provider.dart';
 import '../../providers/categories_provider.dart';
+import '../../providers/shops_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../screens/settings/unit_conversions_screen.dart';
 import '../../services/open_food_facts_service.dart';
@@ -94,6 +95,12 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   late final TextEditingController _consumeQtyCtrl;
   String? _consumeUnit;
 
+  // Per-item minimum stock
+  bool _hasMinStock = false;
+  late final TextEditingController _minStockQtyCtrl;
+  String? _minStockUnit;
+  String? _preferredShopId;
+
   // Group membership
   Set<String> _selectedGroupIds = {};
   Set<String> _originalGroupIds = {};
@@ -122,6 +129,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     _servingSizeCtrl = TextEditingController(text: _fmtCtrl(i?.servingSizeG));
     _consumeQtyCtrl = TextEditingController(
         text: i?.consumeQty != null ? _fmtCtrl(i!.consumeQty) : '');
+    _minStockQtyCtrl = TextEditingController(
+        text: i?.minStockQuantity != null ? _fmtCtrl(i!.minStockQuantity) : '');
 
     if (i != null) {
       _productType = i.productType;
@@ -136,6 +145,11 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _nutritionRefUnit = i.nutritionRefUnit;
       _consumeUnit = i.consumeUnit;
       _showNutrition = _hasAnyNutrition(i);
+      if (i.minStockQuantity != null) {
+        _hasMinStock = true;
+        _minStockUnit = i.minStockUnit;
+        _preferredShopId = i.preferredShopId;
+      }
     }
     // Load existing group memberships and item conversions
     if (i != null) {
@@ -192,6 +206,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     _saltCtrl.dispose();
     _servingSizeCtrl.dispose();
     _consumeQtyCtrl.dispose();
+    _minStockQtyCtrl.dispose();
     super.dispose();
   }
 
@@ -360,6 +375,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         : null;
 
     final consumeQty = double.tryParse(_consumeQtyCtrl.text.trim().replaceAll(',', '.'));
+    final minStockQty = _hasMinStock
+        ? double.tryParse(_minStockQtyCtrl.text.trim().replaceAll(',', '.'))
+        : null;
 
     final String itemId;
     if (existing == null) {
@@ -390,6 +408,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         nutritionRefUnit: _nutritionRefUnit,
         consumeQty: consumeQty,
         consumeUnit: consumeQty != null ? _consumeUnit : null,
+        minStockQuantity: minStockQty,
+        minStockUnit: minStockQty != null ? _minStockUnit : null,
+        preferredShopId: _preferredShopId,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -419,6 +440,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         nutritionRefUnit: _nutritionRefUnit,
         consumeQty: Value(consumeQty),
         consumeUnit: Value(consumeQty != null ? _consumeUnit : null),
+        minStockQuantity: Value(minStockQty),
+        minStockUnit: Value(minStockQty != null ? _minStockUnit : null),
+        preferredShopId: Value(_preferredShopId),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -679,6 +703,72 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                 ],
               );
             }),
+            const SizedBox(height: 12),
+            // Minimum stock section
+            SwitchListTile(
+              value: _hasMinStock,
+              onChanged: (v) => setState(() => _hasMinStock = v),
+              title: const Text('Mindestbestand festlegen'),
+              subtitle: const Text('Artikel erscheint in der Einkaufsliste wenn Bestand darunter fällt'),
+              contentPadding: EdgeInsets.zero,
+            ),
+            if (_hasMinStock) ...[
+              Consumer(builder: (context, ref, _) {
+                final unitNames = ref.watch(unitNamesProvider);
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _minStockQtyCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Mindestmenge',
+                          prefixIcon: Icon(Icons.inventory_outlined),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(labelText: 'Einheit'),
+                        child: DropdownButton<String?>(
+                          value: unitNames.contains(_minStockUnit) ? _minStockUnit : null,
+                          isExpanded: true,
+                          underline: const SizedBox.shrink(),
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('— keine —')),
+                            ...unitNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                          ],
+                          onChanged: (v) => setState(() => _minStockUnit = v),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+              const SizedBox(height: 8),
+              Consumer(builder: (context, ref, _) {
+                final shops = ref.watch(allShopsProvider).valueOrNull ?? [];
+                if (shops.isEmpty) return const SizedBox.shrink();
+                return DropdownButtonFormField<String?>(
+                  // ignore: deprecated_member_use
+                  value: _preferredShopId,
+                  decoration: const InputDecoration(
+                    labelText: 'Bevorzugtes Geschäft',
+                    prefixIcon: Icon(Icons.store_outlined),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('— keins —')),
+                    ...shops.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))),
+                  ],
+                  onChanged: (v) => setState(() => _preferredShopId = v),
+                );
+              }),
+              const SizedBox(height: 4),
+            ],
             const SizedBox(height: 12),
             // Default location picker
             Consumer(builder: (context, ref, _) {

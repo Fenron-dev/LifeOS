@@ -791,6 +791,39 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _minStockQuantityMeta = const VerificationMeta(
+    'minStockQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> minStockQuantity = GeneratedColumn<double>(
+    'min_stock_quantity',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _minStockUnitMeta = const VerificationMeta(
+    'minStockUnit',
+  );
+  @override
+  late final GeneratedColumn<String> minStockUnit = GeneratedColumn<String>(
+    'min_stock_unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _preferredShopIdMeta = const VerificationMeta(
+    'preferredShopId',
+  );
+  @override
+  late final GeneratedColumn<String> preferredShopId = GeneratedColumn<String>(
+    'preferred_shop_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _starRatingMeta = const VerificationMeta(
     'starRating',
   );
@@ -886,6 +919,9 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     defaultLocationId,
     consumeQty,
     consumeUnit,
+    minStockQuantity,
+    minStockUnit,
+    preferredShopId,
     starRating,
     isFavorite,
     isTrashed,
@@ -1123,6 +1159,33 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         ),
       );
     }
+    if (data.containsKey('min_stock_quantity')) {
+      context.handle(
+        _minStockQuantityMeta,
+        minStockQuantity.isAcceptableOrUnknown(
+          data['min_stock_quantity']!,
+          _minStockQuantityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('min_stock_unit')) {
+      context.handle(
+        _minStockUnitMeta,
+        minStockUnit.isAcceptableOrUnknown(
+          data['min_stock_unit']!,
+          _minStockUnitMeta,
+        ),
+      );
+    }
+    if (data.containsKey('preferred_shop_id')) {
+      context.handle(
+        _preferredShopIdMeta,
+        preferredShopId.isAcceptableOrUnknown(
+          data['preferred_shop_id']!,
+          _preferredShopIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('star_rating')) {
       context.handle(
         _starRatingMeta,
@@ -1274,6 +1337,18 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}consume_unit'],
       ),
+      minStockQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}min_stock_quantity'],
+      ),
+      minStockUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}min_stock_unit'],
+      ),
+      preferredShopId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preferred_shop_id'],
+      ),
       starRating: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}star_rating'],
@@ -1345,6 +1420,17 @@ class Item extends DataClass implements Insertable<Item> {
   /// Unit for [consumeQty]. Should match an inventory entry unit.
   /// If null, the deduction sheet falls back to the servingSizeG heuristic.
   final String? consumeUnit;
+
+  /// Minimum quantity to keep in stock. When current inventory falls below
+  /// this value the item appears in the shopping list.
+  final double? minStockQuantity;
+
+  /// Unit for [minStockQuantity] (same unit as inventory entries).
+  final String? minStockUnit;
+
+  /// Shop where this item is usually purchased (references Shops.id).
+  /// Used to group the shopping list by store.
+  final String? preferredShopId;
   final int? starRating;
   final bool isFavorite;
   final bool isTrashed;
@@ -1379,6 +1465,9 @@ class Item extends DataClass implements Insertable<Item> {
     this.defaultLocationId,
     this.consumeQty,
     this.consumeUnit,
+    this.minStockQuantity,
+    this.minStockUnit,
+    this.preferredShopId,
     this.starRating,
     required this.isFavorite,
     required this.isTrashed,
@@ -1457,6 +1546,15 @@ class Item extends DataClass implements Insertable<Item> {
     }
     if (!nullToAbsent || consumeUnit != null) {
       map['consume_unit'] = Variable<String>(consumeUnit);
+    }
+    if (!nullToAbsent || minStockQuantity != null) {
+      map['min_stock_quantity'] = Variable<double>(minStockQuantity);
+    }
+    if (!nullToAbsent || minStockUnit != null) {
+      map['min_stock_unit'] = Variable<String>(minStockUnit);
+    }
+    if (!nullToAbsent || preferredShopId != null) {
+      map['preferred_shop_id'] = Variable<String>(preferredShopId);
     }
     if (!nullToAbsent || starRating != null) {
       map['star_rating'] = Variable<int>(starRating);
@@ -1538,6 +1636,15 @@ class Item extends DataClass implements Insertable<Item> {
       consumeUnit: consumeUnit == null && nullToAbsent
           ? const Value.absent()
           : Value(consumeUnit),
+      minStockQuantity: minStockQuantity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minStockQuantity),
+      minStockUnit: minStockUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minStockUnit),
+      preferredShopId: preferredShopId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(preferredShopId),
       starRating: starRating == null && nullToAbsent
           ? const Value.absent()
           : Value(starRating),
@@ -1588,6 +1695,9 @@ class Item extends DataClass implements Insertable<Item> {
       ),
       consumeQty: serializer.fromJson<double?>(json['consumeQty']),
       consumeUnit: serializer.fromJson<String?>(json['consumeUnit']),
+      minStockQuantity: serializer.fromJson<double?>(json['minStockQuantity']),
+      minStockUnit: serializer.fromJson<String?>(json['minStockUnit']),
+      preferredShopId: serializer.fromJson<String?>(json['preferredShopId']),
       starRating: serializer.fromJson<int?>(json['starRating']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       isTrashed: serializer.fromJson<bool>(json['isTrashed']),
@@ -1627,6 +1737,9 @@ class Item extends DataClass implements Insertable<Item> {
       'defaultLocationId': serializer.toJson<String?>(defaultLocationId),
       'consumeQty': serializer.toJson<double?>(consumeQty),
       'consumeUnit': serializer.toJson<String?>(consumeUnit),
+      'minStockQuantity': serializer.toJson<double?>(minStockQuantity),
+      'minStockUnit': serializer.toJson<String?>(minStockUnit),
+      'preferredShopId': serializer.toJson<String?>(preferredShopId),
       'starRating': serializer.toJson<int?>(starRating),
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'isTrashed': serializer.toJson<bool>(isTrashed),
@@ -1664,6 +1777,9 @@ class Item extends DataClass implements Insertable<Item> {
     Value<String?> defaultLocationId = const Value.absent(),
     Value<double?> consumeQty = const Value.absent(),
     Value<String?> consumeUnit = const Value.absent(),
+    Value<double?> minStockQuantity = const Value.absent(),
+    Value<String?> minStockUnit = const Value.absent(),
+    Value<String?> preferredShopId = const Value.absent(),
     Value<int?> starRating = const Value.absent(),
     bool? isFavorite,
     bool? isTrashed,
@@ -1714,6 +1830,13 @@ class Item extends DataClass implements Insertable<Item> {
         : this.defaultLocationId,
     consumeQty: consumeQty.present ? consumeQty.value : this.consumeQty,
     consumeUnit: consumeUnit.present ? consumeUnit.value : this.consumeUnit,
+    minStockQuantity: minStockQuantity.present
+        ? minStockQuantity.value
+        : this.minStockQuantity,
+    minStockUnit: minStockUnit.present ? minStockUnit.value : this.minStockUnit,
+    preferredShopId: preferredShopId.present
+        ? preferredShopId.value
+        : this.preferredShopId,
     starRating: starRating.present ? starRating.value : this.starRating,
     isFavorite: isFavorite ?? this.isFavorite,
     isTrashed: isTrashed ?? this.isTrashed,
@@ -1792,6 +1915,15 @@ class Item extends DataClass implements Insertable<Item> {
       consumeUnit: data.consumeUnit.present
           ? data.consumeUnit.value
           : this.consumeUnit,
+      minStockQuantity: data.minStockQuantity.present
+          ? data.minStockQuantity.value
+          : this.minStockQuantity,
+      minStockUnit: data.minStockUnit.present
+          ? data.minStockUnit.value
+          : this.minStockUnit,
+      preferredShopId: data.preferredShopId.present
+          ? data.preferredShopId.value
+          : this.preferredShopId,
       starRating: data.starRating.present
           ? data.starRating.value
           : this.starRating,
@@ -1835,6 +1967,9 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('defaultLocationId: $defaultLocationId, ')
           ..write('consumeQty: $consumeQty, ')
           ..write('consumeUnit: $consumeUnit, ')
+          ..write('minStockQuantity: $minStockQuantity, ')
+          ..write('minStockUnit: $minStockUnit, ')
+          ..write('preferredShopId: $preferredShopId, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -1874,6 +2009,9 @@ class Item extends DataClass implements Insertable<Item> {
     defaultLocationId,
     consumeQty,
     consumeUnit,
+    minStockQuantity,
+    minStockUnit,
+    preferredShopId,
     starRating,
     isFavorite,
     isTrashed,
@@ -1912,6 +2050,9 @@ class Item extends DataClass implements Insertable<Item> {
           other.defaultLocationId == this.defaultLocationId &&
           other.consumeQty == this.consumeQty &&
           other.consumeUnit == this.consumeUnit &&
+          other.minStockQuantity == this.minStockQuantity &&
+          other.minStockUnit == this.minStockUnit &&
+          other.preferredShopId == this.preferredShopId &&
           other.starRating == this.starRating &&
           other.isFavorite == this.isFavorite &&
           other.isTrashed == this.isTrashed &&
@@ -1948,6 +2089,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<String?> defaultLocationId;
   final Value<double?> consumeQty;
   final Value<String?> consumeUnit;
+  final Value<double?> minStockQuantity;
+  final Value<String?> minStockUnit;
+  final Value<String?> preferredShopId;
   final Value<int?> starRating;
   final Value<bool> isFavorite;
   final Value<bool> isTrashed;
@@ -1983,6 +2127,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.defaultLocationId = const Value.absent(),
     this.consumeQty = const Value.absent(),
     this.consumeUnit = const Value.absent(),
+    this.minStockQuantity = const Value.absent(),
+    this.minStockUnit = const Value.absent(),
+    this.preferredShopId = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -2019,6 +2166,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.defaultLocationId = const Value.absent(),
     this.consumeQty = const Value.absent(),
     this.consumeUnit = const Value.absent(),
+    this.minStockQuantity = const Value.absent(),
+    this.minStockUnit = const Value.absent(),
+    this.preferredShopId = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -2057,6 +2207,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<String>? defaultLocationId,
     Expression<double>? consumeQty,
     Expression<String>? consumeUnit,
+    Expression<double>? minStockQuantity,
+    Expression<String>? minStockUnit,
+    Expression<String>? preferredShopId,
     Expression<int>? starRating,
     Expression<bool>? isFavorite,
     Expression<bool>? isTrashed,
@@ -2095,6 +2248,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (defaultLocationId != null) 'default_location_id': defaultLocationId,
       if (consumeQty != null) 'consume_qty': consumeQty,
       if (consumeUnit != null) 'consume_unit': consumeUnit,
+      if (minStockQuantity != null) 'min_stock_quantity': minStockQuantity,
+      if (minStockUnit != null) 'min_stock_unit': minStockUnit,
+      if (preferredShopId != null) 'preferred_shop_id': preferredShopId,
       if (starRating != null) 'star_rating': starRating,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (isTrashed != null) 'is_trashed': isTrashed,
@@ -2133,6 +2289,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<String?>? defaultLocationId,
     Value<double?>? consumeQty,
     Value<String?>? consumeUnit,
+    Value<double?>? minStockQuantity,
+    Value<String?>? minStockUnit,
+    Value<String?>? preferredShopId,
     Value<int?>? starRating,
     Value<bool>? isFavorite,
     Value<bool>? isTrashed,
@@ -2169,6 +2328,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       defaultLocationId: defaultLocationId ?? this.defaultLocationId,
       consumeQty: consumeQty ?? this.consumeQty,
       consumeUnit: consumeUnit ?? this.consumeUnit,
+      minStockQuantity: minStockQuantity ?? this.minStockQuantity,
+      minStockUnit: minStockUnit ?? this.minStockUnit,
+      preferredShopId: preferredShopId ?? this.preferredShopId,
       starRating: starRating ?? this.starRating,
       isFavorite: isFavorite ?? this.isFavorite,
       isTrashed: isTrashed ?? this.isTrashed,
@@ -2267,6 +2429,15 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (consumeUnit.present) {
       map['consume_unit'] = Variable<String>(consumeUnit.value);
     }
+    if (minStockQuantity.present) {
+      map['min_stock_quantity'] = Variable<double>(minStockQuantity.value);
+    }
+    if (minStockUnit.present) {
+      map['min_stock_unit'] = Variable<String>(minStockUnit.value);
+    }
+    if (preferredShopId.present) {
+      map['preferred_shop_id'] = Variable<String>(preferredShopId.value);
+    }
     if (starRating.present) {
       map['star_rating'] = Variable<int>(starRating.value);
     }
@@ -2319,6 +2490,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('defaultLocationId: $defaultLocationId, ')
           ..write('consumeQty: $consumeQty, ')
           ..write('consumeUnit: $consumeUnit, ')
+          ..write('minStockQuantity: $minStockQuantity, ')
+          ..write('minStockUnit: $minStockUnit, ')
+          ..write('preferredShopId: $preferredShopId, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -3259,6 +3433,17 @@ class $ItemGroupsTable extends ItemGroups
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _preferredShopIdMeta = const VerificationMeta(
+    'preferredShopId',
+  );
+  @override
+  late final GeneratedColumn<String> preferredShopId = GeneratedColumn<String>(
+    'preferred_shop_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -3279,6 +3464,7 @@ class $ItemGroupsTable extends ItemGroups
     minStockQuantity,
     minStockUnit,
     notes,
+    preferredShopId,
     createdAt,
   ];
   @override
@@ -3338,6 +3524,15 @@ class $ItemGroupsTable extends ItemGroups
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('preferred_shop_id')) {
+      context.handle(
+        _preferredShopIdMeta,
+        preferredShopId.isAcceptableOrUnknown(
+          data['preferred_shop_id']!,
+          _preferredShopIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -3377,6 +3572,10 @@ class $ItemGroupsTable extends ItemGroups
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      preferredShopId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preferred_shop_id'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -3397,6 +3596,9 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
   final double? minStockQuantity;
   final String? minStockUnit;
   final String? notes;
+
+  /// Shop where items in this group are usually purchased.
+  final String? preferredShopId;
   final DateTime createdAt;
   const ItemGroup({
     required this.id,
@@ -3405,6 +3607,7 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
     this.minStockQuantity,
     this.minStockUnit,
     this.notes,
+    this.preferredShopId,
     required this.createdAt,
   });
   @override
@@ -3421,6 +3624,9 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || preferredShopId != null) {
+      map['preferred_shop_id'] = Variable<String>(preferredShopId);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -3440,6 +3646,9 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      preferredShopId: preferredShopId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(preferredShopId),
       createdAt: Value(createdAt),
     );
   }
@@ -3456,6 +3665,7 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
       minStockQuantity: serializer.fromJson<double?>(json['minStockQuantity']),
       minStockUnit: serializer.fromJson<String?>(json['minStockUnit']),
       notes: serializer.fromJson<String?>(json['notes']),
+      preferredShopId: serializer.fromJson<String?>(json['preferredShopId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -3469,6 +3679,7 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
       'minStockQuantity': serializer.toJson<double?>(minStockQuantity),
       'minStockUnit': serializer.toJson<String?>(minStockUnit),
       'notes': serializer.toJson<String?>(notes),
+      'preferredShopId': serializer.toJson<String?>(preferredShopId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -3480,6 +3691,7 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
     Value<double?> minStockQuantity = const Value.absent(),
     Value<String?> minStockUnit = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    Value<String?> preferredShopId = const Value.absent(),
     DateTime? createdAt,
   }) => ItemGroup(
     id: id ?? this.id,
@@ -3490,6 +3702,9 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
         : this.minStockQuantity,
     minStockUnit: minStockUnit.present ? minStockUnit.value : this.minStockUnit,
     notes: notes.present ? notes.value : this.notes,
+    preferredShopId: preferredShopId.present
+        ? preferredShopId.value
+        : this.preferredShopId,
     createdAt: createdAt ?? this.createdAt,
   );
   ItemGroup copyWithCompanion(ItemGroupsCompanion data) {
@@ -3506,6 +3721,9 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
           ? data.minStockUnit.value
           : this.minStockUnit,
       notes: data.notes.present ? data.notes.value : this.notes,
+      preferredShopId: data.preferredShopId.present
+          ? data.preferredShopId.value
+          : this.preferredShopId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -3519,6 +3737,7 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
           ..write('minStockQuantity: $minStockQuantity, ')
           ..write('minStockUnit: $minStockUnit, ')
           ..write('notes: $notes, ')
+          ..write('preferredShopId: $preferredShopId, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -3532,6 +3751,7 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
     minStockQuantity,
     minStockUnit,
     notes,
+    preferredShopId,
     createdAt,
   );
   @override
@@ -3544,6 +3764,7 @@ class ItemGroup extends DataClass implements Insertable<ItemGroup> {
           other.minStockQuantity == this.minStockQuantity &&
           other.minStockUnit == this.minStockUnit &&
           other.notes == this.notes &&
+          other.preferredShopId == this.preferredShopId &&
           other.createdAt == this.createdAt);
 }
 
@@ -3554,6 +3775,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
   final Value<double?> minStockQuantity;
   final Value<String?> minStockUnit;
   final Value<String?> notes;
+  final Value<String?> preferredShopId;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const ItemGroupsCompanion({
@@ -3563,6 +3785,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
     this.minStockQuantity = const Value.absent(),
     this.minStockUnit = const Value.absent(),
     this.notes = const Value.absent(),
+    this.preferredShopId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3573,6 +3796,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
     this.minStockQuantity = const Value.absent(),
     this.minStockUnit = const Value.absent(),
     this.notes = const Value.absent(),
+    this.preferredShopId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -3585,6 +3809,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
     Expression<double>? minStockQuantity,
     Expression<String>? minStockUnit,
     Expression<String>? notes,
+    Expression<String>? preferredShopId,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -3595,6 +3820,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
       if (minStockQuantity != null) 'min_stock_quantity': minStockQuantity,
       if (minStockUnit != null) 'min_stock_unit': minStockUnit,
       if (notes != null) 'notes': notes,
+      if (preferredShopId != null) 'preferred_shop_id': preferredShopId,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3607,6 +3833,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
     Value<double?>? minStockQuantity,
     Value<String?>? minStockUnit,
     Value<String?>? notes,
+    Value<String?>? preferredShopId,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -3617,6 +3844,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
       minStockQuantity: minStockQuantity ?? this.minStockQuantity,
       minStockUnit: minStockUnit ?? this.minStockUnit,
       notes: notes ?? this.notes,
+      preferredShopId: preferredShopId ?? this.preferredShopId,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -3643,6 +3871,9 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (preferredShopId.present) {
+      map['preferred_shop_id'] = Variable<String>(preferredShopId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -3661,6 +3892,7 @@ class ItemGroupsCompanion extends UpdateCompanion<ItemGroup> {
           ..write('minStockQuantity: $minStockQuantity, ')
           ..write('minStockUnit: $minStockUnit, ')
           ..write('notes: $notes, ')
+          ..write('preferredShopId: $preferredShopId, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -22095,6 +22327,9 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String?> defaultLocationId,
       Value<double?> consumeQty,
       Value<String?> consumeUnit,
+      Value<double?> minStockQuantity,
+      Value<String?> minStockUnit,
+      Value<String?> preferredShopId,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -22132,6 +22367,9 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String?> defaultLocationId,
       Value<double?> consumeQty,
       Value<String?> consumeUnit,
+      Value<double?> minStockQuantity,
+      Value<String?> minStockUnit,
+      Value<String?> preferredShopId,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -22529,6 +22767,21 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get consumeUnit => $composableBuilder(
     column: $table.consumeUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get minStockQuantity => $composableBuilder(
+    column: $table.minStockQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get minStockUnit => $composableBuilder(
+    column: $table.minStockUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get preferredShopId => $composableBuilder(
+    column: $table.preferredShopId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22994,6 +23247,21 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get minStockQuantity => $composableBuilder(
+    column: $table.minStockQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get minStockUnit => $composableBuilder(
+    column: $table.minStockUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get preferredShopId => $composableBuilder(
+    column: $table.preferredShopId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get starRating => $composableBuilder(
     column: $table.starRating,
     builder: (column) => ColumnOrderings(column),
@@ -23188,6 +23456,21 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<String> get consumeUnit => $composableBuilder(
     column: $table.consumeUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get minStockQuantity => $composableBuilder(
+    column: $table.minStockQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get minStockUnit => $composableBuilder(
+    column: $table.minStockUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get preferredShopId => $composableBuilder(
+    column: $table.preferredShopId,
     builder: (column) => column,
   );
 
@@ -23579,6 +23862,9 @@ class $$ItemsTableTableManager
                 Value<String?> defaultLocationId = const Value.absent(),
                 Value<double?> consumeQty = const Value.absent(),
                 Value<String?> consumeUnit = const Value.absent(),
+                Value<double?> minStockQuantity = const Value.absent(),
+                Value<String?> minStockUnit = const Value.absent(),
+                Value<String?> preferredShopId = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -23614,6 +23900,9 @@ class $$ItemsTableTableManager
                 defaultLocationId: defaultLocationId,
                 consumeQty: consumeQty,
                 consumeUnit: consumeUnit,
+                minStockQuantity: minStockQuantity,
+                minStockUnit: minStockUnit,
+                preferredShopId: preferredShopId,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
@@ -23651,6 +23940,9 @@ class $$ItemsTableTableManager
                 Value<String?> defaultLocationId = const Value.absent(),
                 Value<double?> consumeQty = const Value.absent(),
                 Value<String?> consumeUnit = const Value.absent(),
+                Value<double?> minStockQuantity = const Value.absent(),
+                Value<String?> minStockUnit = const Value.absent(),
+                Value<String?> preferredShopId = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -23686,6 +23978,9 @@ class $$ItemsTableTableManager
                 defaultLocationId: defaultLocationId,
                 consumeQty: consumeQty,
                 consumeUnit: consumeUnit,
+                minStockQuantity: minStockQuantity,
+                minStockUnit: minStockUnit,
+                preferredShopId: preferredShopId,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
@@ -24923,6 +25218,7 @@ typedef $$ItemGroupsTableCreateCompanionBuilder =
       Value<double?> minStockQuantity,
       Value<String?> minStockUnit,
       Value<String?> notes,
+      Value<String?> preferredShopId,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -24934,6 +25230,7 @@ typedef $$ItemGroupsTableUpdateCompanionBuilder =
       Value<double?> minStockQuantity,
       Value<String?> minStockUnit,
       Value<String?> notes,
+      Value<String?> preferredShopId,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -25054,6 +25351,11 @@ class $$ItemGroupsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get preferredShopId => $composableBuilder(
+    column: $table.preferredShopId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -25178,6 +25480,11 @@ class $$ItemGroupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get preferredShopId => $composableBuilder(
+    column: $table.preferredShopId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -25216,6 +25523,11 @@ class $$ItemGroupsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get preferredShopId => $composableBuilder(
+    column: $table.preferredShopId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -25337,6 +25649,7 @@ class $$ItemGroupsTableTableManager
                 Value<double?> minStockQuantity = const Value.absent(),
                 Value<String?> minStockUnit = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> preferredShopId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ItemGroupsCompanion(
@@ -25346,6 +25659,7 @@ class $$ItemGroupsTableTableManager
                 minStockQuantity: minStockQuantity,
                 minStockUnit: minStockUnit,
                 notes: notes,
+                preferredShopId: preferredShopId,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -25357,6 +25671,7 @@ class $$ItemGroupsTableTableManager
                 Value<double?> minStockQuantity = const Value.absent(),
                 Value<String?> minStockUnit = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> preferredShopId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ItemGroupsCompanion.insert(
@@ -25366,6 +25681,7 @@ class $$ItemGroupsTableTableManager
                 minStockQuantity: minStockQuantity,
                 minStockUnit: minStockUnit,
                 notes: notes,
+                preferredShopId: preferredShopId,
                 createdAt: createdAt,
                 rowid: rowid,
               ),

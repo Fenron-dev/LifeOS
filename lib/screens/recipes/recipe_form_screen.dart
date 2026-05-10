@@ -323,7 +323,7 @@ class _RecipeFormScreenState extends ConsumerState<RecipeFormScreen> {
       );
       if (mounted) {
         context.pop();
-        context.push('/recipes/$id');
+        context.push('/haushalt/recipe/$id');
       }
     } else {
       await notifier.updateRecipe(

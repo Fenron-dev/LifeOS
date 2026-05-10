@@ -8,61 +8,67 @@ import '../../providers/tasks_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 
 class TasksScreen extends ConsumerWidget {
-  const TasksScreen({super.key});
+  /// When true, omits the Scaffold/AppBar — used when embedded in a TabBarView.
+  final bool embedded;
+  const TasksScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasksAsync = ref.watch(tasksProvider);
+
+    final body = tasksAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Fehler: $e')),
+      data: (allTasks) {
+        final pending = allTasks.where((t) => t.status != 'done').toList();
+        final done = allTasks.where((t) => t.status == 'done').toList();
+
+        if (allTasks.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.task_outlined,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.outline),
+                const SizedBox(height: 16),
+                const Text('Keine Aufgaben'),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: () => _showDialog(context, ref),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Aufgabe anlegen'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          children: [
+            ...pending.map((t) => _TaskTile(task: t)),
+            if (done.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Erledigt',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.outline)),
+              const SizedBox(height: 4),
+              ...done.map((t) => _TaskTile(task: t)),
+            ],
+          ],
+        );
+      },
+    );
+
+    if (embedded) return body;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aufgaben'),
         actions: shellMenuActions(context),
       ),
-      body: tasksAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
-        data: (allTasks) {
-          final pending = allTasks.where((t) => t.status != 'done').toList();
-          final done = allTasks.where((t) => t.status == 'done').toList();
-
-          if (allTasks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.task_outlined,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: 16),
-                  const Text('Keine Aufgaben'),
-                  const SizedBox(height: 8),
-                  FilledButton.icon(
-                    onPressed: () => _showDialog(context, ref),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Aufgabe anlegen'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-            children: [
-              ...pending.map((t) => _TaskTile(task: t)),
-              if (done.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text('Erledigt',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.outline)),
-                const SizedBox(height: 4),
-                ...done.map((t) => _TaskTile(task: t)),
-              ],
-            ],
-          );
-        },
-      ),
+      body: body,
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showDialog(context, ref),
         child: const Icon(Icons.add),

@@ -60,6 +60,17 @@ class Items extends Table {
   /// If null, the deduction sheet falls back to the servingSizeG heuristic.
   TextColumn get consumeUnit => text().nullable()();
 
+  /// Minimum quantity to keep in stock. When current inventory falls below
+  /// this value the item appears in the shopping list.
+  RealColumn get minStockQuantity => real().nullable()();
+
+  /// Unit for [minStockQuantity] (same unit as inventory entries).
+  TextColumn get minStockUnit => text().nullable()();
+
+  /// Shop where this item is usually purchased (references Shops.id).
+  /// Used to group the shopping list by store.
+  TextColumn get preferredShopId => text().nullable()();
+
   // User ratings
   IntColumn get starRating => integer().nullable()(); // 1–5
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
@@ -110,6 +121,8 @@ class ItemGroups extends Table {
   RealColumn get minStockQuantity => real().nullable()();
   TextColumn get minStockUnit => text().nullable()();
   TextColumn get notes => text().nullable()();
+  /// Shop where items in this group are usually purchased.
+  TextColumn get preferredShopId => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

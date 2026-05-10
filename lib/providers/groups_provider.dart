@@ -7,20 +7,78 @@ import '../db/database.dart';
 import 'vault_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Shopping need (computed: group below min stock)
+// Shopping need (computed: group or item below min stock)
 // ---------------------------------------------------------------------------
 
 class ShoppingNeed {
-  final ItemGroup group;
+  /// Non-null for group-based needs (existing behaviour).
+  final ItemGroup? group;
+
+  /// Non-null for per-item min-stock needs.
+  final Item? item;
+
   final double currentQty;
   final double neededQty;
 
   const ShoppingNeed({
-    required this.group,
+    this.group,
+    this.item,
     required this.currentQty,
     required this.neededQty,
-  });
+  }) : assert(group != null || item != null);
+
+  String get name => group?.name ?? item?.name ?? '';
+  String get unit => group?.minStockUnit ?? item?.minStockUnit ?? '';
+  String? get shopId => group?.preferredShopId ?? item?.preferredShopId;
 }
+
+// ---------------------------------------------------------------------------
+// Shopping needs grouped by shop
+// ---------------------------------------------------------------------------
+
+class ShoppingSection {
+  final Shop? shop;
+  final List<ShoppingNeed> needs;
+  const ShoppingSection({this.shop, required this.needs});
+}
+
+final shoppingByShopProvider = FutureProvider<List<ShoppingSection>>((ref) async {
+  final needs = await ref.watch(shoppingNeedsProvider.future);
+  final db = ref.watch(databaseProvider);
+  if (db == null) return [];
+
+  final shops = await db.watchAllShops().first;
+  final shopMap = {for (final s in shops) s.id: s};
+
+  // Group by shopId (null = no shop)
+  final grouped = <String?, List<ShoppingNeed>>{};
+  for (final need in needs) {
+    grouped.putIfAbsent(need.shopId, () => []).add(need);
+  }
+
+  // Build sections: named shops first (sorted by name), then null
+  final sections = <ShoppingSection>[];
+  final shopIds = grouped.keys
+      .where((k) => k != null)
+      .cast<String>()
+      .toList()
+    ..sort((a, b) {
+      final sa = shopMap[a]?.name ?? '';
+      final sb = shopMap[b]?.name ?? '';
+      return sa.compareTo(sb);
+    });
+
+  for (final id in shopIds) {
+    sections.add(ShoppingSection(
+      shop: shopMap[id],
+      needs: grouped[id]!,
+    ));
+  }
+  if (grouped.containsKey(null)) {
+    sections.add(ShoppingSection(shop: null, needs: grouped[null]!));
+  }
+  return sections;
+});
 
 // ---------------------------------------------------------------------------
 // All groups stream
@@ -40,37 +98,41 @@ final shoppingNeedsProvider = FutureProvider<List<ShoppingNeed>>((ref) async {
   final db = ref.watch(databaseProvider);
   if (db == null) return [];
 
-  final groups = await db.groupsWithMinStock();
-  // Load all conversions once
   final globalConvs = await db.watchConversionsGlobal().first;
   final needs = <ShoppingNeed>[];
+
+  // ── Group-based needs ────────────────────────────────────────────────────
+  final groups = await db.groupsWithMinStock();
+  // Collect all item IDs that belong to at least one group with min-stock,
+  // so we skip those items in the per-item pass.
+  final itemsInGroups = <String>{};
 
   for (final group in groups) {
     final members = await db.membersForGroup(group.id);
     if (members.isEmpty) continue;
+    for (final m in members) {
+      itemsInGroups.add(m.itemId);
+    }
 
     final groupConvs = await db.watchConversionsForGroup(group.id).first;
-    // group overrides global
     final baseConvs = [...groupConvs, ...globalConvs];
     final targetUnit = group.minStockUnit;
 
     double total = 0;
     for (final member in members) {
       final itemConvs = await db.watchConversionsForItem(member.itemId).first;
-      // item-level overrides group/global
       final allConvs = [...itemConvs, ...baseConvs];
       final states = await db.statesForItem(member.itemId);
       for (final s in states) {
         if (targetUnit == null || s.unit == targetUnit) {
           total += s.currentQuantity;
         } else {
-          // Try to convert s.unit → targetUnit
           final conv = allConvs
               .where((c) => c.fromUnit == s.unit && c.toUnit == targetUnit)
               .firstOrNull;
           total += conv != null
               ? s.currentQuantity * conv.factor
-              : s.currentQuantity; // fallback: add raw
+              : s.currentQuantity;
         }
       }
     }
@@ -84,6 +146,43 @@ final shoppingNeedsProvider = FutureProvider<List<ShoppingNeed>>((ref) async {
       ));
     }
   }
+
+  // ── Per-item needs (only items NOT in any min-stock group) ───────────────
+  final allItems = await db.watchAllItems().first;
+  for (final item in allItems) {
+    if (item.minStockQuantity == null) continue;
+    if (itemsInGroups.contains(item.id)) continue;
+
+    final minQty = item.minStockQuantity!;
+    final targetUnit = item.minStockUnit;
+
+    final itemConvs = await db.watchConversionsForItem(item.id).first;
+    final allConvs = [...itemConvs, ...globalConvs];
+    final states = await db.statesForItem(item.id);
+
+    double total = 0;
+    for (final s in states) {
+      if (targetUnit == null || s.unit == targetUnit) {
+        total += s.currentQuantity;
+      } else {
+        final conv = allConvs
+            .where((c) => c.fromUnit == s.unit && c.toUnit == targetUnit)
+            .firstOrNull;
+        total += conv != null
+            ? s.currentQuantity * conv.factor
+            : s.currentQuantity;
+      }
+    }
+
+    if (total < minQty) {
+      needs.add(ShoppingNeed(
+        item: item,
+        currentQty: total,
+        neededQty: minQty - total,
+      ));
+    }
+  }
+
   return needs;
 });
 

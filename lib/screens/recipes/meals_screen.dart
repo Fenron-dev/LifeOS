@@ -5,29 +5,112 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/recipe_suggestions_provider.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/units_provider.dart';
 import '../../providers/vault_provider.dart';
 
-class MealsScreen extends ConsumerWidget {
-  const MealsScreen({super.key});
+class MealsScreen extends ConsumerStatefulWidget {
+  final bool filterExpiring;
+  const MealsScreen({super.key, this.filterExpiring = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MealsScreen> createState() => _MealsScreenState();
+}
+
+class _MealsScreenState extends ConsumerState<MealsScreen> {
+  late bool _filterExpiring;
+
+  @override
+  void initState() {
+    super.initState();
+    _filterExpiring = widget.filterExpiring;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final mealsAsync = ref.watch(allMealsProvider);
+    final suggestionsAsync = _filterExpiring
+        ? ref.watch(recipeSuggestionsForExpiringProvider)
+        : null;
+    final expiringIds = _filterExpiring
+        ? ref.watch(expiringItemIdsProvider)
+        : const <String>{};
+
+    // When filter is active, get suggested meal IDs from recipe suggestions
+    // AND also check meals whose ingredients match expiring items
+    final suggestedMealIds = suggestionsAsync?.valueOrNull
+            ?.map((r) => r.id)
+            .toSet() ??
+        {};
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Gerichte')),
+      appBar: AppBar(
+        title: const Text('Gerichte'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(40),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                FilterChip(
+                  label: const Text('Ablaufende Zutaten'),
+                  avatar: Icon(
+                    Icons.event_busy_outlined,
+                    size: 16,
+                    color: _filterExpiring
+                        ? Theme.of(context).colorScheme.onSecondaryContainer
+                        : null,
+                  ),
+                  selected: _filterExpiring,
+                  onSelected: (v) => setState(() => _filterExpiring = v),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       body: mealsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Fehler: $e')),
-        data: (meals) => meals.isEmpty
-            ? _EmptyState()
-            : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                itemCount: meals.length,
-                itemBuilder: (context, i) => _MealCard(meal: meals[i]),
+        data: (meals) {
+          final filtered = _filterExpiring
+              ? meals
+                  .where((m) => suggestedMealIds.contains(m.id))
+                  .toList()
+              : meals;
+
+          if (filtered.isEmpty && _filterExpiring) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_outline,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.outline),
+                  const SizedBox(height: 12),
+                  const Text('Keine passenden Gerichte gefunden'),
+                  const SizedBox(height: 4),
+                  TextButton(
+                    onPressed: () => setState(() => _filterExpiring = false),
+                    child: const Text('Filter entfernen'),
+                  ),
+                ],
               ),
+            );
+          }
+
+          return filtered.isEmpty
+              ? _EmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) => _MealCard(
+                    meal: filtered[i],
+                    expiringItemIds: expiringIds,
+                  ),
+                );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'add_meal',
@@ -54,7 +137,8 @@ class MealsScreen extends ConsumerWidget {
 
 class _MealCard extends ConsumerWidget {
   final StandardMeal meal;
-  const _MealCard({required this.meal});
+  final Set<String> expiringItemIds;
+  const _MealCard({required this.meal, this.expiringItemIds = const {}});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -68,10 +152,34 @@ class _MealCard extends ConsumerWidget {
         subtitle: ingsAsync.when(
           loading: () => const Text('…'),
           error: (err, st) => const SizedBox.shrink(),
-          data: (ings) => Text(
-            '${ings.length} Zutat${ings.length == 1 ? '' : 'en'}',
-            style: const TextStyle(fontSize: 12),
-          ),
+          data: (ings) {
+            final expiringCount = ings
+                .where((i) =>
+                    i.itemId != null &&
+                    expiringItemIds.contains(i.itemId))
+                .length;
+            return Row(
+              children: [
+                Text(
+                  '${ings.length} Zutat${ings.length == 1 ? '' : 'en'}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if (expiringCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Icon(Icons.event_busy_outlined,
+                      size: 12,
+                      color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 2),
+                  Text(
+                    '$expiringCount ablaufend',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.error),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

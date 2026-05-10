@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/inventory_provider.dart';
 import '../providers/items_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/tasks_provider.dart';
 import '../providers/vault_provider.dart';
 import '../utils/unit_deduct_utils.dart';
 
@@ -60,22 +61,22 @@ class _NavDest {
 // ignore: prefer_function_declarations_over_variables
 final _destinations = [
   const _NavDest(
-    label: 'Inventar',
-    icon: Icons.inventory_2_outlined,
-    selectedIcon: Icons.inventory_2,
-    route: '/inventory',
+    label: 'Start',
+    icon: Icons.home_outlined,
+    selectedIcon: Icons.home,
+    route: '/start',
   ),
   const _NavDest(
-    label: 'Rezepte',
-    icon: Icons.menu_book_outlined,
-    selectedIcon: Icons.menu_book,
-    route: '/recipes',
+    label: 'Haushalt',
+    icon: Icons.house_outlined,
+    selectedIcon: Icons.house,
+    route: '/haushalt',
   ),
   const _NavDest(
     label: 'Aufgaben',
     icon: Icons.task_outlined,
     selectedIcon: Icons.task,
-    route: '/tasks',
+    route: '/aufgaben',
   ),
   const _NavDest(
     label: 'Ich',
@@ -146,6 +147,12 @@ class _MobileShell extends ConsumerWidget {
     final actions = settings?.quickActions ?? AppSettingsData.defaultQuickActions;
     final colorScheme = Theme.of(context).colorScheme;
 
+    final expiringSoon = ref.watch(expiringSoonCountProvider).valueOrNull ?? 0;
+    final openTasks = ref.watch(tasksProvider).valueOrNull
+            ?.where((t) => t.status != 'done')
+            .length ??
+        0;
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: BottomAppBar(
@@ -166,6 +173,7 @@ class _MobileShell extends ConsumerWidget {
               selected: currentIndex == 1,
               onTap: () => onTap(1),
               colorScheme: colorScheme,
+              badgeCount: expiringSoon,
             ),
             const Spacer(),
             _BottomNavItem(
@@ -174,6 +182,7 @@ class _MobileShell extends ConsumerWidget {
               selected: currentIndex == 2,
               onTap: () => onTap(2),
               colorScheme: colorScheme,
+              badgeCount: openTasks,
             ),
             _BottomNavItem(
               icon: currentIndex == 3 ? _destinations[3].selectedIcon : _destinations[3].icon,
@@ -215,9 +224,9 @@ class _MobileShell extends ConsumerWidget {
     final existing = await dao?.itemByEan(ean);
     if (!context.mounted) return;
     if (existing != null) {
-      context.push('/inventory/item/${existing.id}');
+      context.push('/haushalt/item/${existing.id}');
     } else {
-      context.push('/inventory/item/new', extra: ean);
+      context.push('/haushalt/item/new', extra: ean);
     }
   }
 }
@@ -232,6 +241,7 @@ class _BottomNavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final ColorScheme colorScheme;
+  final int badgeCount;
 
   const _BottomNavItem({
     required this.icon,
@@ -239,6 +249,7 @@ class _BottomNavItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.colorScheme,
+    this.badgeCount = 0,
   });
 
   @override
@@ -253,7 +264,13 @@ class _BottomNavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 24),
+              Badge(
+                isLabelVisible: badgeCount > 0,
+                label: Text(badgeCount > 9 ? '9+' : '$badgeCount'),
+                backgroundColor: colorScheme.error,
+                textColor: colorScheme.onError,
+                child: Icon(icon, color: color, size: 24),
+              ),
               const SizedBox(height: 2),
               Text(
                 label,
@@ -334,15 +351,15 @@ class _QuickActionsSheet extends ConsumerWidget {
   void _navigate(BuildContext context, QuickAction action) {
     switch (action) {
       case QuickAction.addInventory:
-        context.push('/inventory/item/new');
+        context.push('/haushalt/item/new');
       case QuickAction.consumeInventory:
-        context.push('/inventory');
+        context.push('/haushalt');
       case QuickAction.addTask:
-        context.push('/tasks');
+        context.push('/aufgaben');
       case QuickAction.addWishlist:
         context.push('/wishlist');
       case QuickAction.addRecipe:
-        context.push('/recipes/new');
+        context.push('/haushalt/recipe/new');
       case QuickAction.scanBarcode:
         context.push('/scan');
     }
@@ -353,7 +370,7 @@ class _QuickActionsSheet extends ConsumerWidget {
 // Tablet: NavigationRail + Content
 // ---------------------------------------------------------------------------
 
-class _TabletShell extends StatelessWidget {
+class _TabletShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -365,7 +382,14 @@ class _TabletShell extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expiringSoon = ref.watch(expiringSoonCountProvider).valueOrNull ?? 0;
+    final openTasks = ref.watch(tasksProvider).valueOrNull
+            ?.where((t) => t.status != 'done')
+            .length ??
+        0;
+    final badges = [0, expiringSoon, openTasks, 0];
+
     return Scaffold(
       body: Row(
         children: [
@@ -373,13 +397,23 @@ class _TabletShell extends StatelessWidget {
             selectedIndex: currentIndex,
             onDestinationSelected: onTap,
             labelType: NavigationRailLabelType.selected,
-            destinations: _destinations
-                .map((d) => NavigationRailDestination(
-                      icon: Icon(d.icon),
-                      selectedIcon: Icon(d.selectedIcon),
-                      label: Text(d.label),
-                    ))
-                .toList(),
+            destinations: List.generate(_destinations.length, (i) {
+              final d = _destinations[i];
+              final count = badges[i];
+              return NavigationRailDestination(
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(count > 9 ? '9+' : '$count'),
+                  child: Icon(d.icon),
+                ),
+                selectedIcon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(count > 9 ? '9+' : '$count'),
+                  child: Icon(d.selectedIcon),
+                ),
+                label: Text(d.label),
+              );
+            }),
           ),
           const VerticalDivider(width: 1),
           Expanded(child: navigationShell),
@@ -393,7 +427,7 @@ class _TabletShell extends StatelessWidget {
 // Desktop: Extended NavigationRail (3-panel handled inside each screen)
 // ---------------------------------------------------------------------------
 
-class _DesktopShell extends StatelessWidget {
+class _DesktopShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -405,7 +439,14 @@ class _DesktopShell extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expiringSoon = ref.watch(expiringSoonCountProvider).valueOrNull ?? 0;
+    final openTasks = ref.watch(tasksProvider).valueOrNull
+            ?.where((t) => t.status != 'done')
+            .length ??
+        0;
+    final badges = [0, expiringSoon, openTasks, 0];
+
     return Scaffold(
       body: Row(
         children: [
@@ -414,13 +455,23 @@ class _DesktopShell extends StatelessWidget {
             onDestinationSelected: onTap,
             extended: true,
             leading: _desktopHeader(context),
-            destinations: _destinations
-                .map((d) => NavigationRailDestination(
-                      icon: Icon(d.icon),
-                      selectedIcon: Icon(d.selectedIcon),
-                      label: Text(d.label),
-                    ))
-                .toList(),
+            destinations: List.generate(_destinations.length, (i) {
+              final d = _destinations[i];
+              final count = badges[i];
+              return NavigationRailDestination(
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(count > 9 ? '9+' : '$count'),
+                  child: Icon(d.icon),
+                ),
+                selectedIcon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(count > 9 ? '9+' : '$count'),
+                  child: Icon(d.selectedIcon),
+                ),
+                label: Text(d.label),
+              );
+            }),
           ),
           const VerticalDivider(width: 1),
           Expanded(child: navigationShell),

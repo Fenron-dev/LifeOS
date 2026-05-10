@@ -30,12 +30,12 @@ class InventoryScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.event_available_outlined),
             tooltip: 'Haltbarkeit',
-            onPressed: () => context.push('/inventory/shelf-life'),
+            onPressed: () => context.push('/haushalt/shelf-life'),
           ),
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined),
             tooltip: 'Einkaufsliste',
-            onPressed: () => context.push('/inventory/shopping'),
+            onPressed: () => context.push('/aufgaben'),
           ),
           ...shellMenuActions(context),
         ],
@@ -89,7 +89,7 @@ class InventoryScreen extends ConsumerWidget {
           if (!hasAddAction)
             FloatingActionButton(
               heroTag: 'add',
-              onPressed: () => context.push('/inventory/item/new'),
+              onPressed: () => context.push('/haushalt/item/new'),
               tooltip: 'Artikel hinzufügen',
               child: const Icon(Icons.add),
             ),
@@ -109,10 +109,10 @@ class InventoryScreen extends ConsumerWidget {
 
     if (existing != null) {
       // Navigate to item detail
-      context.push('/inventory/item/${existing.id}');
+      context.push('/haushalt/item/${existing.id}');
     } else {
       // Create new item with pre-filled EAN
-      context.push('/inventory/item/new', extra: ean);
+      context.push('/haushalt/item/new', extra: ean);
     }
   }
 }
@@ -207,7 +207,7 @@ class _ItemCard extends StatelessWidget {
         ),
         trailing: const Icon(Icons.chevron_right),
         isThreeLine: item.brand != null,
-        onTap: () => context.push('/inventory/item/${item.id}'),
+        onTap: () => context.push('/haushalt/item/${item.id}'),
       ),
     );
   }

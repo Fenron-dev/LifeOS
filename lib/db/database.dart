@@ -94,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -272,6 +272,13 @@ class AppDatabase extends _$AppDatabase {
             // Phase 6.9 — default consume unit per item.
             await m.addColumn(items, items.consumeQty);
             await m.addColumn(items, items.consumeUnit);
+          }
+          if (from < 25) {
+            // Phase 7.1 — per-item min-stock + preferred shop.
+            await m.addColumn(items, items.minStockQuantity);
+            await m.addColumn(items, items.minStockUnit);
+            await m.addColumn(items, items.preferredShopId);
+            await m.addColumn(itemGroups, itemGroups.preferredShopId);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -955,6 +962,30 @@ class AppDatabase extends _$AppDatabase {
   // ── Item States (all) ─────────────────────────────────────────────────────
 
   Stream<List<ItemState>> watchAllItemStates() => select(itemStates).watch();
+
+  /// Streams items that currently have at least one stock entry with quantity > 0.
+  Stream<List<Item>> watchItemsWithStock() {
+    final query = select(items).join([
+      innerJoin(itemStates, itemStates.itemId.equalsExp(items.id),
+          useColumns: false),
+    ])
+      ..where(itemStates.currentQuantity.isBiggerThanValue(0))
+      ..groupBy([items.id]);
+    return query.watch().map(
+          (rows) => rows.map((r) => r.readTable(items)).toList(),
+        );
+  }
+
+  /// Counts inventory entries whose effective expiry is within [days] days from now.
+  Stream<int> watchExpiringWithinDays(int days) {
+    final cutoff = DateTime.now().add(Duration(days: days));
+    return (select(inventoryEntries)
+          ..where((e) =>
+              e.expiryDate.isNotNull() &
+              e.expiryDate.isSmallerOrEqualValue(cutoff)))
+        .watch()
+        .map((rows) => rows.length);
+  }
 
   // ── Shops ──────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,582 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
+import '../../health/providers/profile_provider.dart';
+import '../../health/providers/water_provider.dart';
+import '../../providers/groups_provider.dart';
+import '../../providers/inventory_provider.dart';
+import '../../providers/meal_plan_provider.dart';
+import '../../providers/tasks_provider.dart';
+import '../../widgets/adaptive_shell.dart';
+
+class StartScreen extends ConsumerWidget {
+  const StartScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Start'),
+        actions: shellMenuActions(context),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        children: const [
+          _ExpiryCard(),
+          SizedBox(height: 12),
+          _MealPlanCard(),
+          SizedBox(height: 12),
+          _WaterCard(),
+          SizedBox(height: 12),
+          _RemindersCard(),
+          SizedBox(height: 12),
+          _QuickAccessCard(),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Card 1: Ablaufende Artikel ────────────────────────────────────────────────
+
+class _ExpiryCard extends ConsumerWidget {
+  const _ExpiryCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expiringAsync = ref.watch(expiringItemsProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/haushalt/shelf-life'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.event_busy_outlined, color: cs.error, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Ablaufende Artikel',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const Spacer(),
+                  Icon(Icons.chevron_right, color: cs.outline, size: 20),
+                ],
+              ),
+              const SizedBox(height: 10),
+              expiringAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Fehler: $e',
+                    style: TextStyle(color: cs.error, fontSize: 12)),
+                data: (items) {
+                  if (items.isEmpty) {
+                    return Row(
+                      children: [
+                        Icon(Icons.check_circle_outline,
+                            color: cs.primary, size: 18),
+                        const SizedBox(width: 6),
+                        Text('Alles frisch!',
+                            style: TextStyle(color: cs.primary, fontSize: 13)),
+                      ],
+                    );
+                  }
+                  final shown = items.take(3).toList();
+                  final rest = items.length - shown.length;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...shown.map((r) => _ExpiryRow(
+                            name: r.item.name,
+                            expiry: r.effectiveExpiry,
+                          )),
+                      if (rest > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text('+ $rest weitere',
+                              style: TextStyle(
+                                  fontSize: 12, color: cs.onSurfaceVariant)),
+                        ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => context.push('/haushalt/meals',
+                            extra: {'filterExpiring': true}),
+                        icon: const Icon(Icons.restaurant_outlined, size: 16),
+                        label: const Text('Passende Gerichte'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpiryRow extends StatelessWidget {
+  final String name;
+  final DateTime expiry;
+  const _ExpiryRow({required this.name, required this.expiry});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final daysLeft = expiry.difference(DateTime.now()).inDays;
+    final isExpired = daysLeft < 0;
+    final color = isExpired ? cs.error : cs.onSurfaceVariant;
+    final dateStr = DateFormat('dd.MM.yy').format(expiry);
+    final dayStr = isExpired
+        ? 'abgelaufen'
+        : daysLeft == 0
+            ? 'heute'
+            : 'in $daysLeft T.';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(
+              child: Text(name,
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis)),
+          Text('$dateStr ($dayStr)',
+              style: TextStyle(fontSize: 12, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Card 2: Heute geplante Mahlzeiten ─────────────────────────────────────────
+
+class _MealPlanCard extends ConsumerWidget {
+  const _MealPlanCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day);
+    final end = start.add(const Duration(days: 1));
+    final entriesAsync = ref.watch(mealPlanEntriesProvider((start, end)));
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/haushalt/plan'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.today_outlined,
+                      color: cs.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Heute geplant',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const Spacer(),
+                  Icon(Icons.chevron_right, color: cs.outline, size: 20),
+                ],
+              ),
+              const SizedBox(height: 10),
+              entriesAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Fehler: $e',
+                    style: TextStyle(color: cs.error, fontSize: 12)),
+                data: (entries) {
+                  if (entries.isEmpty) {
+                    return Text(
+                      'Keine Mahlzeiten geplant',
+                      style: TextStyle(
+                          fontSize: 13, color: cs.onSurfaceVariant),
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: entries
+                        .map((e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.restaurant_outlined,
+                                      size: 14,
+                                      color: cs.onSurfaceVariant),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(e.entryName,
+                                        style: const TextStyle(fontSize: 13),
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                  if (e.servings != 1.0)
+                                    Text('×${_fmt(e.servings)}',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: cs.onSurfaceVariant)),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _fmt(double v) =>
+      v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+}
+
+// ── Card 3: Wasser heute ──────────────────────────────────────────────────────
+
+class _WaterCard extends ConsumerWidget {
+  const _WaterCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    final total = ref.watch(dailyWaterTotalProvider(day));
+    final profile = ref.watch(userProfileProvider).valueOrNull;
+    final goal = profile?.dailyWaterGoalMl ?? 2000;
+    final cs = Theme.of(context).colorScheme;
+    final pct = goal > 0 ? (total / goal).clamp(0.0, 1.0) : 0.0;
+    final done = total >= goal;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.water_drop_outlined,
+                    color: done ? cs.primary : cs.onSurfaceVariant,
+                    size: 20),
+                const SizedBox(width: 8),
+                Text('Wasser',
+                    style: Theme.of(context).textTheme.titleSmall),
+                const Spacer(),
+                Text(
+                  '$total / $goal ml',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: done ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 6,
+                backgroundColor: cs.surfaceContainerHighest,
+                valueColor:
+                    AlwaysStoppedAnimation(done ? cs.primary : cs.secondary),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _WaterQuickAddRow(day: day),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Reusable quick-add buttons row for water intake.
+/// Used in both StartScreen and DiaryTab.
+class WaterQuickAddRow extends ConsumerWidget {
+  final DateTime day;
+  const WaterQuickAddRow({super.key, required this.day});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      _WaterQuickAddRow(day: day);
+}
+
+class _WaterQuickAddRow extends ConsumerWidget {
+  final DateTime day;
+  const _WaterQuickAddRow({required this.day});
+
+  Future<void> _add(WidgetRef ref, int ml) =>
+      ref.read(waterOpsProvider.notifier).addWater(day, ml);
+
+  Future<void> _addCustom(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wasser hinzufügen'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Menge',
+            suffixText: 'ml',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Abbrechen')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Hinzufügen')),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      final ml = int.tryParse(ctrl.text.trim());
+      if (ml != null && ml > 0) await _add(ref, ml);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _QuickAddBtn(label: '+200 ml', onTap: () => _add(ref, 200)),
+        _QuickAddBtn(label: '+250 ml', onTap: () => _add(ref, 250)),
+        _QuickAddBtn(label: '+330 ml', onTap: () => _add(ref, 330)),
+        _QuickAddBtn(label: '+500 ml', onTap: () => _add(ref, 500)),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline, size: 22),
+          tooltip: 'Andere Menge',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          onPressed: () => _addCustom(context, ref),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickAddBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _QuickAddBtn({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          textStyle: const TextStyle(fontSize: 12),
+          visualDensity: VisualDensity.compact,
+        ),
+        child: Text(label),
+      );
+}
+
+// ── Card 4: Erinnerungen / Status ─────────────────────────────────────────────
+
+class _RemindersCard extends ConsumerWidget {
+  const _RemindersCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasksAsync = ref.watch(tasksProvider);
+    final shoppingAsync = ref.watch(shoppingNeedsProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    final openTasks = tasksAsync.valueOrNull
+            ?.where((t) => t.status != 'done')
+            .length ??
+        0;
+    final shoppingCount = shoppingAsync.valueOrNull?.length ?? 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notifications_outlined,
+                    color: cs.primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Status',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _StatusRow(
+              icon: Icons.task_outlined,
+              label: openTasks == 0
+                  ? 'Keine offenen Aufgaben'
+                  : '$openTasks Aufgabe${openTasks != 1 ? 'n' : ''} offen',
+              highlight: openTasks > 0,
+              onTap: () => context.push('/aufgaben'),
+            ),
+            const SizedBox(height: 6),
+            _StatusRow(
+              icon: Icons.shopping_cart_outlined,
+              label: shoppingCount == 0
+                  ? 'Einkaufsliste leer'
+                  : '$shoppingCount Artikel einzukaufen',
+              highlight: shoppingCount > 0,
+              onTap: () => context.push('/aufgaben'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool highlight;
+  final VoidCallback onTap;
+
+  const _StatusRow({
+    required this.icon,
+    required this.label,
+    required this.highlight,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = highlight ? cs.primary : cs.onSurfaceVariant;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(label,
+                    style: TextStyle(fontSize: 13, color: color))),
+            Icon(Icons.chevron_right, size: 16, color: cs.outline),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Card 5: Schnellzugriff ────────────────────────────────────────────────────
+
+class _QuickAccessCard extends ConsumerWidget {
+  const _QuickAccessCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.bolt_outlined, color: cs.primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Schnellzugriff',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _QuickBtn(
+                    icon: Icons.inventory_2_outlined,
+                    label: 'Inventar',
+                    onTap: () => context.push('/haushalt/inventory')),
+                _QuickBtn(
+                    icon: Icons.task_outlined,
+                    label: 'Aufgaben',
+                    onTap: () => context.push('/aufgaben')),
+                _QuickBtn(
+                    icon: Icons.category_outlined,
+                    label: 'Artikel',
+                    onTap: () => context.push('/haushalt/products')),
+                _QuickBtn(
+                    icon: Icons.menu_book_outlined,
+                    label: 'Rezepte',
+                    onTap: () => context.push('/haushalt/recipes')),
+                _QuickBtn(
+                    icon: Icons.shopping_cart_outlined,
+                    label: 'Einkaufsliste',
+                    onTap: () => context.push('/aufgaben')),
+                _QuickBtn(
+                    icon: Icons.restaurant_outlined,
+                    label: 'Gerichte',
+                    onTap: () => context.push('/haushalt/meals')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickBtn(
+      {required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        textStyle: const TextStyle(fontSize: 12),
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+}

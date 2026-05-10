@@ -3,7 +3,12 @@ import 'package:go_router/go_router.dart';
 
 import 'providers/vault_provider.dart';
 import 'screens/vault/vault_selection_screen.dart';
+import 'screens/dashboard/start_screen.dart';
+import 'screens/haushalt/haushalt_screen.dart';
+import 'screens/aufgaben/aufgaben_screen.dart';
 import 'screens/inventory/inventory_screen.dart';
+import 'screens/inventory/shelf_life_screen.dart';
+import 'screens/inventory/groups_screen.dart';
 import 'screens/items/item_detail_screen.dart';
 import 'screens/items/item_form_screen.dart';
 import 'screens/scanner/barcode_scanner_screen.dart';
@@ -13,7 +18,6 @@ import 'screens/recipes/recipe_form_screen.dart';
 import 'screens/recipes/mealie_import_screen.dart';
 import 'screens/recipes/meals_screen.dart';
 import 'screens/recipes/meal_plan_screen.dart';
-import 'screens/tasks/tasks_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/settings/shops_screen.dart';
@@ -23,9 +27,6 @@ import 'screens/settings/meal_types_screen.dart';
 import 'screens/settings/custom_categories_screen.dart';
 import 'screens/settings/help_screen.dart';
 import 'screens/locations/locations_screen.dart';
-import 'screens/inventory/groups_screen.dart';
-import 'screens/inventory/shopping_list_screen.dart';
-import 'screens/inventory/shelf_life_screen.dart';
 import 'health/screens/me_screen.dart';
 import 'widgets/adaptive_shell.dart';
 
@@ -33,10 +34,10 @@ final routerProvider = Provider<GoRouter>((ref) {
   final vaultPath = ref.watch(vaultPathProvider);
 
   return GoRouter(
-    initialLocation: '/inventory',
+    initialLocation: '/start',
     redirect: (context, state) {
       if (vaultPath == null && state.matchedLocation != '/vault') return '/vault';
-      if (vaultPath != null && state.matchedLocation == '/vault') return '/inventory';
+      if (vaultPath != null && state.matchedLocation == '/vault') return '/start';
       return null;
     },
     routes: [
@@ -82,8 +83,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'categories',
-            builder: (context, state) =>
-                const CustomCategoriesScreen(),
+            builder: (context, state) => const CustomCategoriesScreen(),
           ),
           GoRoute(
             path: 'help',
@@ -95,13 +95,56 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdaptiveShell(navigationShell: shell),
         branches: [
-          // ── Inventory branch ─────────────────────────────────────────────
+          // ── Branch 0: Start / Dashboard ──────────────────────────────────
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/inventory',
-                builder: (context, state) => const InventoryScreen(),
+                path: '/start',
+                builder: (context, state) => const StartScreen(),
+              ),
+            ],
+          ),
+
+          // ── Branch 1: Haushalt ────────────────────────────────────────────
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/haushalt',
+                builder: (context, state) => const HaushaltScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'shelf-life',
+                    builder: (context, state) => const ShelfLifeScreen(),
+                  ),
+                  GoRoute(
+                    path: 'inventory',
+                    builder: (context, state) => const InventoryScreen(),
+                  ),
+                  GoRoute(
+                    path: 'products',
+                    builder: (context, state) => const InventoryScreen(),
+                  ),
+                  GoRoute(
+                    path: 'groups',
+                    builder: (context, state) => const GroupsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'meals',
+                    builder: (context, state) {
+                      final extra = state.extra as Map<String, dynamic>?;
+                      final filterExpiring =
+                          extra?['filterExpiring'] as bool? ?? false;
+                      return MealsScreen(filterExpiring: filterExpiring);
+                    },
+                  ),
+                  GoRoute(
+                    path: 'recipes',
+                    builder: (context, state) => const RecipesScreen(),
+                  ),
+                  GoRoute(
+                    path: 'plan',
+                    builder: (context, state) => const MealPlanScreen(),
+                  ),
                   GoRoute(
                     path: 'item/new',
                     builder: (context, state) => ItemFormScreen(
@@ -123,46 +166,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ],
                   ),
                   GoRoute(
-                    path: 'shopping',
-                    builder: (context, state) => const ShoppingListScreen(),
-                  ),
-                  GoRoute(
-                    path: 'groups',
-                    builder: (context, state) => const GroupsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'shelf-life',
-                    builder: (context, state) => const ShelfLifeScreen(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          // ── Recipes branch ────────────────────────────────────────────────
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/recipes',
-                builder: (context, state) => const RecipesScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'new',
+                    path: 'recipe/new',
                     builder: (context, state) => const RecipeFormScreen(),
                   ),
                   GoRoute(
-                    path: 'import',
+                    path: 'recipe/import',
                     builder: (context, state) => const MealieImportScreen(),
                   ),
                   GoRoute(
-                    path: 'meals',
-                    builder: (context, state) => const MealsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'plan',
-                    builder: (context, state) => const MealPlanScreen(),
-                  ),
-                  GoRoute(
-                    path: ':id',
+                    path: 'recipe/:id',
                     builder: (context, state) => RecipeDetailScreen(
                       recipeId: state.pathParameters['id']!,
                     ),
@@ -179,16 +191,18 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // ── Tasks branch ──────────────────────────────────────────────────
+
+          // ── Branch 2: Aufgaben (Tasks + Einkaufsliste) ────────────────────
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/tasks',
-                builder: (context, state) => const TasksScreen(),
+                path: '/aufgaben',
+                builder: (context, state) => const AufgabenScreen(),
               ),
             ],
           ),
-          // ── "Ich" / Health branch (replaces former /stats) ───────────────
+
+          // ── Branch 3: Ich / Health ────────────────────────────────────────
           StatefulShellBranch(
             routes: [
               GoRoute(

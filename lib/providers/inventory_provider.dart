@@ -45,6 +45,44 @@ final expiryNotificationSchedulerProvider = Provider<void>((ref) {
   ref.onDispose(sub.cancel);
 });
 
+/// Entries expiring within 7 days with their item, sorted by effective expiry.
+/// Effective expiry = min(expiryDate, openedAt + daysAfterOpening).
+final expiringItemsProvider =
+    StreamProvider<List<({InventoryEntry entry, Item item, DateTime effectiveExpiry})>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  final cutoff = DateTime.now().add(const Duration(days: 7));
+  return db.watchShelfLife().map((rows) {
+    final result = <({InventoryEntry entry, Item item, DateTime effectiveExpiry})>[];
+    for (final r in rows) {
+      DateTime? eff = r.entry.expiryDate;
+      if (r.entry.openedAt != null && r.item.daysAfterOpening != null) {
+        final openedExpiry = r.entry.openedAt!.add(Duration(days: r.item.daysAfterOpening!));
+        if (eff == null || openedExpiry.isBefore(eff)) eff = openedExpiry;
+      }
+      if (eff != null && eff.isBefore(cutoff)) {
+        result.add((entry: r.entry, item: r.item, effectiveExpiry: eff));
+      }
+    }
+    result.sort((a, b) => a.effectiveExpiry.compareTo(b.effectiveExpiry));
+    return result;
+  });
+});
+
+/// Count of inventory entries expiring within 7 days (for dashboard card).
+final expiringCountProvider = StreamProvider<int>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchExpiringWithinDays(7);
+});
+
+/// Count of inventory entries expiring within 3 days (for nav badge).
+final expiringSoonCountProvider = StreamProvider<int>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchExpiringWithinDays(3);
+});
+
 /// Aggregated stock per item: {itemId → list of (qty, unit) entries}.
 /// Only includes non-expired entries so badges reflect usable stock.
 final itemStockMapProvider =

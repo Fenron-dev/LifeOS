@@ -78,7 +78,7 @@ class _ItemDetailBody extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             tooltip: 'Bearbeiten',
-            onPressed: () => context.push('/inventory/item/${item.id}/edit'),
+            onPressed: () => context.push('/haushalt/item/${item.id}/edit'),
           ),
           PopupMenuButton<String>(
             onSelected: (v) async {

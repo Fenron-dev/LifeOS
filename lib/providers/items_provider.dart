@@ -52,6 +52,16 @@ final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
 });
 
 // ---------------------------------------------------------------------------
+// Items with stock (at least one inventory entry with quantity > 0)
+// ---------------------------------------------------------------------------
+
+final itemsWithStockProvider = StreamProvider<List<Item>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchItemsWithStock();
+});
+
+// ---------------------------------------------------------------------------
 // Single item by id
 // ---------------------------------------------------------------------------
 
@@ -111,6 +121,9 @@ class ItemsNotifier extends AsyncNotifier<void> {
     String nutritionRefUnit = 'g',
     double? consumeQty,
     String? consumeUnit,
+    double? minStockQuantity,
+    String? minStockUnit,
+    String? preferredShopId,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -141,6 +154,9 @@ class ItemsNotifier extends AsyncNotifier<void> {
       nutritionRefUnit: Value(nutritionRefUnit),
       consumeQty: Value(consumeQty),
       consumeUnit: Value(consumeUnit),
+      minStockQuantity: Value(minStockQuantity),
+      minStockUnit: Value(minStockUnit),
+      preferredShopId: Value(preferredShopId),
     ));
     return id;
   }
@@ -175,6 +191,9 @@ class ItemsNotifier extends AsyncNotifier<void> {
       nutritionRefUnit: Value(item.nutritionRefUnit),
       consumeQty: Value(item.consumeQty),
       consumeUnit: Value(item.consumeUnit),
+      minStockQuantity: Value(item.minStockQuantity),
+      minStockUnit: Value(item.minStockUnit),
+      preferredShopId: Value(item.preferredShopId),
       updatedAt: Value(DateTime.now()),
     ));
   }
