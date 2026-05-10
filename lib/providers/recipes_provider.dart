@@ -320,6 +320,23 @@ class MealsNotifier extends AsyncNotifier<void> {
     await _db.deleteMeal(id);
   }
 
+  Future<String> createFromRecipe(Recipe recipe) async {
+    final ings = await _db.ingredientsForRecipe(recipe.id);
+    return createMeal(
+      name: recipe.name,
+      servingUnit: recipe.servingUnit,
+      ingredients: ings
+          .where((i) => i.name.isNotEmpty)
+          .map((i) => IngredientInput(
+                name: i.name,
+                quantity: i.quantity,
+                unit: i.unit,
+                itemId: i.itemId,
+              ))
+          .toList(),
+    );
+  }
+
   Future<void> _saveMealIngredients(
       String mealId, List<IngredientInput> ingredients) async {
     await _db.deleteMealIngredients(mealId);

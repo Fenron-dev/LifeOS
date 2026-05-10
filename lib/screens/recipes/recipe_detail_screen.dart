@@ -43,6 +43,11 @@ class RecipeDetailScreen extends ConsumerWidget {
                 onPressed: () => _logMeal(context, ref, recipe),
               ),
               IconButton(
+                icon: const Icon(Icons.save_alt_outlined),
+                tooltip: 'Als Gericht speichern',
+                onPressed: () => _saveAsMeal(context, ref, recipe),
+              ),
+              IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: () => context.push('/haushalt/recipe/${recipe.id}/edit'),
               ),
@@ -88,6 +93,25 @@ class RecipeDetailScreen extends ConsumerWidget {
       isScrollControlled: true,
       builder: (_) => DiaryEntrySheet(initialProduct: product),
     );
+  }
+
+  static Future<void> _saveAsMeal(
+      BuildContext context, WidgetRef ref, Recipe recipe) async {
+    try {
+      await ref.read(mealsNotifierProvider.notifier).createFromRecipe(recipe);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('«${recipe.name}» als Gericht gespeichert'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler: $e'), behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   static Future<void> _confirmDelete(

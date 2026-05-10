@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
+import '../../health/providers/nutrition_provider.dart';
+import '../../health/widgets/inventory_deduct_sheet.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/recipe_suggestions_provider.dart';
@@ -185,6 +187,16 @@ class _MealCard extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            IconButton(
+              icon: const Icon(Icons.play_circle_outline, size: 22),
+              tooltip: 'Verbrauchen',
+              onPressed: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => _MealConsumeSheet(meal: meal),
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               onPressed: () => showModalBottomSheet(
@@ -894,6 +906,273 @@ class _IngRow {
     nameCtrl.dispose();
     qtyCtrl.dispose();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Consume sheet
+// ---------------------------------------------------------------------------
+
+class _MealConsumeSheet extends ConsumerStatefulWidget {
+  final StandardMeal meal;
+  const _MealConsumeSheet({required this.meal});
+
+  @override
+  ConsumerState<_MealConsumeSheet> createState() => _MealConsumeSheetState();
+}
+
+class _MealConsumeSheetState extends ConsumerState<_MealConsumeSheet> {
+  double _servings = 1.0;
+  bool _saving = false;
+
+  static const _servingOptions = [0.5, 1.0, 1.5, 2.0, 3.0];
+
+  Future<void> _log({required bool withDeduction}) async {
+    setState(() => _saving = true);
+    try {
+      final db = ref.read(databaseProvider);
+      if (db == null) return;
+
+      final nutr = await db.computeMealNutrition(widget.meal.id);
+      final kcal = nutr?.kcal ?? widget.meal.kcalTotal;
+      final protein = nutr?.proteinG ?? widget.meal.proteinG;
+      final carbs = nutr?.carbsG ?? widget.meal.carbsG;
+      final fat = nutr?.fatG ?? widget.meal.fatG;
+
+      final logId = await ref.read(nutritionOpsProvider.notifier).logFood(
+            productName: widget.meal.name,
+            loggedAt: DateTime.now(),
+            itemId: widget.meal.id,
+            quantityG: _servings,
+            displayUnit: widget.meal.servingUnit,
+            kcal: kcal != null ? kcal * _servings : null,
+            proteinG: protein != null ? protein * _servings : null,
+            carbsG: carbs != null ? carbs * _servings : null,
+            fatG: fat != null ? fat * _servings : null,
+            source: 'meal',
+          );
+
+      if (withDeduction && mounted) {
+        final log = await db.getNutritionLogById(logId);
+        if (log != null && mounted) {
+          Navigator.of(context).pop();
+          await showModalBottomSheet<bool>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => InventoryDeductSheet(log: log),
+          );
+          return;
+        }
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('«${widget.meal.name}» ins Tagebuch eingetragen'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final ingsAsync = ref.watch(mealIngredientsProvider(widget.meal.id));
+    final nutrAsync = ref.watch(mealNutritionProvider(widget.meal.id));
+
+    final nutr = nutrAsync.valueOrNull;
+    final kcal = nutr?.kcal ?? widget.meal.kcalTotal;
+    final protein = nutr?.proteinG ?? widget.meal.proteinG;
+    final carbs = nutr?.carbsG ?? widget.meal.carbsG;
+    final fat = nutr?.fatG ?? widget.meal.fatG;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(widget.meal.name,
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+
+            // Servings
+            Text('Portionen', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              children: _servingOptions.map((s) {
+                final label = s == s.truncateToDouble()
+                    ? s.toInt().toString()
+                    : s.toString();
+                return ChoiceChip(
+                  label: Text(label),
+                  selected: _servings == s,
+                  onSelected: (v) {
+                    if (v) setState(() => _servings = s);
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Ingredients
+            ingsAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (e, _) => const SizedBox.shrink(),
+              data: (ings) {
+                if (ings.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Zutaten',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 6),
+                    ...ings.map((ing) {
+                      final qty = ing.quantity * _servings;
+                      final qtyStr = qty == qty.truncateToDouble()
+                          ? qty.toInt().toString()
+                          : qty.toStringAsFixed(1);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Row(
+                          children: [
+                            Icon(
+                              ing.itemId != null
+                                  ? Icons.inventory_2_outlined
+                                  : Icons.fiber_manual_record,
+                              size: ing.itemId != null ? 14 : 8,
+                              color: cs.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text('$qtyStr ${ing.unit}  ${ing.name}'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                  ],
+                );
+              },
+            ),
+
+            // Nutrition summary
+            if (kcal != null) ...[
+              Card(
+                color: cs.surfaceContainerHighest,
+                elevation: 0,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _ConsumeNutrCell(
+                          label: 'kcal',
+                          value: (kcal * _servings).round().toString(),
+                          color: cs.primary),
+                      if (protein != null)
+                        _ConsumeNutrCell(
+                            label: 'Protein',
+                            value:
+                                '${(protein * _servings).toStringAsFixed(1)}g'),
+                      if (carbs != null)
+                        _ConsumeNutrCell(
+                            label: 'Kohlenhydrate',
+                            value:
+                                '${(carbs * _servings).toStringAsFixed(1)}g'),
+                      if (fat != null)
+                        _ConsumeNutrCell(
+                            label: 'Fett',
+                            value:
+                                '${(fat * _servings).toStringAsFixed(1)}g'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        _saving ? null : () => _log(withDeduction: false),
+                    icon: const Icon(Icons.book_outlined, size: 18),
+                    label: const Text('Ins Tagebuch'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed:
+                        _saving ? null : () => _log(withDeduction: true),
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.remove_shopping_cart_outlined,
+                            size: 18),
+                    label: const Text('Verbrauchen'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConsumeNutrCell extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? color;
+  const _ConsumeNutrCell(
+      {required this.label, required this.value, this.color});
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+          ),
+        ],
+      );
 }
 
 class _NutrField extends StatelessWidget {

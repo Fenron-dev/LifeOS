@@ -1280,6 +1280,9 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteNutritionLog(String id) =>
       (delete(nutritionLogs)..where((l) => l.id.equals(id))).go();
 
+  Future<NutritionLog?> getNutritionLogById(String id) =>
+      (select(nutritionLogs)..where((l) => l.id.equals(id))).getSingleOrNull();
+
   // ── Water logs ────────────────────────────────────────────────────────────
 
   Stream<List<WaterLog>> watchWaterLogsForDay(DateTime day) {
