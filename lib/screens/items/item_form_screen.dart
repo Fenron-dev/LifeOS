@@ -96,6 +96,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   String? _stockUnit;
   String? _defaultLocationId;
   String? _openedLocationId;
+  bool _taraEnabled = false;
   late final TextEditingController _taraWeightGCtrl;
 
   // Default consume unit (per-item deduction override)
@@ -156,6 +157,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _stockUnit = i.stockUnit;
       _defaultLocationId = i.defaultLocationId;
       _openedLocationId = i.openedLocationId;
+      _taraEnabled = i.taraWeightG != null;
       _nutritionRefUnit = i.nutritionRefUnit;
       _consumeUnit = i.consumeUnit;
       _showNutrition = _hasAnyNutrition(i);
@@ -443,7 +445,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockUnit: minStockQty != null ? _minStockUnit : null,
         preferredShopId: _preferredShopId,
         templateId: _templateId,
-        taraWeightG: double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.')),
+        taraWeightG: _taraEnabled
+            ? double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))
+            : null,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -478,7 +482,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockUnit: Value(minStockQty != null ? _minStockUnit : null),
         preferredShopId: Value(_preferredShopId),
         templateId: Value(_templateId),
-        taraWeightG: Value(double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))),
+        taraWeightG: Value(_taraEnabled
+            ? double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))
+            : null),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -896,16 +902,31 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                 onChanged: (v) => setState(() => _openedLocationId = v),
               );
             }),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _taraWeightGCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Tara-Gewicht (g)',
-                helperText: 'Verpackungsgewicht – wird beim Einlagern vom Bruttogewicht abgezogen',
-                prefixIcon: Icon(Icons.scale_outlined),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            SwitchListTile(
+              value: _taraEnabled,
+              onChanged: (v) => setState(() {
+                _taraEnabled = v;
+                if (!v) _taraWeightGCtrl.clear();
+              }),
+              title: const Text('Tara-Gewicht verwenden'),
+              subtitle: const Text(
+                  'Für Artikel die nach dem Öffnen per Gramm verwaltet werden (z. B. Mehl, Milch, Zucker)'),
+              contentPadding: EdgeInsets.zero,
             ),
+            if (_taraEnabled) ...[
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: _taraWeightGCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Tara-Gewicht (g)',
+                  helperText:
+                      'Verpackungsgewicht – wird beim Einlagern vom Bruttogewicht abgezogen',
+                  prefixIcon: Icon(Icons.scale_outlined),
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
             const SizedBox(height: 12),
             TextFormField(
               controller: _notesCtrl,

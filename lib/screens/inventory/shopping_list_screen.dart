@@ -346,6 +346,7 @@ class _NeedCard extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 TextButton.icon(
                   onPressed: () {
@@ -363,12 +364,15 @@ class _NeedCard extends ConsumerWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
-                const Spacer(),
-                OutlinedButton.icon(
-                  onPressed: () => _showBuyFlow(context, ref, need),
-                  icon: const Icon(Icons.add_shopping_cart, size: 18),
-                  label: Text(
-                      'Einkaufen (+${_fmt(need.neededQty)} $unit)'),
+                Flexible(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showBuyFlow(context, ref, need),
+                    icon: const Icon(Icons.add_shopping_cart, size: 18),
+                    label: Text(
+                      '+${_fmt(need.neededQty)} $unit einkaufen',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -558,6 +562,7 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
             DropdownButtonFormField<String?>(
               // ignore: deprecated_member_use
               value: _shopId,
+              isExpanded: true,
               decoration: const InputDecoration(labelText: 'Geschäft'),
               items: [
                 const DropdownMenuItem(value: null, child: Text('Kein Geschäft')),
