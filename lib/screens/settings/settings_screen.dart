@@ -138,6 +138,14 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.auto_awesome_outlined),
+            title: const Text('Automation'),
+            subtitle: const Text('If→Then Regeln für automatische Aufgaben'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/automation'),
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.help_outline),
             title: const Text('Hilfe & Anleitung'),
             subtitle: const Text('Alle Funktionen erklärt'),

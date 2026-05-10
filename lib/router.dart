@@ -29,6 +29,7 @@ import 'screens/settings/help_screen.dart';
 import 'screens/settings/templates_screen.dart';
 import 'screens/settings/template_detail_screen.dart';
 import 'screens/settings/product_types_screen.dart';
+import 'screens/settings/automation_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'health/screens/me_screen.dart';
 import 'widgets/adaptive_shell.dart';
@@ -106,6 +107,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'product-types',
             builder: (context, state) => const ProductTypesScreen(),
+          ),
+          GoRoute(
+            path: 'automation',
+            builder: (context, state) => const AutomationScreen(),
           ),
         ],
       ),

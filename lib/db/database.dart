@@ -689,6 +689,23 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteTask(String id) =>
       (delete(tasks)..where((t) => t.id.equals(id))).go();
 
+  // ── Automation rules ───────────────────────────────────────────────────────
+
+  Stream<List<AutomationRule>> watchAutomationRules() =>
+      (select(automationRules)
+            ..orderBy([(r) => OrderingTerm.asc(r.createdAt)]))
+          .watch();
+
+  Future<void> insertAutomationRule(AutomationRulesCompanion entry) =>
+      into(automationRules).insert(entry);
+
+  Future<void> updateAutomationRule(AutomationRulesCompanion entry) =>
+      (update(automationRules)..where((r) => r.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteAutomationRule(String id) =>
+      (delete(automationRules)..where((r) => r.id.equals(id))).go();
+
   // ── Default unit seeding ──────────────────────────────────────────────────
 
   // (id_suffix, name, abbreviation)
