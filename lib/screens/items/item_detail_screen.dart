@@ -307,6 +307,23 @@ class _ItemInfoCard extends ConsumerWidget {
                 ],
               ],
             ),
+            // Avg purchase price
+            Builder(builder: (_) {
+              final avg = ref.watch(_avgPriceProvider(item.id)).valueOrNull;
+              if (avg == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.euro, size: 14, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text('Ø ${avg.toStringAsFixed(2)} €',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
@@ -320,6 +337,14 @@ final _itemStatsProvider = FutureProvider.family<({int up, int down, int total})
     final db = ref.watch(databaseProvider);
     if (db == null) return (up: 0, down: 0, total: 0);
     return db.getNutritionLogStats(itemId);
+  },
+);
+
+final _avgPriceProvider = StreamProvider.family<double?, String>(
+  (ref, itemId) {
+    final db = ref.watch(databaseProvider);
+    if (db == null) return const Stream.empty();
+    return db.watchAvgPrice(itemId);
   },
 );
 
@@ -692,6 +717,44 @@ class _StockEntryCard extends ConsumerWidget {
                       ),
                     ),
                   _StateChip(state: entry.state),
+                  if (entry.frozenAt != null) ...[
+                    const SizedBox(height: 2),
+                    Row(children: [
+                      Icon(Icons.ac_unit, size: 12, color: Colors.blue.shade400),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Eingefroren ${DateFormat('dd.MM.yy').format(entry.frozenAt!)}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.blue.shade400),
+                      ),
+                    ]),
+                  ],
+                  if (entry.thawedAt != null) ...[
+                    const SizedBox(height: 2),
+                    Row(children: [
+                      Icon(Icons.water_drop_outlined,
+                          size: 12, color: Colors.cyan.shade600),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Aufgetaut ${DateFormat('dd.MM.yy').format(entry.thawedAt!)}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.cyan.shade600),
+                      ),
+                    ]),
+                  ],
+                  if (entry.price != null) ...[
+                    const SizedBox(height: 2),
+                    Row(children: [
+                      Icon(Icons.euro,
+                          size: 12, color: theme.colorScheme.outline),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${entry.price!.toStringAsFixed(2)} €',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.outline),
+                      ),
+                    ]),
+                  ],
                   if (location != null) ...[
                     const SizedBox(height: 2),
                     Row(
@@ -721,6 +784,11 @@ class _StockEntryCard extends ConsumerWidget {
                   icon: const Icon(Icons.remove_circle_outline, size: 20),
                   tooltip: 'Verbrauchen',
                   onPressed: () => _showConsumeDialog(context, ref),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.sync_alt, size: 20),
+                  tooltip: 'Zustand ändern',
+                  onPressed: () => _showStateChangeSheet(context),
                 ),
               ],
             ),
@@ -754,6 +822,15 @@ class _StockEntryCard extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (_) => ConsumeDialog(entry: entry, item: item),
+    );
+  }
+
+  void _showStateChangeSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _StateChangeSheet(entry: entry),
     );
   }
 }
@@ -1104,6 +1181,10 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   String? _shopName;
   DateTime? _expiryDate;
   bool _saving = false;
+  String _state = 'fresh';
+  DateTime? _frozenAt;
+  DateTime? _thawedAt;
+  String? _containerId;
 
   @override
   void initState() {
@@ -1126,6 +1207,24 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
     final entries = await db.watchInventoryForItem(widget.item.id).first;
     if (entries.isNotEmpty && mounted) {
       setState(() => _locationId = entries.first.locationId);
+    }
+  }
+
+  String _fmtQty(double q) =>
+      q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
+
+  Future<void> _pickContainer(BuildContext context, List<Item> containers) async {
+    final result = await showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ContainerPickerSheet(
+        containers: containers,
+        selectedId: _containerId,
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _containerId = result.isEmpty ? null : result);
     }
   }
 
@@ -1152,6 +1251,10 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
             : double.tryParse(_priceCtrl.text.replaceAll(',', '.')),
         store: _shopName?.trim().isEmpty == true ? null : _shopName?.trim(),
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+        state: _state,
+        frozenAt: _frozenAt,
+        thawedAt: _thawedAt,
+        containerId: _containerId,
       );
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -1221,6 +1324,84 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
               ],
             ),
             const SizedBox(height: 12),
+            // ── State picker ─────────────────────────────────────────
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Frisch'),
+                  selected: _state == 'fresh',
+                  onSelected: (v) {
+                    if (v) setState(() { _state = 'fresh'; _frozenAt = null; _thawedAt = null; });
+                  },
+                ),
+                ChoiceChip(
+                  avatar: const Icon(Icons.ac_unit, size: 14),
+                  label: const Text('Tiefgefroren'),
+                  selected: _state == 'frozen',
+                  onSelected: (v) {
+                    if (v) setState(() { _state = 'frozen'; _frozenAt ??= DateTime.now(); _thawedAt = null; });
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Aufgetaut'),
+                  selected: _state == 'thawed',
+                  onSelected: (v) {
+                    if (v) setState(() { _state = 'thawed'; _thawedAt ??= DateTime.now(); });
+                  },
+                ),
+              ],
+            ),
+            if (_state == 'frozen' || _state == 'thawed') ...[
+              const SizedBox(height: 4),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: const Icon(Icons.ac_unit, size: 20, color: Colors.blue),
+                title: Text(_frozenAt == null
+                    ? 'Eingefroren am (optional)'
+                    : 'Eingefroren: ${DateFormat('dd.MM.yyyy').format(_frozenAt!)}'),
+                trailing: _frozenAt != null
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 16),
+                        onPressed: () => setState(() => _frozenAt = null))
+                    : null,
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _frozenAt ?? DateTime.now(),
+                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                    lastDate: DateTime.now(),
+                  );
+                  if (d != null) setState(() => _frozenAt = d);
+                },
+              ),
+            ],
+            if (_state == 'thawed') ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: const Icon(Icons.water_drop_outlined, size: 20, color: Colors.cyan),
+                title: Text(_thawedAt == null
+                    ? 'Aufgetaut am (optional)'
+                    : 'Aufgetaut: ${DateFormat('dd.MM.yyyy').format(_thawedAt!)}'),
+                trailing: _thawedAt != null
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 16),
+                        onPressed: () => setState(() => _thawedAt = null))
+                    : null,
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _thawedAt ?? DateTime.now(),
+                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                    lastDate: DateTime.now(),
+                  );
+                  if (d != null) setState(() => _thawedAt = d);
+                },
+              ),
+            ],
+            const SizedBox(height: 12),
             // Location picker
             Consumer(builder: (context, ref, _) {
               final locations = ref.watch(allLocationsProvider).valueOrNull ?? [];
@@ -1238,6 +1419,38 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
                       DropdownMenuItem(value: l.id, child: Text(l.name))),
                 ],
                 onChanged: (v) => setState(() => _locationId = v),
+              );
+            }),
+            // ── Container picker ─────────────────────────────────────
+            Consumer(builder: (context, ref, _) {
+              final allItems = ref.watch(allItemsProvider).valueOrNull ?? [];
+              final containers = allItems.where((i) => i.taraWeightG != null).toList();
+              if (containers.isEmpty) return const SizedBox.shrink();
+              final selected = containers.where((i) => i.id == _containerId).firstOrNull;
+              final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.')) ?? 0;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(Icons.kitchen_outlined, size: 20),
+                    title: Text(selected == null
+                        ? 'Behälter (optional)'
+                        : 'Behälter: ${selected.name}'),
+                    subtitle: selected != null
+                        ? Text('Tara: ${_fmtQty(selected.taraWeightG!)} g'
+                            ' – Netto: ~${_fmtQty((qty - selected.taraWeightG!).clamp(0, double.infinity))} g')
+                        : null,
+                    trailing: _containerId != null
+                        ? IconButton(
+                            icon: const Icon(Icons.close, size: 16),
+                            onPressed: () => setState(() => _containerId = null))
+                        : const Icon(Icons.chevron_right, size: 16),
+                    onTap: () => _pickContainer(context, containers),
+                  ),
+                ],
               );
             }),
             const SizedBox(height: 12),
@@ -2399,6 +2612,250 @@ class _RelationPickerSheetState extends ConsumerState<_RelationPickerSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── State change sheet ────────────────────────────────────────────────────────
+
+class _StateChangeSheet extends ConsumerStatefulWidget {
+  final InventoryEntry entry;
+  const _StateChangeSheet({required this.entry});
+
+  @override
+  ConsumerState<_StateChangeSheet> createState() => _StateChangeSheetState();
+}
+
+class _StateChangeSheetState extends ConsumerState<_StateChangeSheet> {
+  late String _newState;
+  DateTime? _frozenAt;
+  DateTime? _thawedAt;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _newState = widget.entry.state;
+    _frozenAt = widget.entry.frozenAt;
+    _thawedAt = widget.entry.thawedAt;
+  }
+
+  Future<void> _save() async {
+    if (_newState == widget.entry.state &&
+        _frozenAt == widget.entry.frozenAt &&
+        _thawedAt == widget.entry.thawedAt) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ref.read(databaseProvider)!.updateEntryState(
+        widget.entry.id,
+        widget.entry.itemId,
+        fromState: widget.entry.state,
+        newState: _newState,
+        frozenAt: _frozenAt,
+        thawedAt: _thawedAt,
+      );
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Zustand ändern',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Frisch'),
+                selected: _newState == 'fresh',
+                onSelected: (v) {
+                  if (v) setState(() => _newState = 'fresh');
+                },
+              ),
+              ChoiceChip(
+                avatar: const Icon(Icons.ac_unit, size: 14),
+                label: const Text('Tiefgefroren'),
+                selected: _newState == 'frozen',
+                onSelected: (v) {
+                  if (v) {
+                    setState(() {
+                      _newState = 'frozen';
+                      _frozenAt ??= DateTime.now();
+                    });
+                  }
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Aufgetaut'),
+                selected: _newState == 'thawed',
+                onSelected: (v) {
+                  if (v) {
+                    setState(() {
+                      _newState = 'thawed';
+                      _thawedAt ??= DateTime.now();
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          if (_newState == 'frozen' || _newState == 'thawed') ...[
+            const SizedBox(height: 4),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: const Icon(Icons.ac_unit, size: 20, color: Colors.blue),
+              title: Text(_frozenAt == null
+                  ? 'Eingefroren am (optional)'
+                  : 'Eingefroren: ${DateFormat('dd.MM.yyyy').format(_frozenAt!)}'),
+              trailing: _frozenAt != null
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () => setState(() => _frozenAt = null))
+                  : null,
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _frozenAt ?? DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now(),
+                );
+                if (d != null) setState(() => _frozenAt = d);
+              },
+            ),
+          ],
+          if (_newState == 'thawed') ...[
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: const Icon(Icons.water_drop_outlined,
+                  size: 20, color: Colors.cyan),
+              title: Text(_thawedAt == null
+                  ? 'Aufgetaut am (optional)'
+                  : 'Aufgetaut: ${DateFormat('dd.MM.yyyy').format(_thawedAt!)}'),
+              trailing: _thawedAt != null
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () => setState(() => _thawedAt = null))
+                  : null,
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _thawedAt ?? DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now(),
+                );
+                if (d != null) setState(() => _thawedAt = d);
+              },
+            ),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Container picker sheet ────────────────────────────────────────────────────
+
+class _ContainerPickerSheet extends StatefulWidget {
+  final List<Item> containers;
+  final String? selectedId;
+  const _ContainerPickerSheet(
+      {required this.containers, required this.selectedId});
+
+  @override
+  State<_ContainerPickerSheet> createState() => _ContainerPickerSheetState();
+}
+
+class _ContainerPickerSheetState extends State<_ContainerPickerSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _fmtNum(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _ctrl.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? widget.containers
+        : widget.containers
+            .where((i) => i.name.toLowerCase().contains(query))
+            .toList();
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.8,
+      builder: (_, scrollCtrl) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              controller: _ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Behälter suchen…',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.close),
+            title: const Text('Kein Behälter'),
+            selected: widget.selectedId == null,
+            onTap: () => Navigator.of(context).pop(''),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: scrollCtrl,
+              itemCount: filtered.length,
+              itemBuilder: (_, i) {
+                final item = filtered[i];
+                return ListTile(
+                  leading: const Icon(Icons.kitchen_outlined),
+                  title: Text(item.name),
+                  subtitle: Text('Tara: ${_fmtNum(item.taraWeightG!)} g'),
+                  selected: item.id == widget.selectedId,
+                  onTap: () => Navigator.of(context).pop(item.id),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

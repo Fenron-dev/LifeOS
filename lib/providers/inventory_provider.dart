@@ -150,6 +150,10 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
     double? price,
     String? store,
     String? notes,
+    String state = 'fresh',
+    DateTime? frozenAt,
+    DateTime? thawedAt,
+    String? containerId,
   }) async {
     final entryId = _uuid.v4();
     final now = DateTime.now();
@@ -163,6 +167,10 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
       quantity: quantity,
       unit: unit,
       expiryDate: Value(expiryDate),
+      state: Value(state),
+      frozenAt: Value(frozenAt),
+      thawedAt: Value(thawedAt),
+      activeContainerId: Value(containerId),
     ));
 
     // Insert event
@@ -186,7 +194,7 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
       currentQuantity: quantity,
       unit: unit,
       locationId: Value(locationId),
-      state: 'fresh',
+      state: state,
       expiryDate: Value(expiryDate),
       lastEventAt: now,
     ));

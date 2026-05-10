@@ -108,7 +108,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -317,6 +317,11 @@ class AppDatabase extends _$AppDatabase {
           if (from < 29) {
             // Sprint C — task priority column.
             await m.addColumn(tasks, tasks.priority);
+          }
+          if (from < 30) {
+            // Sprint D — openedLocationId + taraWeightG on items.
+            await m.addColumn(items, items.openedLocationId);
+            await m.addColumn(items, items.taraWeightG);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -551,6 +556,119 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteInventoryEntry(String id) =>
       (delete(inventoryEntries)..where((e) => e.id.equals(id))).go();
+
+  /// Changes state of an inventory entry and writes a state_change event.
+  Future<void> updateEntryState(
+    String entryId,
+    String itemId, {
+    required String fromState,
+    required String newState,
+    DateTime? frozenAt,
+    DateTime? thawedAt,
+  }) =>
+      transaction(() async {
+        await (update(inventoryEntries)..where((e) => e.id.equals(entryId)))
+            .write(InventoryEntriesCompanion(
+          state: Value(newState),
+          frozenAt: Value(frozenAt),
+          thawedAt: Value(thawedAt),
+        ));
+        await into(itemEvents).insert(ItemEventsCompanion.insert(
+          id: _uuid.v4(),
+          type: 'state_change',
+          itemId: itemId,
+          inventoryEntryId: Value(entryId),
+          fromState: Value(fromState),
+          toState: Value(newState),
+          deviceId: 'system',
+        ));
+      });
+
+  /// Marks an entry as opened; if the item has an openedLocationId that differs
+  /// from the current location, auto-relocates the entry.
+  Future<void> openEntry(String entryId, String itemId) async {
+    final entry = await (select(inventoryEntries)
+          ..where((e) => e.id.equals(entryId)))
+        .getSingleOrNull();
+    final item = await (select(items)
+          ..where((i) => i.id.equals(itemId)))
+        .getSingleOrNull();
+    if (entry == null || item == null) return;
+
+    final now = DateTime.now();
+    final targetLocation = item.openedLocationId;
+
+    await transaction(() async {
+      await (update(inventoryEntries)..where((e) => e.id.equals(entryId)))
+          .write(InventoryEntriesCompanion(
+        openedAt: Value(now),
+        locationId: targetLocation != null
+            ? Value(targetLocation)
+            : const Value.absent(),
+      ));
+      await into(itemEvents).insert(ItemEventsCompanion.insert(
+        id: _uuid.v4(),
+        type: 'opened',
+        itemId: itemId,
+        inventoryEntryId: Value(entryId),
+        deviceId: 'system',
+      ));
+      // Write relocation event if location changed
+      if (targetLocation != null && targetLocation != entry.locationId) {
+        await into(itemEvents).insert(ItemEventsCompanion.insert(
+          id: _uuid.v4(),
+          type: 'relocation',
+          itemId: itemId,
+          inventoryEntryId: Value(entryId),
+          fromLocationId: Value(entry.locationId),
+          toLocationId: Value(targetLocation),
+          deviceId: 'system',
+        ));
+      }
+    });
+  }
+
+  /// Average purchase price for an item across all purchase events with a price.
+  Stream<double?> watchAvgPrice(String itemId) =>
+      customSelect(
+        'SELECT AVG(price) AS avg_price FROM item_events '
+        'WHERE item_id = ? AND type = ? AND price IS NOT NULL',
+        variables: [Variable.withString(itemId), Variable.withString('purchase')],
+        readsFrom: {itemEvents},
+      ).map((row) => row.read<double?>('avg_price')).watchSingle();
+
+  /// Most recent purchase price for an item (null if no purchase events).
+  Future<double?> lastPurchasePrice(String itemId) async {
+    final rows = await customSelect(
+      'SELECT price FROM item_events '
+      'WHERE item_id = ? AND type = ? AND price IS NOT NULL '
+      'ORDER BY created_at DESC LIMIT 1',
+      variables: [Variable.withString(itemId), Variable.withString('purchase')],
+      readsFrom: {itemEvents},
+    ).get();
+    if (rows.isEmpty) return null;
+    return rows.first.read<double?>('price');
+  }
+
+  /// Estimated recipe cost: sum of (lastPurchasePrice/100g × amount_in_g)
+  /// for all ingredients that have an itemId and a purchase price.
+  Future<double?> estimatedRecipeCost(String recipeId) async {
+    final ingredients = await (select(recipeIngredients)
+          ..where((i) => i.recipeId.equals(recipeId)))
+        .get();
+    double total = 0;
+    bool hasAny = false;
+    for (final ing in ingredients) {
+      if (ing.itemId == null) continue;
+      final pricePerUnit = await lastPurchasePrice(ing.itemId!);
+      if (pricePerUnit == null) continue;
+      // Use quantity as-is; price stored is per purchase unit, not per gram.
+      // Approximation: pricePerUnit * quantity gives rough cost.
+      total += pricePerUnit * ing.quantity;
+      hasAny = true;
+    }
+    return hasAny ? total : null;
+  }
 
   // ── Item Events ────────────────────────────────────────────────────────────
 

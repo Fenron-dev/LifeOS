@@ -276,7 +276,7 @@ class _ShelfLifeTile extends ConsumerWidget {
             if (isOpened) {
               await db.setInventoryOpenedAt(entry.id, null);
             } else {
-              await db.setInventoryOpenedAt(entry.id, DateTime.now());
+              await db.openEntry(entry.id, item.id);
             }
           },
         ),

@@ -8,6 +8,12 @@ import '../../health/widgets/food_search_sheet.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/vault_provider.dart';
 
+final _recipeCostProvider = FutureProvider.family<double?, String>((ref, recipeId) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return null;
+  return db.estimatedRecipeCost(recipeId);
+});
+
 class RecipeDetailScreen extends ConsumerWidget {
   final String recipeId;
   const RecipeDetailScreen({super.key, required this.recipeId});
@@ -285,6 +291,26 @@ class RecipeContentView extends ConsumerWidget {
                       .toList(),
                 ),
         ),
+        // Estimated cost from last purchase prices
+        Builder(builder: (_) {
+          final cost = ref.watch(_recipeCostProvider(recipe.id)).valueOrNull;
+          if (cost == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Icon(Icons.euro, size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text(
+                  'Geschätzte Kosten: ~${cost.toStringAsFixed(2)} €',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          );
+        }),
         const SizedBox(height: 16),
 
         Text('Zubereitung', style: Theme.of(context).textTheme.titleMedium),

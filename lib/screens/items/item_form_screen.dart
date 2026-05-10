@@ -95,6 +95,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   // Stock unit for inventory aggregation
   String? _stockUnit;
   String? _defaultLocationId;
+  String? _openedLocationId;
+  late final TextEditingController _taraWeightGCtrl;
 
   // Default consume unit (per-item deduction override)
   late final TextEditingController _consumeQtyCtrl;
@@ -139,6 +141,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         text: i?.consumeQty != null ? _fmtCtrl(i!.consumeQty) : '');
     _minStockQtyCtrl = TextEditingController(
         text: i?.minStockQuantity != null ? _fmtCtrl(i!.minStockQuantity) : '');
+    _taraWeightGCtrl = TextEditingController(
+        text: i?.taraWeightG != null ? _fmtCtrl(i!.taraWeightG) : '');
 
     if (i != null) {
       _productType = i.productType;
@@ -151,6 +155,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _novaGroup = i.novaGroup;
       _stockUnit = i.stockUnit;
       _defaultLocationId = i.defaultLocationId;
+      _openedLocationId = i.openedLocationId;
       _nutritionRefUnit = i.nutritionRefUnit;
       _consumeUnit = i.consumeUnit;
       _showNutrition = _hasAnyNutrition(i);
@@ -218,6 +223,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     _servingSizeCtrl.dispose();
     _consumeQtyCtrl.dispose();
     _minStockQtyCtrl.dispose();
+    _taraWeightGCtrl.dispose();
     super.dispose();
   }
 
@@ -429,6 +435,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         ingredientsText: ingredients,
         stockUnit: _stockUnit,
         defaultLocationId: _defaultLocationId,
+        openedLocationId: _openedLocationId,
         nutritionRefUnit: _nutritionRefUnit,
         consumeQty: consumeQty,
         consumeUnit: consumeQty != null ? _consumeUnit : null,
@@ -436,6 +443,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockUnit: minStockQty != null ? _minStockUnit : null,
         preferredShopId: _preferredShopId,
         templateId: _templateId,
+        taraWeightG: double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.')),
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -462,6 +470,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         ingredientsText: Value(ingredients),
         stockUnit: Value(_stockUnit),
         defaultLocationId: Value(_defaultLocationId),
+        openedLocationId: Value(_openedLocationId),
         nutritionRefUnit: _nutritionRefUnit,
         consumeQty: Value(consumeQty),
         consumeUnit: Value(consumeQty != null ? _consumeUnit : null),
@@ -469,6 +478,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockUnit: Value(minStockQty != null ? _minStockUnit : null),
         preferredShopId: Value(_preferredShopId),
         templateId: Value(_templateId),
+        taraWeightG: Value(double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -865,6 +875,37 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                 onChanged: (v) => setState(() => _defaultLocationId = v),
               );
             }),
+            const SizedBox(height: 12),
+            // Opened location picker
+            Consumer(builder: (context, ref, _) {
+              final locations = ref.watch(allLocationsProvider).valueOrNull ?? [];
+              if (locations.isEmpty) return const SizedBox.shrink();
+              return DropdownButtonFormField<String?>(
+                // ignore: deprecated_member_use
+                value: _openedLocationId,
+                decoration: const InputDecoration(
+                  labelText: 'Lagerort (nach Öffnen)',
+                  helperText: 'Wohin wird der Artikel nach dem Öffnen umgelagert?',
+                  prefixIcon: Icon(Icons.open_in_new_outlined),
+                ),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('— keiner —')),
+                  ...locations.map((l) =>
+                      DropdownMenuItem(value: l.id, child: Text(l.name))),
+                ],
+                onChanged: (v) => setState(() => _openedLocationId = v),
+              );
+            }),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _taraWeightGCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tara-Gewicht (g)',
+                helperText: 'Verpackungsgewicht – wird beim Einlagern vom Bruttogewicht abgezogen',
+                prefixIcon: Icon(Icons.scale_outlined),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _notesCtrl,

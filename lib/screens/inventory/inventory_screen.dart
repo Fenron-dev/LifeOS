@@ -119,6 +119,8 @@ class _ItemCard extends StatelessWidget {
   final List<ItemState> states;
   const _ItemCard({required this.item, required this.states});
 
+  bool _hasFrozen() => states.any((s) => s.state == 'frozen' || s.state == 'thawed');
+
   // Returns (daysLeft, expiryDate) for the soonest expiring state, or null.
   (int, DateTime)? _soonestExpiry() {
     DateTime? soonest;
@@ -139,6 +141,7 @@ class _ItemCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final expiry = _soonestExpiry();
     final showExpiry = expiry != null && expiry.$1 <= 7;
+    final frozen = _hasFrozen();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -181,6 +184,10 @@ class _ItemCard extends StatelessWidget {
                 if (showExpiry) ...[
                   const SizedBox(width: 6),
                   _ExpiryBadge(daysLeft: expiry.$1),
+                ],
+                if (frozen) ...[
+                  const SizedBox(width: 6),
+                  _FrozenBadge(states: states),
                 ],
               ],
             ),
@@ -228,6 +235,36 @@ class _ExpiryBadge extends StatelessWidget {
           Icon(Icons.event_busy_outlined, size: 10, color: color),
           const SizedBox(width: 2),
           Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FrozenBadge extends StatelessWidget {
+  final List<ItemState> states;
+  const _FrozenBadge({required this.states});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasThawed = states.any((s) => s.state == 'thawed');
+    final color = hasThawed ? Colors.cyan.shade600 : Colors.blue.shade400;
+    final label = hasThawed ? 'Aufgetaut' : 'Gefroren';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.ac_unit, size: 10, color: color),
+          const SizedBox(width: 2),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10, color: color, fontWeight: FontWeight.w600)),
         ],
       ),
     );

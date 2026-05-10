@@ -48,6 +48,7 @@ class Items extends Table {
   TextColumn get stockUnit => text().nullable()();
 
   /// Default location for new inventory entries (pre-selects in AddStockSheet).
+  @ReferenceName('defaultLocationItems')
   TextColumn get defaultLocationId => text()
       .nullable()
       .references(Locations, #id, onDelete: KeyAction.setNull)();
@@ -73,6 +74,15 @@ class Items extends Table {
 
   /// Template assigned to this item (optional).
   TextColumn get templateId => text().nullable()();
+
+  /// Where to store this item after opening (overrides defaultLocationId).
+  @ReferenceName('openedLocationItems')
+  TextColumn get openedLocationId => text()
+      .nullable()
+      .references(Locations, #id, onDelete: KeyAction.setNull)();
+
+  /// Packaging/tara weight in grams. Subtracted from gross weight to get net.
+  RealColumn get taraWeightG => real().nullable()();
 
   // User ratings
   IntColumn get starRating => integer().nullable()(); // 1–5

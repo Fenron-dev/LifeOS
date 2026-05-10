@@ -835,6 +835,31 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _openedLocationIdMeta = const VerificationMeta(
+    'openedLocationId',
+  );
+  @override
+  late final GeneratedColumn<String> openedLocationId = GeneratedColumn<String>(
+    'opened_location_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES locations (id) ON DELETE SET NULL',
+    ),
+  );
+  static const VerificationMeta _taraWeightGMeta = const VerificationMeta(
+    'taraWeightG',
+  );
+  @override
+  late final GeneratedColumn<double> taraWeightG = GeneratedColumn<double>(
+    'tara_weight_g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _starRatingMeta = const VerificationMeta(
     'starRating',
   );
@@ -934,6 +959,8 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     minStockUnit,
     preferredShopId,
     templateId,
+    openedLocationId,
+    taraWeightG,
     starRating,
     isFavorite,
     isTrashed,
@@ -1204,6 +1231,24 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         templateId.isAcceptableOrUnknown(data['template_id']!, _templateIdMeta),
       );
     }
+    if (data.containsKey('opened_location_id')) {
+      context.handle(
+        _openedLocationIdMeta,
+        openedLocationId.isAcceptableOrUnknown(
+          data['opened_location_id']!,
+          _openedLocationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('tara_weight_g')) {
+      context.handle(
+        _taraWeightGMeta,
+        taraWeightG.isAcceptableOrUnknown(
+          data['tara_weight_g']!,
+          _taraWeightGMeta,
+        ),
+      );
+    }
     if (data.containsKey('star_rating')) {
       context.handle(
         _starRatingMeta,
@@ -1371,6 +1416,14 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.string,
         data['${effectivePrefix}template_id'],
       ),
+      openedLocationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}opened_location_id'],
+      ),
+      taraWeightG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}tara_weight_g'],
+      ),
       starRating: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}star_rating'],
@@ -1456,6 +1509,12 @@ class Item extends DataClass implements Insertable<Item> {
 
   /// Template assigned to this item (optional).
   final String? templateId;
+
+  /// Where to store this item after opening (overrides defaultLocationId).
+  final String? openedLocationId;
+
+  /// Packaging/tara weight in grams. Subtracted from gross weight to get net.
+  final double? taraWeightG;
   final int? starRating;
   final bool isFavorite;
   final bool isTrashed;
@@ -1494,6 +1553,8 @@ class Item extends DataClass implements Insertable<Item> {
     this.minStockUnit,
     this.preferredShopId,
     this.templateId,
+    this.openedLocationId,
+    this.taraWeightG,
     this.starRating,
     required this.isFavorite,
     required this.isTrashed,
@@ -1584,6 +1645,12 @@ class Item extends DataClass implements Insertable<Item> {
     }
     if (!nullToAbsent || templateId != null) {
       map['template_id'] = Variable<String>(templateId);
+    }
+    if (!nullToAbsent || openedLocationId != null) {
+      map['opened_location_id'] = Variable<String>(openedLocationId);
+    }
+    if (!nullToAbsent || taraWeightG != null) {
+      map['tara_weight_g'] = Variable<double>(taraWeightG);
     }
     if (!nullToAbsent || starRating != null) {
       map['star_rating'] = Variable<int>(starRating);
@@ -1677,6 +1744,12 @@ class Item extends DataClass implements Insertable<Item> {
       templateId: templateId == null && nullToAbsent
           ? const Value.absent()
           : Value(templateId),
+      openedLocationId: openedLocationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(openedLocationId),
+      taraWeightG: taraWeightG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(taraWeightG),
       starRating: starRating == null && nullToAbsent
           ? const Value.absent()
           : Value(starRating),
@@ -1731,6 +1804,8 @@ class Item extends DataClass implements Insertable<Item> {
       minStockUnit: serializer.fromJson<String?>(json['minStockUnit']),
       preferredShopId: serializer.fromJson<String?>(json['preferredShopId']),
       templateId: serializer.fromJson<String?>(json['templateId']),
+      openedLocationId: serializer.fromJson<String?>(json['openedLocationId']),
+      taraWeightG: serializer.fromJson<double?>(json['taraWeightG']),
       starRating: serializer.fromJson<int?>(json['starRating']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       isTrashed: serializer.fromJson<bool>(json['isTrashed']),
@@ -1774,6 +1849,8 @@ class Item extends DataClass implements Insertable<Item> {
       'minStockUnit': serializer.toJson<String?>(minStockUnit),
       'preferredShopId': serializer.toJson<String?>(preferredShopId),
       'templateId': serializer.toJson<String?>(templateId),
+      'openedLocationId': serializer.toJson<String?>(openedLocationId),
+      'taraWeightG': serializer.toJson<double?>(taraWeightG),
       'starRating': serializer.toJson<int?>(starRating),
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'isTrashed': serializer.toJson<bool>(isTrashed),
@@ -1815,6 +1892,8 @@ class Item extends DataClass implements Insertable<Item> {
     Value<String?> minStockUnit = const Value.absent(),
     Value<String?> preferredShopId = const Value.absent(),
     Value<String?> templateId = const Value.absent(),
+    Value<String?> openedLocationId = const Value.absent(),
+    Value<double?> taraWeightG = const Value.absent(),
     Value<int?> starRating = const Value.absent(),
     bool? isFavorite,
     bool? isTrashed,
@@ -1873,6 +1952,10 @@ class Item extends DataClass implements Insertable<Item> {
         ? preferredShopId.value
         : this.preferredShopId,
     templateId: templateId.present ? templateId.value : this.templateId,
+    openedLocationId: openedLocationId.present
+        ? openedLocationId.value
+        : this.openedLocationId,
+    taraWeightG: taraWeightG.present ? taraWeightG.value : this.taraWeightG,
     starRating: starRating.present ? starRating.value : this.starRating,
     isFavorite: isFavorite ?? this.isFavorite,
     isTrashed: isTrashed ?? this.isTrashed,
@@ -1963,6 +2046,12 @@ class Item extends DataClass implements Insertable<Item> {
       templateId: data.templateId.present
           ? data.templateId.value
           : this.templateId,
+      openedLocationId: data.openedLocationId.present
+          ? data.openedLocationId.value
+          : this.openedLocationId,
+      taraWeightG: data.taraWeightG.present
+          ? data.taraWeightG.value
+          : this.taraWeightG,
       starRating: data.starRating.present
           ? data.starRating.value
           : this.starRating,
@@ -2010,6 +2099,8 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('minStockUnit: $minStockUnit, ')
           ..write('preferredShopId: $preferredShopId, ')
           ..write('templateId: $templateId, ')
+          ..write('openedLocationId: $openedLocationId, ')
+          ..write('taraWeightG: $taraWeightG, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -2053,6 +2144,8 @@ class Item extends DataClass implements Insertable<Item> {
     minStockUnit,
     preferredShopId,
     templateId,
+    openedLocationId,
+    taraWeightG,
     starRating,
     isFavorite,
     isTrashed,
@@ -2095,6 +2188,8 @@ class Item extends DataClass implements Insertable<Item> {
           other.minStockUnit == this.minStockUnit &&
           other.preferredShopId == this.preferredShopId &&
           other.templateId == this.templateId &&
+          other.openedLocationId == this.openedLocationId &&
+          other.taraWeightG == this.taraWeightG &&
           other.starRating == this.starRating &&
           other.isFavorite == this.isFavorite &&
           other.isTrashed == this.isTrashed &&
@@ -2135,6 +2230,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<String?> minStockUnit;
   final Value<String?> preferredShopId;
   final Value<String?> templateId;
+  final Value<String?> openedLocationId;
+  final Value<double?> taraWeightG;
   final Value<int?> starRating;
   final Value<bool> isFavorite;
   final Value<bool> isTrashed;
@@ -2174,6 +2271,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.minStockUnit = const Value.absent(),
     this.preferredShopId = const Value.absent(),
     this.templateId = const Value.absent(),
+    this.openedLocationId = const Value.absent(),
+    this.taraWeightG = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -2214,6 +2313,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.minStockUnit = const Value.absent(),
     this.preferredShopId = const Value.absent(),
     this.templateId = const Value.absent(),
+    this.openedLocationId = const Value.absent(),
+    this.taraWeightG = const Value.absent(),
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
@@ -2256,6 +2357,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<String>? minStockUnit,
     Expression<String>? preferredShopId,
     Expression<String>? templateId,
+    Expression<String>? openedLocationId,
+    Expression<double>? taraWeightG,
     Expression<int>? starRating,
     Expression<bool>? isFavorite,
     Expression<bool>? isTrashed,
@@ -2298,6 +2401,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (minStockUnit != null) 'min_stock_unit': minStockUnit,
       if (preferredShopId != null) 'preferred_shop_id': preferredShopId,
       if (templateId != null) 'template_id': templateId,
+      if (openedLocationId != null) 'opened_location_id': openedLocationId,
+      if (taraWeightG != null) 'tara_weight_g': taraWeightG,
       if (starRating != null) 'star_rating': starRating,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (isTrashed != null) 'is_trashed': isTrashed,
@@ -2340,6 +2445,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<String?>? minStockUnit,
     Value<String?>? preferredShopId,
     Value<String?>? templateId,
+    Value<String?>? openedLocationId,
+    Value<double?>? taraWeightG,
     Value<int?>? starRating,
     Value<bool>? isFavorite,
     Value<bool>? isTrashed,
@@ -2380,6 +2487,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       minStockUnit: minStockUnit ?? this.minStockUnit,
       preferredShopId: preferredShopId ?? this.preferredShopId,
       templateId: templateId ?? this.templateId,
+      openedLocationId: openedLocationId ?? this.openedLocationId,
+      taraWeightG: taraWeightG ?? this.taraWeightG,
       starRating: starRating ?? this.starRating,
       isFavorite: isFavorite ?? this.isFavorite,
       isTrashed: isTrashed ?? this.isTrashed,
@@ -2490,6 +2599,12 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (templateId.present) {
       map['template_id'] = Variable<String>(templateId.value);
     }
+    if (openedLocationId.present) {
+      map['opened_location_id'] = Variable<String>(openedLocationId.value);
+    }
+    if (taraWeightG.present) {
+      map['tara_weight_g'] = Variable<double>(taraWeightG.value);
+    }
     if (starRating.present) {
       map['star_rating'] = Variable<int>(starRating.value);
     }
@@ -2546,6 +2661,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('minStockUnit: $minStockUnit, ')
           ..write('preferredShopId: $preferredShopId, ')
           ..write('templateId: $templateId, ')
+          ..write('openedLocationId: $openedLocationId, ')
+          ..write('taraWeightG: $taraWeightG, ')
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
@@ -24173,6 +24290,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
+        'locations',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('items', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
         'items',
         limitUpdateKind: UpdateKind.delete,
       ),
@@ -24457,9 +24581,8 @@ final class $$LocationsTableReferences
     );
   }
 
-  static MultiTypedResultKey<$ItemsTable, List<Item>> _itemsRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
+  static MultiTypedResultKey<$ItemsTable, List<Item>>
+  _defaultLocationItemsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.items,
     aliasName: $_aliasNameGenerator(
       db.locations.id,
@@ -24467,12 +24590,34 @@ final class $$LocationsTableReferences
     ),
   );
 
-  $$ItemsTableProcessedTableManager get itemsRefs {
+  $$ItemsTableProcessedTableManager get defaultLocationItems {
     final manager = $$ItemsTableTableManager($_db, $_db.items).filter(
       (f) => f.defaultLocationId.id.sqlEquals($_itemColumn<String>('id')!),
     );
 
-    final cache = $_typedResult.readTableOrNull(_itemsRefsTable($_db));
+    final cache = $_typedResult.readTableOrNull(
+      _defaultLocationItemsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ItemsTable, List<Item>> _openedLocationItemsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.items,
+    aliasName: $_aliasNameGenerator(db.locations.id, db.items.openedLocationId),
+  );
+
+  $$ItemsTableProcessedTableManager get openedLocationItems {
+    final manager = $$ItemsTableTableManager($_db, $_db.items).filter(
+      (f) => f.openedLocationId.id.sqlEquals($_itemColumn<String>('id')!),
+    );
+
+    final cache = $_typedResult.readTableOrNull(
+      _openedLocationItemsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -24564,7 +24709,7 @@ class $$LocationsTableFilterComposer
     return composer;
   }
 
-  Expression<bool> itemsRefs(
+  Expression<bool> defaultLocationItems(
     Expression<bool> Function($$ItemsTableFilterComposer f) f,
   ) {
     final $$ItemsTableFilterComposer composer = $composerBuilder(
@@ -24572,6 +24717,31 @@ class $$LocationsTableFilterComposer
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.items,
       getReferencedColumn: (t) => t.defaultLocationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> openedLocationItems(
+    Expression<bool> Function($$ItemsTableFilterComposer f) f,
+  ) {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.openedLocationId,
       builder:
           (
             joinBuilder, {
@@ -24730,7 +24900,7 @@ class $$LocationsTableAnnotationComposer
     return composer;
   }
 
-  Expression<T> itemsRefs<T extends Object>(
+  Expression<T> defaultLocationItems<T extends Object>(
     Expression<T> Function($$ItemsTableAnnotationComposer a) f,
   ) {
     final $$ItemsTableAnnotationComposer composer = $composerBuilder(
@@ -24738,6 +24908,31 @@ class $$LocationsTableAnnotationComposer
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.items,
       getReferencedColumn: (t) => t.defaultLocationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> openedLocationItems<T extends Object>(
+    Expression<T> Function($$ItemsTableAnnotationComposer a) f,
+  ) {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.openedLocationId,
       builder:
           (
             joinBuilder, {
@@ -24796,7 +24991,8 @@ class $$LocationsTableTableManager
           Location,
           PrefetchHooks Function({
             bool parentId,
-            bool itemsRefs,
+            bool defaultLocationItems,
+            bool openedLocationItems,
             bool inventoryEntriesRefs,
           })
         > {
@@ -24862,13 +25058,15 @@ class $$LocationsTableTableManager
           prefetchHooksCallback:
               ({
                 parentId = false,
-                itemsRefs = false,
+                defaultLocationItems = false,
+                openedLocationItems = false,
                 inventoryEntriesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
-                    if (itemsRefs) db.items,
+                    if (defaultLocationItems) db.items,
+                    if (openedLocationItems) db.items,
                     if (inventoryEntriesRefs) db.inventoryEntries,
                   ],
                   addJoins:
@@ -24905,7 +25103,7 @@ class $$LocationsTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
-                      if (itemsRefs)
+                      if (defaultLocationItems)
                         await $_getPrefetchedData<
                           Location,
                           $LocationsTable,
@@ -24913,16 +25111,37 @@ class $$LocationsTableTableManager
                         >(
                           currentTable: table,
                           referencedTable: $$LocationsTableReferences
-                              ._itemsRefsTable(db),
+                              ._defaultLocationItemsTable(db),
                           managerFromTypedResult: (p0) =>
                               $$LocationsTableReferences(
                                 db,
                                 table,
                                 p0,
-                              ).itemsRefs,
+                              ).defaultLocationItems,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.defaultLocationId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (openedLocationItems)
+                        await $_getPrefetchedData<
+                          Location,
+                          $LocationsTable,
+                          Item
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocationsTableReferences
+                              ._openedLocationItemsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocationsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).openedLocationItems,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.openedLocationId == item.id,
                               ),
                           typedResults: items,
                         ),
@@ -24969,7 +25188,8 @@ typedef $$LocationsTableProcessedTableManager =
       Location,
       PrefetchHooks Function({
         bool parentId,
-        bool itemsRefs,
+        bool defaultLocationItems,
+        bool openedLocationItems,
         bool inventoryEntriesRefs,
       })
     >;
@@ -25007,6 +25227,8 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String?> minStockUnit,
       Value<String?> preferredShopId,
       Value<String?> templateId,
+      Value<String?> openedLocationId,
+      Value<double?> taraWeightG,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -25048,6 +25270,8 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String?> minStockUnit,
       Value<String?> preferredShopId,
       Value<String?> templateId,
+      Value<String?> openedLocationId,
+      Value<double?> taraWeightG,
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
@@ -25090,6 +25314,25 @@ final class $$ItemsTableReferences
       $_db.locations,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_defaultLocationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $LocationsTable _openedLocationIdTable(_$AppDatabase db) =>
+      db.locations.createAlias(
+        $_aliasNameGenerator(db.items.openedLocationId, db.locations.id),
+      );
+
+  $$LocationsTableProcessedTableManager? get openedLocationId {
+    final $_column = $_itemColumn<String>('opened_location_id');
+    if ($_column == null) return null;
+    final manager = $$LocationsTableTableManager(
+      $_db,
+      $_db.locations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_openedLocationIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -25528,6 +25771,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<double> get taraWeightG => $composableBuilder(
+    column: $table.taraWeightG,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get starRating => $composableBuilder(
     column: $table.starRating,
     builder: (column) => ColumnFilters(column),
@@ -25580,6 +25828,29 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
     final $$LocationsTableFilterComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.defaultLocationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableFilterComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$LocationsTableFilterComposer get openedLocationId {
+    final $$LocationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.openedLocationId,
       referencedTable: $db.locations,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -26085,6 +26356,11 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get taraWeightG => $composableBuilder(
+    column: $table.taraWeightG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get starRating => $composableBuilder(
     column: $table.starRating,
     builder: (column) => ColumnOrderings(column),
@@ -26137,6 +26413,29 @@ class $$ItemsTableOrderingComposer
     final $$LocationsTableOrderingComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.defaultLocationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableOrderingComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$LocationsTableOrderingComposer get openedLocationId {
+    final $$LocationsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.openedLocationId,
       referencedTable: $db.locations,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -26302,6 +26601,11 @@ class $$ItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get taraWeightG => $composableBuilder(
+    column: $table.taraWeightG,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get starRating => $composableBuilder(
     column: $table.starRating,
     builder: (column) => column,
@@ -26348,6 +26652,29 @@ class $$ItemsTableAnnotationComposer
     final $$LocationsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.defaultLocationId,
+      referencedTable: $db.locations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.locations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$LocationsTableAnnotationComposer get openedLocationId {
+    final $$LocationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.openedLocationId,
       referencedTable: $db.locations,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -26713,6 +27040,7 @@ class $$ItemsTableTableManager
           PrefetchHooks Function({
             bool containerItemId,
             bool defaultLocationId,
+            bool openedLocationId,
             bool inventoryEntriesRefs,
             bool activeContainerInventoryRefs,
             bool itemGroupMembersRefs,
@@ -26773,6 +27101,8 @@ class $$ItemsTableTableManager
                 Value<String?> minStockUnit = const Value.absent(),
                 Value<String?> preferredShopId = const Value.absent(),
                 Value<String?> templateId = const Value.absent(),
+                Value<String?> openedLocationId = const Value.absent(),
+                Value<double?> taraWeightG = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -26812,6 +27142,8 @@ class $$ItemsTableTableManager
                 minStockUnit: minStockUnit,
                 preferredShopId: preferredShopId,
                 templateId: templateId,
+                openedLocationId: openedLocationId,
+                taraWeightG: taraWeightG,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
@@ -26853,6 +27185,8 @@ class $$ItemsTableTableManager
                 Value<String?> minStockUnit = const Value.absent(),
                 Value<String?> preferredShopId = const Value.absent(),
                 Value<String?> templateId = const Value.absent(),
+                Value<String?> openedLocationId = const Value.absent(),
+                Value<double?> taraWeightG = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
@@ -26892,6 +27226,8 @@ class $$ItemsTableTableManager
                 minStockUnit: minStockUnit,
                 preferredShopId: preferredShopId,
                 templateId: templateId,
+                openedLocationId: openedLocationId,
+                taraWeightG: taraWeightG,
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
@@ -26909,6 +27245,7 @@ class $$ItemsTableTableManager
               ({
                 containerItemId = false,
                 defaultLocationId = false,
+                openedLocationId = false,
                 inventoryEntriesRefs = false,
                 activeContainerInventoryRefs = false,
                 itemGroupMembersRefs = false,
@@ -26978,6 +27315,19 @@ class $$ItemsTableTableManager
                                         ._defaultLocationIdTable(db),
                                     referencedColumn: $$ItemsTableReferences
                                         ._defaultLocationIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (openedLocationId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.openedLocationId,
+                                    referencedTable: $$ItemsTableReferences
+                                        ._openedLocationIdTable(db),
+                                    referencedColumn: $$ItemsTableReferences
+                                        ._openedLocationIdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -27267,6 +27617,7 @@ typedef $$ItemsTableProcessedTableManager =
       PrefetchHooks Function({
         bool containerItemId,
         bool defaultLocationId,
+        bool openedLocationId,
         bool inventoryEntriesRefs,
         bool activeContainerInventoryRefs,
         bool itemGroupMembersRefs,
