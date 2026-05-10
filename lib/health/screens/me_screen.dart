@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../widgets/adaptive_shell.dart';
 import '../services/app_lock_service.dart';
 import 'diary_tab.dart';
+import 'goals_tab.dart';
 import 'measurements_tab.dart';
 import 'photos_tab.dart';
 import 'profile_tab.dart';
@@ -32,7 +33,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
     _MeTabSpec(label: 'Maße', icon: Icons.straighten, ready: true),
     _MeTabSpec(label: 'Fotos', icon: Icons.photo_library_outlined, ready: true),
     _MeTabSpec(label: 'Workouts', icon: Icons.fitness_center, ready: true),
-    _MeTabSpec(label: 'Ziele', icon: Icons.flag_outlined, ready: false),
+    _MeTabSpec(label: 'Ziele', icon: Icons.flag_outlined, ready: true),
     _MeTabSpec(label: 'Profil', icon: Icons.person_outline, ready: true),
   ];
 
@@ -133,6 +134,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
             'Gewicht' => const WeightTab(),
             'Maße' => const MeasurementsTab(),
             'Workouts' => const WorkoutsTab(),
+            'Ziele' => const GoalsTab(),
             'Profil' => const ProfileTab(),
             _ => _PlaceholderTab(label: t.label, icon: t.icon),
           };
