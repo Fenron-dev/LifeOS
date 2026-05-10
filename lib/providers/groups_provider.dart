@@ -58,8 +58,23 @@ final customShoppingItemsProvider =
   return db.watchCustomShoppingItems();
 });
 
+// Tracks temporarily snoozed need IDs (item.id or group.id). Resets on restart.
+final snoozedShoppingNeedsProvider =
+    StateProvider<Set<String>>((ref) => const {});
+
+// Watches all item states so shoppingNeedsProvider reacts to inventory changes.
+final _allItemStatesProvider = StreamProvider<List<ItemState>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchAllItemStates();
+});
+
 final shoppingByShopProvider = FutureProvider<List<ShoppingSection>>((ref) async {
-  final needs = await ref.watch(shoppingNeedsProvider.future);
+  final snoozed = ref.watch(snoozedShoppingNeedsProvider);
+  final allNeeds = await ref.watch(shoppingNeedsProvider.future);
+  final needs = allNeeds
+      .where((n) => !snoozed.contains(n.group?.id ?? n.item?.id))
+      .toList();
   final customItems = ref.watch(customShoppingItemsProvider).valueOrNull ?? [];
   final db = ref.watch(databaseProvider);
   if (db == null) return [];
@@ -129,6 +144,8 @@ final allGroupsProvider = StreamProvider<List<ItemGroup>>((ref) {
 // ---------------------------------------------------------------------------
 
 final shoppingNeedsProvider = FutureProvider<List<ShoppingNeed>>((ref) async {
+  // React to inventory changes so the list updates without manual refresh.
+  ref.watch(_allItemStatesProvider);
   final db = ref.watch(databaseProvider);
   if (db == null) return [];
 

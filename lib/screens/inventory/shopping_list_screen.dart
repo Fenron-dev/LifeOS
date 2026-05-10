@@ -25,17 +25,29 @@ class ShoppingListScreen extends ConsumerWidget {
         tooltip: 'Eintrag hinzufügen',
         onPressed: () => _showAddDialog(context, ref),
       ),
-      IconButton(
-        icon: const Icon(Icons.category_outlined),
-        tooltip: 'Gruppen verwalten',
-        onPressed: () => context.push('/haushalt/groups'),
-      ),
-      IconButton(
-        icon: const Icon(Icons.refresh),
-        tooltip: 'Aktualisieren',
-        onPressed: () => ref.invalidate(shoppingNeedsProvider),
+      PopupMenuButton<String>(
+        tooltip: 'Weitere Optionen',
+        onSelected: (v) {
+          switch (v) {
+            case 'groups':
+              context.push('/haushalt/groups');
+            case 'shops':
+              context.push('/settings/shops');
+            case 'reset_snoozed':
+              ref.read(snoozedShoppingNeedsProvider.notifier).state = {};
+          }
+        },
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: 'groups', child: Text('Gruppen verwalten')),
+          PopupMenuItem(value: 'shops', child: Text('Geschäfte verwalten')),
+          PopupMenuItem(
+              value: 'reset_snoozed',
+              child: Text('Übersprungene zurücksetzen')),
+        ],
       ),
     ];
+
+    final snoozedCount = ref.watch(snoozedShoppingNeedsProvider).length;
 
     final body = sectionsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -60,6 +72,16 @@ class ShoppingListScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),
+                if (snoozedCount > 0) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () =>
+                        ref.read(snoozedShoppingNeedsProvider.notifier).state =
+                            {},
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text('$snoozedCount übersprungen – zurücksetzen'),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: () => _showAddDialog(context, ref),
@@ -91,6 +113,8 @@ class ShoppingListScreen extends ConsumerWidget {
                           '${allNeeds.length} unter Mindestbestand',
                         if (allCustom.isNotEmpty)
                           '${allCustom.length} manuell',
+                        if (snoozedCount > 0)
+                          '$snoozedCount übersprungen',
                       ].join(' · '),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -322,8 +346,24 @@ class _NeedCard extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                TextButton.icon(
+                  onPressed: () {
+                    final id = need.group?.id ?? need.item?.id;
+                    if (id != null) {
+                      ref
+                          .read(snoozedShoppingNeedsProvider.notifier)
+                          .update((s) => {...s, id});
+                    }
+                  },
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Überspringen'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.outline,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const Spacer(),
                 OutlinedButton.icon(
                   onPressed: () => _showBuyFlow(context, ref, need),
                   icon: const Icon(Icons.add_shopping_cart, size: 18),
