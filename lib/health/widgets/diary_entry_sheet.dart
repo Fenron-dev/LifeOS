@@ -408,9 +408,12 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
             servingSizeG > 0)
         ? qtyG / servingSizeG
         : qty;
-    // storedQty: grams for weight/volume units, serving count for Portion/Stück
-    final storedQty =
-        _hasRecipeTotals ? (_recipeUsesWeightUnit ? qtyG : qty) : qtyG;
+    // storedQty: grams for weight/volume units, entered count for everything
+    // else (Stück, Portion, …) so the diary shows "1 Stück" not "18 Stück".
+    // kcal is always calculated from qtyG (gram-equivalent) above.
+    final storedQty = _hasRecipeTotals
+        ? (_recipeUsesWeightUnit ? qtyG : qty)
+        : (_isWeightVolUnit(_unit) ? qtyG : qty);
     late double? kcal, protein, carbs, fat, fiber;
     if (_hasRecipeTotals) {
       kcal = servings * _product!.recipeKcalTotal!;
