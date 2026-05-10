@@ -13,6 +13,7 @@ class Tasks extends Table {
   TextColumn get recurrenceType => text().nullable()();
   IntColumn get recurrenceInterval => integer().nullable()();
   TextColumn get notes => text().nullable()();
+  TextColumn get priority => text().withDefault(const Constant('medium'))(); // low | medium | high
   DateTimeColumn get dueDate => dateTime().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

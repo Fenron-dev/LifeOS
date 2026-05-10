@@ -108,7 +108,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -313,6 +313,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(items, items.templateId);
             await _seedProductTypeDefinitions();
             await _seedBuiltInTemplates();
+          }
+          if (from < 29) {
+            // Sprint C — task priority column.
+            await m.addColumn(tasks, tasks.priority);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.

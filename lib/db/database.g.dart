@@ -11344,6 +11344,18 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<String> priority = GeneratedColumn<String>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('medium'),
+  );
   static const VerificationMeta _dueDateMeta = const VerificationMeta(
     'dueDate',
   );
@@ -11400,6 +11412,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     recurrenceType,
     recurrenceInterval,
     notes,
+    priority,
     dueDate,
     completedAt,
     createdAt,
@@ -11475,6 +11488,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
     if (data.containsKey('due_date')) {
       context.handle(
         _dueDateMeta,
@@ -11543,6 +11562,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}priority'],
+      )!,
       dueDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}due_date'],
@@ -11577,6 +11600,7 @@ class Task extends DataClass implements Insertable<Task> {
   final String? recurrenceType;
   final int? recurrenceInterval;
   final String? notes;
+  final String priority;
   final DateTime? dueDate;
   final DateTime? completedAt;
   final DateTime createdAt;
@@ -11590,6 +11614,7 @@ class Task extends DataClass implements Insertable<Task> {
     this.recurrenceType,
     this.recurrenceInterval,
     this.notes,
+    required this.priority,
     this.dueDate,
     this.completedAt,
     required this.createdAt,
@@ -11614,6 +11639,7 @@ class Task extends DataClass implements Insertable<Task> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    map['priority'] = Variable<String>(priority);
     if (!nullToAbsent || dueDate != null) {
       map['due_date'] = Variable<DateTime>(dueDate);
     }
@@ -11643,6 +11669,7 @@ class Task extends DataClass implements Insertable<Task> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      priority: Value(priority),
       dueDate: dueDate == null && nullToAbsent
           ? const Value.absent()
           : Value(dueDate),
@@ -11668,6 +11695,7 @@ class Task extends DataClass implements Insertable<Task> {
       recurrenceType: serializer.fromJson<String?>(json['recurrenceType']),
       recurrenceInterval: serializer.fromJson<int?>(json['recurrenceInterval']),
       notes: serializer.fromJson<String?>(json['notes']),
+      priority: serializer.fromJson<String>(json['priority']),
       dueDate: serializer.fromJson<DateTime?>(json['dueDate']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -11686,6 +11714,7 @@ class Task extends DataClass implements Insertable<Task> {
       'recurrenceType': serializer.toJson<String?>(recurrenceType),
       'recurrenceInterval': serializer.toJson<int?>(recurrenceInterval),
       'notes': serializer.toJson<String?>(notes),
+      'priority': serializer.toJson<String>(priority),
       'dueDate': serializer.toJson<DateTime?>(dueDate),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -11702,6 +11731,7 @@ class Task extends DataClass implements Insertable<Task> {
     Value<String?> recurrenceType = const Value.absent(),
     Value<int?> recurrenceInterval = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    String? priority,
     Value<DateTime?> dueDate = const Value.absent(),
     Value<DateTime?> completedAt = const Value.absent(),
     DateTime? createdAt,
@@ -11719,6 +11749,7 @@ class Task extends DataClass implements Insertable<Task> {
         ? recurrenceInterval.value
         : this.recurrenceInterval,
     notes: notes.present ? notes.value : this.notes,
+    priority: priority ?? this.priority,
     dueDate: dueDate.present ? dueDate.value : this.dueDate,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -11740,6 +11771,7 @@ class Task extends DataClass implements Insertable<Task> {
           ? data.recurrenceInterval.value
           : this.recurrenceInterval,
       notes: data.notes.present ? data.notes.value : this.notes,
+      priority: data.priority.present ? data.priority.value : this.priority,
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
       completedAt: data.completedAt.present
           ? data.completedAt.value
@@ -11760,6 +11792,7 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('recurrenceType: $recurrenceType, ')
           ..write('recurrenceInterval: $recurrenceInterval, ')
           ..write('notes: $notes, ')
+          ..write('priority: $priority, ')
           ..write('dueDate: $dueDate, ')
           ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
@@ -11778,6 +11811,7 @@ class Task extends DataClass implements Insertable<Task> {
     recurrenceType,
     recurrenceInterval,
     notes,
+    priority,
     dueDate,
     completedAt,
     createdAt,
@@ -11795,6 +11829,7 @@ class Task extends DataClass implements Insertable<Task> {
           other.recurrenceType == this.recurrenceType &&
           other.recurrenceInterval == this.recurrenceInterval &&
           other.notes == this.notes &&
+          other.priority == this.priority &&
           other.dueDate == this.dueDate &&
           other.completedAt == this.completedAt &&
           other.createdAt == this.createdAt &&
@@ -11810,6 +11845,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<String?> recurrenceType;
   final Value<int?> recurrenceInterval;
   final Value<String?> notes;
+  final Value<String> priority;
   final Value<DateTime?> dueDate;
   final Value<DateTime?> completedAt;
   final Value<DateTime> createdAt;
@@ -11824,6 +11860,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.recurrenceType = const Value.absent(),
     this.recurrenceInterval = const Value.absent(),
     this.notes = const Value.absent(),
+    this.priority = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -11839,6 +11876,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.recurrenceType = const Value.absent(),
     this.recurrenceInterval = const Value.absent(),
     this.notes = const Value.absent(),
+    this.priority = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -11855,6 +11893,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<String>? recurrenceType,
     Expression<int>? recurrenceInterval,
     Expression<String>? notes,
+    Expression<String>? priority,
     Expression<DateTime>? dueDate,
     Expression<DateTime>? completedAt,
     Expression<DateTime>? createdAt,
@@ -11870,6 +11909,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (recurrenceType != null) 'recurrence_type': recurrenceType,
       if (recurrenceInterval != null) 'recurrence_interval': recurrenceInterval,
       if (notes != null) 'notes': notes,
+      if (priority != null) 'priority': priority,
       if (dueDate != null) 'due_date': dueDate,
       if (completedAt != null) 'completed_at': completedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -11887,6 +11927,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<String?>? recurrenceType,
     Value<int?>? recurrenceInterval,
     Value<String?>? notes,
+    Value<String>? priority,
     Value<DateTime?>? dueDate,
     Value<DateTime?>? completedAt,
     Value<DateTime>? createdAt,
@@ -11902,6 +11943,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       recurrenceType: recurrenceType ?? this.recurrenceType,
       recurrenceInterval: recurrenceInterval ?? this.recurrenceInterval,
       notes: notes ?? this.notes,
+      priority: priority ?? this.priority,
       dueDate: dueDate ?? this.dueDate,
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -11937,6 +11979,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (priority.present) {
+      map['priority'] = Variable<String>(priority.value);
+    }
     if (dueDate.present) {
       map['due_date'] = Variable<DateTime>(dueDate.value);
     }
@@ -11966,6 +12011,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('recurrenceType: $recurrenceType, ')
           ..write('recurrenceInterval: $recurrenceInterval, ')
           ..write('notes: $notes, ')
+          ..write('priority: $priority, ')
           ..write('dueDate: $dueDate, ')
           ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
@@ -35776,6 +35822,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<String?> recurrenceType,
       Value<int?> recurrenceInterval,
       Value<String?> notes,
+      Value<String> priority,
       Value<DateTime?> dueDate,
       Value<DateTime?> completedAt,
       Value<DateTime> createdAt,
@@ -35792,6 +35839,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<String?> recurrenceType,
       Value<int?> recurrenceInterval,
       Value<String?> notes,
+      Value<String> priority,
       Value<DateTime?> dueDate,
       Value<DateTime?> completedAt,
       Value<DateTime> createdAt,
@@ -35844,6 +35892,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get priority => $composableBuilder(
+    column: $table.priority,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -35917,6 +35970,11 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get dueDate => $composableBuilder(
     column: $table.dueDate,
     builder: (column) => ColumnOrderings(column),
@@ -35977,6 +36035,9 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
+  GeneratedColumn<String> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
   GeneratedColumn<DateTime> get dueDate =>
       $composableBuilder(column: $table.dueDate, builder: (column) => column);
 
@@ -36028,6 +36089,7 @@ class $$TasksTableTableManager
                 Value<String?> recurrenceType = const Value.absent(),
                 Value<int?> recurrenceInterval = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> priority = const Value.absent(),
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -36042,6 +36104,7 @@ class $$TasksTableTableManager
                 recurrenceType: recurrenceType,
                 recurrenceInterval: recurrenceInterval,
                 notes: notes,
+                priority: priority,
                 dueDate: dueDate,
                 completedAt: completedAt,
                 createdAt: createdAt,
@@ -36058,6 +36121,7 @@ class $$TasksTableTableManager
                 Value<String?> recurrenceType = const Value.absent(),
                 Value<int?> recurrenceInterval = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> priority = const Value.absent(),
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -36072,6 +36136,7 @@ class $$TasksTableTableManager
                 recurrenceType: recurrenceType,
                 recurrenceInterval: recurrenceInterval,
                 notes: notes,
+                priority: priority,
                 dueDate: dueDate,
                 completedAt: completedAt,
                 createdAt: createdAt,
