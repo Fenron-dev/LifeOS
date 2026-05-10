@@ -769,6 +769,19 @@ class _StockEntryCard extends ConsumerWidget {
                       ],
                     ),
                   ],
+                  if (entry.openedAt != null) ...[
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Icon(Icons.lock_open_outlined,
+                          size: 12, color: Colors.blue.shade600),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Geöffnet ${DateFormat('dd.MM.yy').format(entry.openedAt!)}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.blue.shade600),
+                      ),
+                    ]),
+                  ],
                 ],
               ),
             ),
@@ -789,6 +802,11 @@ class _StockEntryCard extends ConsumerWidget {
                   icon: const Icon(Icons.sync_alt, size: 20),
                   tooltip: 'Zustand ändern',
                   onPressed: () => _showStateChangeSheet(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.move_down_outlined, size: 20),
+                  tooltip: 'Umbuchen',
+                  onPressed: () => _showRelocateSheet(context, ref, locations),
                 ),
               ],
             ),
@@ -831,6 +849,15 @@ class _StockEntryCard extends ConsumerWidget {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _StateChangeSheet(entry: entry),
+    );
+  }
+
+  void _showRelocateSheet(
+      BuildContext context, WidgetRef ref, List<Location> locations) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _RelocateSheet(entry: entry, locations: locations),
     );
   }
 }
@@ -1631,6 +1658,7 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
         remainingQuantity: remaining,
         consumptionReason: _consumptionReason,
       );
+      await _maybeAutoOpen();
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1648,9 +1676,24 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
         remainingQuantity: 0,
         consumptionReason: _consumptionReason,
       );
+      await _maybeAutoOpen();
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _maybeAutoOpen() async {
+    if (widget.item.daysAfterOpening == null) return;
+    if (widget.entry.openedAt != null) return;
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.openEntry(widget.entry.id, widget.item.id);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${widget.item.name} als geöffnet markiert'),
+        behavior: SnackBarBehavior.floating,
+      ));
     }
   }
 
@@ -2618,6 +2661,97 @@ class _RelationPickerSheetState extends ConsumerState<_RelationPickerSheet> {
 }
 
 // ── State change sheet ────────────────────────────────────────────────────────
+
+// ── Relocate entry sheet ─────────────────────────────────────────────────────
+
+class _RelocateSheet extends ConsumerStatefulWidget {
+  final InventoryEntry entry;
+  final List<Location> locations;
+  const _RelocateSheet({required this.entry, required this.locations});
+
+  @override
+  ConsumerState<_RelocateSheet> createState() => _RelocateSheetState();
+}
+
+class _RelocateSheetState extends ConsumerState<_RelocateSheet> {
+  late String? _locationId;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _locationId = widget.entry.locationId;
+  }
+
+  Future<void> _save() async {
+    if (_locationId == widget.entry.locationId) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ref.read(databaseProvider)?.updateEntryLocation(
+            widget.entry.id,
+            _locationId,
+          );
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Umbuchen', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            '${_formatQty(widget.entry.quantity)} ${widget.entry.unit}',
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String?>(
+            value: _locationId,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Neuer Lagerort',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.place_outlined),
+            ),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('— kein Ort —')),
+              ...widget.locations.map(
+                  (l) => DropdownMenuItem(value: l.id, child: Text(l.name))),
+            ],
+            onChanged: (v) => setState(() => _locationId = v),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Umbuchen'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatQty(double q) =>
+      q == q.truncateToDouble() ? q.toInt().toString() : q.toString();
+}
+
+// ── State change sheet ───────────────────────────────────────────────────────
 
 class _StateChangeSheet extends ConsumerStatefulWidget {
   final InventoryEntry entry;

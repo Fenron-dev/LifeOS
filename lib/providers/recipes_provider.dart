@@ -276,6 +276,9 @@ class MealsNotifier extends AsyncNotifier<void> {
     double? proteinG,
     double? carbsG,
     double? fatG,
+    int? frozenShelfMonths,
+    int? thawedShelfDays,
+    String? defaultFreezeLocationId,
   }) async {
     final id = _uuid.v4();
     await _db.insertMeal(StandardMealsCompanion.insert(
@@ -287,6 +290,9 @@ class MealsNotifier extends AsyncNotifier<void> {
       proteinG: Value(proteinG),
       carbsG: Value(carbsG),
       fatG: Value(fatG),
+      frozenShelfMonths: Value(frozenShelfMonths),
+      thawedShelfDays: Value(thawedShelfDays),
+      defaultFreezeLocationId: Value(defaultFreezeLocationId),
     ));
     await _saveMealIngredients(id, ingredients);
     return id;
@@ -301,6 +307,10 @@ class MealsNotifier extends AsyncNotifier<void> {
     double? carbsG,
     double? fatG,
     bool clearNutrition = false,
+    int? frozenShelfMonths,
+    int? thawedShelfDays,
+    String? defaultFreezeLocationId,
+    bool clearFreezeSettings = false,
   }) async {
     await _db.updateMeal(StandardMealsCompanion(
       id: Value(meal.id),
@@ -311,6 +321,9 @@ class MealsNotifier extends AsyncNotifier<void> {
       proteinG: clearNutrition ? const Value(null) : Value(proteinG),
       carbsG: clearNutrition ? const Value(null) : Value(carbsG),
       fatG: clearNutrition ? const Value(null) : Value(fatG),
+      frozenShelfMonths: clearFreezeSettings ? const Value(null) : Value(frozenShelfMonths),
+      thawedShelfDays: clearFreezeSettings ? const Value(null) : Value(thawedShelfDays),
+      defaultFreezeLocationId: clearFreezeSettings ? const Value(null) : Value(defaultFreezeLocationId),
     ));
     if (ingredients != null) await _saveMealIngredients(meal.id, ingredients);
   }
@@ -355,6 +368,29 @@ class MealsNotifier extends AsyncNotifier<void> {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Prepared dishes (PreparedDishes inventory)
+// ---------------------------------------------------------------------------
+
+final preparedDishesProvider = StreamProvider<List<PreparedDishe>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchPreparedDishes();
+});
+
+final expiringPreparedDishesProvider = StreamProvider<List<PreparedDishe>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchExpiringPreparedDishes(DateTime.now().add(const Duration(days: 7)));
+});
+
+final mealRelationsProvider =
+    StreamProvider.family<List<MealRelation>, String>((ref, mealId) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchMealRelations(mealId);
+});
 
 // ---------------------------------------------------------------------------
 // Helper input model (not a DB type)

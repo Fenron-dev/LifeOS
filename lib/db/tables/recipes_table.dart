@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'items_table.dart';
+import 'locations_table.dart';
 
 class Recipes extends Table {
   TextColumn get id => text()();
@@ -83,6 +84,12 @@ class StandardMeals extends Table {
   IntColumn get starRating => integer().nullable()(); // 1–5
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
   BoolColumn get isTrashed => boolean().withDefault(const Constant(false))();
+  // Freeze shelf life settings
+  IntColumn get frozenShelfMonths => integer().nullable()();
+  IntColumn get thawedShelfDays => integer().nullable()();
+  @ReferenceName('mealFreezeLocationRefs')
+  TextColumn get defaultFreezeLocationId =>
+      text().nullable().references(Locations, #id, onDelete: KeyAction.setNull)();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
@@ -131,6 +138,49 @@ class MealTypeAssignments extends Table {
   TextColumn get recipeId => text()
       .nullable()
       .references(Recipes, #id, onDelete: KeyAction.cascade)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Frozen or fresh prepared portions of a dish (from a meal or recipe).
+class PreparedDishes extends Table {
+  TextColumn get id => text()();
+  @ReferenceName('preparedDishMealRefs')
+  TextColumn get mealId =>
+      text().nullable().references(StandardMeals, #id, onDelete: KeyAction.setNull)();
+  @ReferenceName('preparedDishRecipeRefs')
+  TextColumn get recipeId =>
+      text().nullable().references(Recipes, #id, onDelete: KeyAction.setNull)();
+  TextColumn get name => text()(); // denormalized
+  IntColumn get portions => integer().withDefault(const Constant(1))();
+  @ReferenceName('preparedDishLocationRefs')
+  TextColumn get locationId =>
+      text().nullable().references(Locations, #id, onDelete: KeyAction.setNull)();
+  /// 'frozen' | 'thawed' | 'consumed'
+  TextColumn get state => text().withDefault(const Constant('frozen'))();
+  DateTimeColumn get frozenAt => dateTime().nullable()();
+  DateTimeColumn get thawedAt => dateTime().nullable()();
+  /// Absolute expiry datetime (computed when saving: frozenAt + frozenShelfMonths etc.)
+  DateTimeColumn get expiresAt => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// "Passt gut zu"-links between meals and/or recipes.
+class MealRelations extends Table {
+  TextColumn get id => text()();
+  TextColumn get fromId => text()();
+  TextColumn get fromType => text()(); // 'meal' | 'recipe'
+  TextColumn get toId => text()();
+  TextColumn get toType => text()(); // 'meal' | 'recipe'
+  /// 'pairs_with' | 'variant_of'
+  TextColumn get relationType =>
+      text().withDefault(const Constant('pairs_with'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {id};

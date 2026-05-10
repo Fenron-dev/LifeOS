@@ -1,12 +1,16 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../db/database.dart';
 import '../../health/providers/nutrition_provider.dart';
 import '../../health/widgets/inventory_deduct_sheet.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/locations_provider.dart';
 import '../../providers/recipe_suggestions_provider.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/units_provider.dart';
@@ -88,6 +92,7 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                   .where((m) => suggestedMealIds.contains(m.id))
                   .toList()
               : meals;
+          final allMeals = meals;
 
           if (filtered.isEmpty && _filterExpiring) {
             return Center(
@@ -109,15 +114,32 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
             );
           }
 
-          return filtered.isEmpty
+          return filtered.isEmpty && allMeals.isEmpty
               ? _EmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) => _MealCard(
-                    meal: filtered[i],
-                    expiringItemIds: expiringIds,
-                  ),
+              : CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _PreparedDishSection(allMeals: allMeals),
+                    ),
+                    if (filtered.isEmpty)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: Text('Keine passenden Gerichte')),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                        sliver: SliverList.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (context, i) => _MealCard(
+                            meal: filtered[i],
+                            expiringItemIds: expiringIds,
+                          ),
+                        ),
+                      ),
+                  ],
                 );
         },
       ),
@@ -198,6 +220,16 @@ class _MealCard extends ConsumerWidget {
               ),
             ),
             IconButton(
+              icon: const Icon(Icons.ac_unit_outlined, size: 20),
+              tooltip: 'Einfrieren',
+              onPressed: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => _FreezeDishSheet(meal: meal),
+              ),
+            ),
+            IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               onPressed: () => showModalBottomSheet(
                 context: context,
@@ -217,34 +249,36 @@ class _MealCard extends ConsumerWidget {
                 padding: EdgeInsets.all(8),
                 child: CircularProgressIndicator()),
             error: (e, _) => Text('Fehler: $e'),
-            data: (ings) => ings.isEmpty
-                ? const ListTile(title: Text('Keine Zutaten'), dense: true)
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ...ings.map((ing) {
-                        final qty = ing.quantity ==
-                                ing.quantity.truncateToDouble()
-                            ? ing.quantity.toInt().toString()
-                            : ing.quantity.toStringAsFixed(1);
-                        return ListTile(
-                          dense: true,
-                          leading: Icon(
-                            ing.itemId != null
-                                ? Icons.inventory_2_outlined
-                                : ing.itemGroupId != null
-                                    ? Icons.category_outlined
-                                    : Icons.fiber_manual_record,
-                            size: ing.itemId != null || ing.itemGroupId != null
-                                ? 16
-                                : 8,
-                          ),
-                          title: Text('$qty ${ing.unit}  ${ing.name}'),
-                        );
-                      }),
-                      _MealNutritionRow(mealId: meal.id),
-                    ],
-                  ),
+            data: (ings) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (ings.isEmpty)
+                    const ListTile(title: Text('Keine Zutaten'), dense: true)
+                  else
+                    ...ings.map((ing) {
+                      final qty = ing.quantity ==
+                              ing.quantity.truncateToDouble()
+                          ? ing.quantity.toInt().toString()
+                          : ing.quantity.toStringAsFixed(1);
+                      return ListTile(
+                        dense: true,
+                        leading: Icon(
+                          ing.itemId != null
+                              ? Icons.inventory_2_outlined
+                              : ing.itemGroupId != null
+                                  ? Icons.category_outlined
+                                  : Icons.fiber_manual_record,
+                          size: ing.itemId != null || ing.itemGroupId != null
+                              ? 16
+                              : 8,
+                        ),
+                        title: Text('$qty ${ing.unit}  ${ing.name}'),
+                      );
+                    }),
+                  _MealNutritionRow(mealId: meal.id),
+                  _MealRelationsSection(meal: meal),
+                ],
+              ),
           ),
         ],
       ),
@@ -401,7 +435,11 @@ class _MealFormState extends ConsumerState<_MealForm> {
   final _proteinCtrl = TextEditingController();
   final _carbsCtrl = TextEditingController();
   final _fatCtrl = TextEditingController();
+  final _frozenShelfCtrl = TextEditingController();
+  final _thawedShelfCtrl = TextEditingController();
   String _servingUnit = 'Portion';
+  String? _freezeLocationId;
+  bool _freezeEnabled = false;
   final List<_IngRow> _ingredients = [];
   bool _loading = true;
 
@@ -421,6 +459,12 @@ class _MealFormState extends ConsumerState<_MealForm> {
       if (m.proteinG != null) _proteinCtrl.text = m.proteinG!.toStringAsFixed(1);
       if (m.carbsG != null) _carbsCtrl.text = m.carbsG!.toStringAsFixed(1);
       if (m.fatG != null) _fatCtrl.text = m.fatG!.toStringAsFixed(1);
+      if (m.frozenShelfMonths != null || m.thawedShelfDays != null || m.defaultFreezeLocationId != null) {
+        _freezeEnabled = true;
+        if (m.frozenShelfMonths != null) _frozenShelfCtrl.text = m.frozenShelfMonths!.toString();
+        if (m.thawedShelfDays != null) _thawedShelfCtrl.text = m.thawedShelfDays!.toString();
+        _freezeLocationId = m.defaultFreezeLocationId;
+      }
       final db = ref.read(databaseProvider);
       if (db != null) {
         final ings = await db.ingredientsForMeal(widget.meal!.id);
@@ -449,6 +493,8 @@ class _MealFormState extends ConsumerState<_MealForm> {
     _proteinCtrl.dispose();
     _carbsCtrl.dispose();
     _fatCtrl.dispose();
+    _frozenShelfCtrl.dispose();
+    _thawedShelfCtrl.dispose();
     for (final r in _ingredients) {
       r.dispose();
     }
@@ -488,8 +534,10 @@ class _MealFormState extends ConsumerState<_MealForm> {
     final units = List<String>.from(ref.watch(unitNamesProvider));
     final itemsAsync = ref.watch(allItemsProvider);
     final groupsAsync = ref.watch(allGroupsProvider);
+    final locationsAsync = ref.watch(allLocationsProvider);
     final allItems = itemsAsync.valueOrNull ?? [];
     final allGroups = groupsAsync.valueOrNull ?? [];
+    final allLocations = locationsAsync.valueOrNull ?? [];
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
@@ -622,6 +670,74 @@ class _MealFormState extends ConsumerState<_MealForm> {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Freeze settings ───────────────────────────────────────
+                  SwitchListTile(
+                    value: _freezeEnabled,
+                    onChanged: (v) => setState(() {
+                      _freezeEnabled = v;
+                      if (!v) {
+                        _frozenShelfCtrl.clear();
+                        _thawedShelfCtrl.clear();
+                        _freezeLocationId = null;
+                      }
+                    }),
+                    title: const Text('Einfrieren aktivieren'),
+                    subtitle: const Text('Portionen dieses Gerichts können eingefroren werden.'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  if (_freezeEnabled) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _frozenShelfCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Haltbarkeit gefroren (Monate)',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _thawedShelfCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Haltbarkeit aufgetaut (Tage)',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String?>(
+                      value: _freezeLocationId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Standard-Einfrierlagerort (optional)',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('— kein Standard —')),
+                        ...allLocations.map((l) => DropdownMenuItem(
+                              value: l.id,
+                              child: Text(l.name),
+                            )),
+                      ],
+                      onChanged: (v) => setState(() => _freezeLocationId = v),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _save,
                     child:
@@ -658,6 +774,9 @@ class _MealFormState extends ConsumerState<_MealForm> {
     final protein = _parseNutr(_proteinCtrl);
     final carbs = _parseNutr(_carbsCtrl);
     final fat = _parseNutr(_fatCtrl);
+    final frozenMonths = _freezeEnabled ? int.tryParse(_frozenShelfCtrl.text) : null;
+    final thawedDays = _freezeEnabled ? int.tryParse(_thawedShelfCtrl.text) : null;
+    final freezeLocId = _freezeEnabled ? _freezeLocationId : null;
 
     final notifier = ref.read(mealsNotifierProvider.notifier);
     if (widget.meal == null) {
@@ -670,6 +789,9 @@ class _MealFormState extends ConsumerState<_MealForm> {
         proteinG: protein,
         carbsG: carbs,
         fatG: fat,
+        frozenShelfMonths: frozenMonths,
+        thawedShelfDays: thawedDays,
+        defaultFreezeLocationId: freezeLocId,
       );
     } else {
       await notifier.updateMeal(
@@ -681,6 +803,10 @@ class _MealFormState extends ConsumerState<_MealForm> {
         carbsG: carbs,
         fatG: fat,
         clearNutrition: kcal == null && protein == null && carbs == null && fat == null,
+        frozenShelfMonths: frozenMonths,
+        thawedShelfDays: thawedDays,
+        defaultFreezeLocationId: freezeLocId,
+        clearFreezeSettings: !_freezeEnabled,
       );
     }
     if (mounted) Navigator.of(context).pop();
@@ -1191,6 +1317,417 @@ class _NutrField extends StatelessWidget {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [
           FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+        ],
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Freeze dish sheet
+// ---------------------------------------------------------------------------
+
+class _FreezeDishSheet extends ConsumerStatefulWidget {
+  final StandardMeal meal;
+  const _FreezeDishSheet({required this.meal});
+
+  @override
+  ConsumerState<_FreezeDishSheet> createState() => _FreezeDishSheetState();
+}
+
+class _FreezeDishSheetState extends ConsumerState<_FreezeDishSheet> {
+  final _portionsCtrl = TextEditingController(text: '1');
+  final _notesCtrl = TextEditingController();
+  String? _locationId;
+  DateTime _frozenAt = DateTime.now();
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _locationId = widget.meal.defaultFreezeLocationId;
+  }
+
+  @override
+  void dispose() {
+    _portionsCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  DateTime? get _expiresAt {
+    final months = widget.meal.frozenShelfMonths;
+    if (months == null) return null;
+    return DateTime(_frozenAt.year, _frozenAt.month + months, _frozenAt.day);
+  }
+
+  Future<void> _save() async {
+    final portions = int.tryParse(_portionsCtrl.text) ?? 1;
+    if (portions <= 0) return;
+    setState(() => _saving = true);
+    try {
+      final db = ref.read(databaseProvider);
+      if (db == null) return;
+      await db.insertPreparedDishe(PreparedDishesCompanion.insert(
+        id: const Uuid().v4(),
+        mealId: Value(widget.meal.id),
+        name: widget.meal.name,
+        portions: Value(portions),
+        locationId: Value(_locationId),
+        frozenAt: Value(_frozenAt),
+        expiresAt: Value(_expiresAt),
+        notes: Value(_notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim()),
+      ));
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locationsAsync = ref.watch(allLocationsProvider);
+    final allLocations = locationsAsync.valueOrNull ?? [];
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.ac_unit),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Einfrieren: ${widget.meal.name}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _portionsCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Portionen',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Eingefroren am'),
+              subtitle: Text(DateFormat('dd.MM.yyyy').format(_frozenAt)),
+              trailing: const Icon(Icons.calendar_today_outlined, size: 18),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _frozenAt,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 1)),
+                );
+                if (picked != null) setState(() => _frozenAt = picked);
+              },
+            ),
+            if (_expiresAt != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Haltbar bis ca. ${DateFormat('dd.MM.yyyy').format(_expiresAt!)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            DropdownButtonFormField<String?>(
+              value: _locationId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Lagerort (optional)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('— kein Lagerort —')),
+                ...allLocations.map((l) => DropdownMenuItem(
+                      value: l.id,
+                      child: Text(l.name),
+                    )),
+              ],
+              onChanged: (v) => setState(() => _locationId = v),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notesCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Notizen (optional)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.save_outlined),
+              label: const Text('Einfrieren'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prepared dishes section (shown above meal list)
+// ---------------------------------------------------------------------------
+
+class _PreparedDishSection extends ConsumerWidget {
+  final List<StandardMeal> allMeals;
+  const _PreparedDishSection({required this.allMeals});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dishesAsync = ref.watch(preparedDishesProvider);
+    final locationsAsync = ref.watch(allLocationsProvider);
+    final locations = {for (final l in locationsAsync.valueOrNull ?? <Location>[]) l.id: l};
+    final mealNames = {for (final m in allMeals) m.id: m.name};
+
+    return dishesAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, st) => const SizedBox.shrink(),
+      data: (dishes) {
+        if (dishes.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Eingefrorene Gerichte',
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 6),
+              ...dishes.map((d) => _PreparedDishCard(
+                    dish: d,
+                    mealName: d.mealId != null ? mealNames[d.mealId] : null,
+                    location: d.locationId != null ? locations[d.locationId] : null,
+                  )),
+              const Divider(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PreparedDishCard extends ConsumerWidget {
+  final PreparedDishe dish;
+  final String? mealName;
+  final Location? location;
+  const _PreparedDishCard({required this.dish, this.mealName, this.location});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isExpired = dish.expiresAt != null && dish.expiresAt!.isBefore(DateTime.now());
+    final expiringSoon = dish.expiresAt != null &&
+        !isExpired &&
+        dish.expiresAt!.isBefore(DateTime.now().add(const Duration(days: 7)));
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      color: isExpired
+          ? Theme.of(context).colorScheme.errorContainer
+          : expiringSoon
+              ? Theme.of(context).colorScheme.tertiaryContainer
+              : null,
+      child: ListTile(
+        dense: true,
+        leading: Icon(
+          dish.state == 'thawed' ? Icons.water_drop_outlined : Icons.ac_unit,
+          color: dish.state == 'thawed'
+              ? Theme.of(context).colorScheme.primary
+              : Colors.lightBlue,
+          size: 22,
+        ),
+        title: Text(dish.name),
+        subtitle: Text([
+          '${dish.portions} Portion${dish.portions == 1 ? '' : 'en'}',
+          if (location != null) location!.name,
+          if (dish.expiresAt != null)
+            isExpired
+                ? 'ABGELAUFEN'
+                : 'bis ${DateFormat('dd.MM.yy').format(dish.expiresAt!)}',
+        ].join(' · ')),
+        trailing: PopupMenuButton<String>(
+          onSelected: (v) => _onAction(context, ref, v),
+          itemBuilder: (ctx) => [
+            if (dish.state == 'frozen')
+              const PopupMenuItem(value: 'thaw', child: Row(children: [
+                Icon(Icons.water_drop_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('Auftauen'),
+              ])),
+            const PopupMenuItem(value: 'consume', child: Row(children: [
+              Icon(Icons.restaurant_outlined, size: 18),
+              SizedBox(width: 8),
+              Text('Verbraucht'),
+            ])),
+            const PopupMenuItem(value: 'delete', child: Row(children: [
+              Icon(Icons.delete_outline, size: 18),
+              SizedBox(width: 8),
+              Text('Löschen'),
+            ])),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onAction(BuildContext context, WidgetRef ref, String action) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    if (action == 'thaw') {
+      await db.updatePreparedDishe(PreparedDishesCompanion(
+        id: Value(dish.id),
+        state: const Value('thawed'),
+        thawedAt: Value(DateTime.now()),
+      ));
+    } else if (action == 'consume') {
+      await db.updatePreparedDishe(PreparedDishesCompanion(
+        id: Value(dish.id),
+        state: const Value('consumed'),
+      ));
+      await db.deletePreparedDishe(dish.id);
+    } else if (action == 'delete') {
+      await db.deletePreparedDishe(dish.id);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Meal relations ("Passt gut zu")
+// ---------------------------------------------------------------------------
+
+class _MealRelationsSection extends ConsumerWidget {
+  final StandardMeal meal;
+  const _MealRelationsSection({required this.meal});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final relationsAsync = ref.watch(mealRelationsProvider(meal.id));
+    final allMealsAsync = ref.watch(allMealsProvider);
+    final allMeals = allMealsAsync.valueOrNull ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Passt gut zu',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      )),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _addRelation(context, ref, allMeals),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Verknüpfen'),
+              ),
+            ],
+          ),
+          relationsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, st) => const SizedBox.shrink(),
+            data: (relations) {
+              if (relations.isEmpty) {
+                return Text(
+                  'Noch keine Verknüpfungen.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.outline),
+                );
+              }
+              return Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: relations.map((r) {
+                  final name = allMeals
+                      .where((m) => m.id == r.toId)
+                      .firstOrNull
+                      ?.name ?? r.toId;
+                  return Chip(
+                    label: Text(name, style: const TextStyle(fontSize: 12)),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () => ref.read(databaseProvider)
+                        ?.removeMealRelation(r.id),
+                    padding: EdgeInsets.zero,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addRelation(
+      BuildContext context, WidgetRef ref, List<StandardMeal> allMeals) async {
+    final others = allMeals.where((m) => m.id != meal.id).toList();
+    if (others.isEmpty) return;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _PickMealDialog(meals: others, title: 'Gericht verknüpfen'),
+    );
+    if (picked == null) return;
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.addMealRelation(MealRelationsCompanion.insert(
+      id: const Uuid().v4(),
+      fromId: meal.id,
+      fromType: 'meal',
+      toId: picked,
+      toType: 'meal',
+    ));
+  }
+}
+
+class _PickMealDialog extends StatelessWidget {
+  final List<StandardMeal> meals;
+  final String title;
+  const _PickMealDialog({required this.meals, required this.title});
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: meals.length,
+            itemBuilder: (ctx, i) => ListTile(
+              title: Text(meals[i].name),
+              onTap: () => Navigator.of(ctx).pop(meals[i].id),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Abbrechen'),
+          ),
         ],
       );
 }

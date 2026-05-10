@@ -56,6 +56,8 @@ part 'database.g.dart';
   StandardMealIngredients,
   MealTypes,
   MealTypeAssignments,
+  PreparedDishes,
+  MealRelations,
   // Tasks & wish list
   Tasks,
   WishListEntries,
@@ -108,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 31;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -317,6 +319,15 @@ class AppDatabase extends _$AppDatabase {
           if (from < 29) {
             // Sprint C — task priority column.
             await m.addColumn(tasks, tasks.priority);
+          }
+          if (from < 31) {
+            // Sprint F — PreparedDishes, MealRelations, StandardMeals freeze fields.
+            await m.addColumn(standardMeals, standardMeals.frozenShelfMonths);
+            await m.addColumn(standardMeals, standardMeals.thawedShelfDays);
+            await m.addColumn(
+                standardMeals, standardMeals.defaultFreezeLocationId);
+            await m.createTable(preparedDishes);
+            await m.createTable(mealRelations);
           }
           if (from < 30) {
             // Sprint D — openedLocationId + taraWeightG on items.
@@ -1131,6 +1142,70 @@ class AppDatabase extends _$AppDatabase {
       (delete(mealTypeAssignments)
             ..where((a) => a.mealTypeId.equals(mealTypeId)))
           .go();
+
+  // ── Prepared dishes ──────────────────────────────────────────────────────
+
+  Stream<List<PreparedDishe>> watchPreparedDishes() =>
+      (select(preparedDishes)
+            ..where((d) => d.state.isNotValue('consumed'))
+            ..orderBy([(d) => OrderingTerm.asc(d.expiresAt)]))
+          .watch();
+
+  Stream<List<PreparedDishe>> watchExpiringPreparedDishes(DateTime threshold) =>
+      (select(preparedDishes)
+            ..where((d) =>
+                d.state.isNotValue('consumed') &
+                d.expiresAt.isSmallerOrEqualValue(threshold))
+            ..orderBy([(d) => OrderingTerm.asc(d.expiresAt)]))
+          .watch();
+
+  Future<void> insertPreparedDishe(PreparedDishesCompanion entry) =>
+      into(preparedDishes).insert(entry);
+
+  Future<void> updatePreparedDishe(PreparedDishesCompanion entry) =>
+      (update(preparedDishes)..where((d) => d.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deletePreparedDishe(String id) =>
+      (delete(preparedDishes)..where((d) => d.id.equals(id))).go();
+
+  // ── Meal relations ────────────────────────────────────────────────────────
+
+  Stream<List<MealRelation>> watchMealRelations(String fromId) =>
+      (select(mealRelations)..where((r) => r.fromId.equals(fromId))).watch();
+
+  Future<void> addMealRelation(MealRelationsCompanion entry) =>
+      into(mealRelations).insert(entry);
+
+  Future<void> removeMealRelation(String id) =>
+      (delete(mealRelations)..where((r) => r.id.equals(id))).go();
+
+  Future<void> removeMealRelationByIds(String fromId, String toId) =>
+      (delete(mealRelations)
+            ..where((r) =>
+                (r.fromId.equals(fromId) & r.toId.equals(toId)) |
+                (r.fromId.equals(toId) & r.toId.equals(fromId))))
+          .go();
+
+  // ── Inventory entry relocation ────────────────────────────────────────────
+
+  Future<void> updateEntryLocation(String entryId, String? newLocationId) async {
+    final entry = await (select(inventoryEntries)
+          ..where((e) => e.id.equals(entryId)))
+        .getSingleOrNull();
+    if (entry == null) return;
+    await (update(inventoryEntries)..where((e) => e.id.equals(entryId)))
+        .write(InventoryEntriesCompanion(
+            locationId: Value(newLocationId)));
+    await into(itemEvents).insert(ItemEventsCompanion.insert(
+      id: const Uuid().v4(),
+      itemId: entry.itemId,
+      type: 'relocation',
+      deviceId: 'system',
+      fromLocationId: Value(entry.locationId),
+      toLocationId: Value(newLocationId),
+    ));
+  }
 
   // ── Item States (all) ─────────────────────────────────────────────────────
 
