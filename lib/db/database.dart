@@ -110,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 31;
+  int get schemaVersion => 32;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -319,6 +319,11 @@ class AppDatabase extends _$AppDatabase {
           if (from < 29) {
             // Sprint C — task priority column.
             await m.addColumn(tasks, tasks.priority);
+          }
+          if (from < 32) {
+            // Sprint G — Tasks: parentId (subtasks) + linkedItemId (item link).
+            await m.addColumn(tasks, tasks.parentId);
+            await m.addColumn(tasks, tasks.linkedItemId);
           }
           if (from < 31) {
             // Sprint F — PreparedDishes, MealRelations, StandardMeals freeze fields.
@@ -808,6 +813,24 @@ class AppDatabase extends _$AppDatabase {
                   mode: OrderingMode.asc,
                   nulls: NullsOrder.last),
             ]))
+          .watch();
+
+  Stream<List<Task>> watchRootTasks() =>
+      (select(tasks)
+            ..where((t) => t.parentId.isNull())
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.status, mode: OrderingMode.asc),
+              (t) => OrderingTerm(
+                  expression: t.dueDate,
+                  mode: OrderingMode.asc,
+                  nulls: NullsOrder.last),
+            ]))
+          .watch();
+
+  Stream<List<Task>> watchSubtasks(String parentId) =>
+      (select(tasks)
+            ..where((t) => t.parentId.equals(parentId))
+            ..orderBy([(t) => OrderingTerm(expression: t.status)]))
           .watch();
 
   Future<void> insertTask(TasksCompanion entry) => into(tasks).insert(entry);

@@ -1,9 +1,11 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
+import '../../providers/items_provider.dart';
 import '../../providers/tasks_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 
@@ -244,69 +246,112 @@ class _TaskTile extends ConsumerWidget {
     final cs = theme.colorScheme;
     final notifier = ref.read(tasksNotifierProvider.notifier);
     final priorityColor = _priorityColor(task.priority, cs);
+    final subtasksAsync = ref.watch(subtasksProvider(task.id));
+    final subtasks = subtasksAsync.valueOrNull ?? [];
+    final allItems = ref.watch(allItemsProvider).valueOrNull ?? [];
+    final linkedItem = task.linkedItemId != null
+        ? allItems.where((i) => i.id == task.linkedItemId).firstOrNull
+        : null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Priority indicator bar
-            Container(
-              width: 4,
-              color: isDone ? Colors.transparent : priorityColor,
+      child: Column(
+        children: [
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 4,
+                  color: isDone ? Colors.transparent : priorityColor,
+                ),
+                Expanded(
+                  child: ListTile(
+                    leading: Checkbox(
+                      value: isDone,
+                      onChanged: (_) => notifier.toggleDone(task),
+                    ),
+                    title: Text(
+                      task.title,
+                      style: isDone
+                          ? TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              color: cs.outline)
+                          : null,
+                    ),
+                    subtitle: _buildSubtitle(
+                        context, linkedItem, subtasks.length),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (v) async {
+                        if (v == 'edit') {
+                          _showDialog(context, ref);
+                        } else if (v == 'add_subtask') {
+                          _showDialog(context, ref, parentId: task.id);
+                        } else if (v == 'delete') {
+                          await notifier.delete(task.id);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(children: [
+                              Icon(Icons.edit_outlined),
+                              SizedBox(width: 8),
+                              Text('Bearbeiten')
+                            ])),
+                        const PopupMenuItem(
+                            value: 'add_subtask',
+                            child: Row(children: [
+                              Icon(Icons.subdirectory_arrow_right_outlined),
+                              SizedBox(width: 8),
+                              Text('Unteraufgabe')
+                            ])),
+                        const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(children: [
+                              Icon(Icons.delete_outline, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Löschen',
+                                  style: TextStyle(color: Colors.red))
+                            ])),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: ListTile(
-                leading: Checkbox(
-                  value: isDone,
-                  onChanged: (_) => notifier.toggleDone(task),
-                ),
-                title: Text(
-                  task.title,
-                  style: isDone
-                      ? TextStyle(
-                          decoration: TextDecoration.lineThrough,
-                          color: cs.outline)
-                      : null,
-                ),
-                subtitle: _buildSubtitle(context),
-                trailing: PopupMenuButton<String>(
-                  onSelected: (v) async {
-                    if (v == 'edit') {
-                      _showEdit(context, ref);
-                    } else if (v == 'delete') {
-                      await notifier.delete(task.id);
-                    }
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                        value: 'edit',
-                        child: Row(children: [
-                          Icon(Icons.edit_outlined),
-                          SizedBox(width: 8),
-                          Text('Bearbeiten')
-                        ])),
-                    PopupMenuItem(
-                        value: 'delete',
-                        child: Row(children: [
-                          Icon(Icons.delete_outline, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Löschen',
-                              style: TextStyle(color: Colors.red))
-                        ])),
+          ),
+          // Subtasks
+          if (subtasks.isNotEmpty) ...[
+            const Divider(height: 1, indent: 60, endIndent: 16),
+            ...subtasks.map((sub) => _SubtaskTile(task: sub)),
+          ],
+          // Add subtask button (always visible when expanded or accessible via popup)
+          if (subtasks.isNotEmpty)
+            InkWell(
+              onTap: () => _showDialog(context, ref, parentId: task.id),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(60, 4, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.add, size: 14,
+                        color: cs.outline),
+                    const SizedBox(width: 4),
+                    Text('Unteraufgabe',
+                        style: theme.textTheme.labelSmall
+                            ?.copyWith(color: cs.outline)),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget? _buildSubtitle(BuildContext context) {
+  Widget? _buildSubtitle(
+      BuildContext context, Item? linkedItem, int subtaskCount) {
     final cs = Theme.of(context).colorScheme;
     final isDone = task.status == 'done';
     final now = DateTime.now();
@@ -343,6 +388,25 @@ class _TaskTile extends ConsumerWidget {
       ));
     }
 
+    if (subtaskCount > 0) {
+      chips.add(_SubChip(
+        icon: Icons.checklist_outlined,
+        label: '$subtaskCount',
+        color: cs.primary,
+      ));
+    }
+
+    if (linkedItem != null) {
+      chips.add(GestureDetector(
+        onTap: () => context.push('/haushalt/item/${linkedItem.id}'),
+        child: _SubChip(
+          icon: Icons.inventory_2_outlined,
+          label: linkedItem.name,
+          color: cs.secondary,
+        ),
+      ));
+    }
+
     if (task.description != null) {
       chips.add(Text(
         task.description!,
@@ -363,12 +427,59 @@ class _TaskTile extends ConsumerWidget {
     );
   }
 
-  void _showEdit(BuildContext context, WidgetRef ref) {
+  void _showDialog(BuildContext context, WidgetRef ref, {String? parentId}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _TaskDialog(task: task),
+      builder: (_) => _TaskDialog(
+          task: parentId == null ? task : null, parentId: parentId),
+    );
+  }
+}
+
+// ── Subtask tile ──────────────────────────────────────────────────────────────
+
+class _SubtaskTile extends ConsumerWidget {
+  final Task task;
+  const _SubtaskTile({required this.task});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDone = task.status == 'done';
+    final cs = Theme.of(context).colorScheme;
+    final notifier = ref.read(tasksNotifierProvider.notifier);
+
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.only(left: 60, right: 8),
+      leading: Checkbox(
+        value: isDone,
+        onChanged: (_) => notifier.toggleDone(task),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+      title: Text(
+        task.title,
+        style: isDone
+            ? TextStyle(
+                decoration: TextDecoration.lineThrough,
+                color: cs.outline,
+                fontSize: 13)
+            : const TextStyle(fontSize: 13),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete_outline, size: 16),
+        onPressed: () => notifier.delete(task.id),
+        color: cs.outline,
+        visualDensity: VisualDensity.compact,
+      ),
+      onTap: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => _TaskDialog(task: task),
+      ),
     );
   }
 }
@@ -401,7 +512,8 @@ class _SubChip extends StatelessWidget {
 
 class _TaskDialog extends ConsumerStatefulWidget {
   final Task? task;
-  const _TaskDialog({this.task});
+  final String? parentId;
+  const _TaskDialog({this.task, this.parentId});
 
   @override
   ConsumerState<_TaskDialog> createState() => _TaskDialogState();
@@ -417,6 +529,8 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
   bool _recurring = false;
   String _recurrenceType = 'weekly';
   bool _saving = false;
+  String? _linkedItemId;
+  String? _linkedItemName;
 
   @override
   void initState() {
@@ -431,6 +545,14 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
     _priority = t?.priority ?? 'medium';
     _recurring = t?.recurring ?? false;
     _recurrenceType = t?.recurrenceType ?? 'weekly';
+    _linkedItemId = t?.linkedItemId;
+    if (_linkedItemId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final allItems = ref.read(allItemsProvider).valueOrNull ?? [];
+        final item = allItems.where((i) => i.id == _linkedItemId).firstOrNull;
+        if (item != null && mounted) setState(() => _linkedItemName = item.name);
+      });
+    }
   }
 
   @override
@@ -462,6 +584,8 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
           notes: _notesCtrl.text.trim().isEmpty
               ? null
               : _notesCtrl.text.trim(),
+          parentId: widget.parentId,
+          linkedItemId: _linkedItemId,
         );
       } else {
         await notifier.save(widget.task!.copyWith(
@@ -475,6 +599,7 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
           recurrenceInterval: Value(_recurring ? interval : null),
           notes: Value(
               _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim()),
+          linkedItemId: Value(_linkedItemId),
           updatedAt: DateTime.now(),
         ));
       }
@@ -519,26 +644,25 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
             const SizedBox(height: 12),
 
             // Priority
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('Priorität:'),
-                const SizedBox(width: 12),
                 ...['low', 'medium', 'high'].map((p) {
                   final selected = _priority == p;
                   final color = _priorityColor(p, cs);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(_priorityLabel(p)),
-                      selected: selected,
-                      selectedColor: color.withValues(alpha: 0.2),
-                      side: BorderSide(
-                          color: selected ? color : cs.outlineVariant),
-                      labelStyle: TextStyle(
-                          color: selected ? color : cs.onSurface),
-                      onSelected: (_) =>
-                          setState(() => _priority = p),
-                    ),
+                  return ChoiceChip(
+                    label: Text(_priorityLabel(p)),
+                    selected: selected,
+                    selectedColor: color.withValues(alpha: 0.2),
+                    side: BorderSide(
+                        color: selected ? color : cs.outlineVariant),
+                    labelStyle: TextStyle(
+                        color: selected ? color : cs.onSurface),
+                    onSelected: (_) =>
+                        setState(() => _priority = p),
                   );
                 }),
               ],
@@ -647,6 +771,51 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
               decoration: const InputDecoration(labelText: 'Notiz'),
               maxLines: 2,
             ),
+            const SizedBox(height: 8),
+
+            // Item link
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.inventory_2_outlined,
+                color: _linkedItemId != null
+                    ? Theme.of(context).colorScheme.secondary
+                    : null,
+              ),
+              title: Text(
+                _linkedItemName ?? 'Artikel verlinken (optional)',
+                style: _linkedItemName != null
+                    ? TextStyle(
+                        color: Theme.of(context).colorScheme.secondary,
+                        fontWeight: FontWeight.w500)
+                    : null,
+              ),
+              trailing: _linkedItemId != null
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () => setState(
+                          () { _linkedItemId = null; _linkedItemName = null; }),
+                    )
+                  : const Icon(Icons.chevron_right, size: 18),
+              onTap: () => _pickItem(context),
+            ),
+
+            if (widget.parentId != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.subdirectory_arrow_right_outlined,
+                        size: 14),
+                    const SizedBox(width: 6),
+                    Text('Unteraufgabe',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                            )),
+                  ],
+                ),
+              ),
+
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _saving ? null : _save,
@@ -660,6 +829,92 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _pickItem(BuildContext context) async {
+    final allItems = ref.read(allItemsProvider).valueOrNull ?? [];
+    if (allItems.isEmpty) return;
+    final picked = await showDialog<Item>(
+      context: context,
+      builder: (ctx) => _ItemPickerDialog(items: allItems),
+    );
+    if (picked != null) {
+      setState(() {
+        _linkedItemId = picked.id;
+        _linkedItemName = picked.name;
+      });
+    }
+  }
+}
+
+// ── Item picker dialog ────────────────────────────────────────────────────────
+
+class _ItemPickerDialog extends StatefulWidget {
+  final List<Item> items;
+  const _ItemPickerDialog({required this.items});
+
+  @override
+  State<_ItemPickerDialog> createState() => _ItemPickerDialogState();
+}
+
+class _ItemPickerDialogState extends State<_ItemPickerDialog> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _query.isEmpty
+        ? widget.items
+        : widget.items
+            .where((i) => i.name.toLowerCase().contains(_query.toLowerCase()) ||
+                (i.brand?.toLowerCase().contains(_query.toLowerCase()) ?? false))
+            .toList();
+
+    return AlertDialog(
+      title: const Text('Artikel wählen'),
+      contentPadding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Suchen…',
+                  prefixIcon: Icon(Icons.search, size: 18),
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) => setState(() => _query = v),
+                autofocus: true,
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  final item = filtered[i];
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.inventory_2_outlined, size: 18),
+                    title: Text(item.name),
+                    subtitle: item.brand != null ? Text(item.brand!) : null,
+                    onTap: () => Navigator.of(ctx).pop(item),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Abbrechen'),
+        ),
+      ],
     );
   }
 }

@@ -11,27 +11,35 @@ int _priorityRank(String p) => switch (p) {
       _ => 2,
     };
 
+List<Task> _sortTasks(List<Task> list) {
+  list.sort((a, b) {
+    final sa = a.status == 'done' ? 1 : 0;
+    final sb = b.status == 'done' ? 1 : 0;
+    if (sa != sb) return sa.compareTo(sb);
+    final pa = _priorityRank(a.priority);
+    final pb = _priorityRank(b.priority);
+    if (pa != pb) return pa.compareTo(pb);
+    if (a.dueDate == null && b.dueDate == null) return 0;
+    if (a.dueDate == null) return 1;
+    if (b.dueDate == null) return -1;
+    return a.dueDate!.compareTo(b.dueDate!);
+  });
+  return list;
+}
+
+/// Root-level tasks only (no subtasks).
 final tasksProvider = StreamProvider<List<Task>>((ref) {
   final db = ref.watch(databaseProvider);
   if (db == null) return const Stream.empty();
-  return db.watchTasks().map((list) {
-    list.sort((a, b) {
-      // pending before done
-      final sa = a.status == 'done' ? 1 : 0;
-      final sb = b.status == 'done' ? 1 : 0;
-      if (sa != sb) return sa.compareTo(sb);
-      // high priority first
-      final pa = _priorityRank(a.priority);
-      final pb = _priorityRank(b.priority);
-      if (pa != pb) return pa.compareTo(pb);
-      // due date ascending, null last
-      if (a.dueDate == null && b.dueDate == null) return 0;
-      if (a.dueDate == null) return 1;
-      if (b.dueDate == null) return -1;
-      return a.dueDate!.compareTo(b.dueDate!);
-    });
-    return list;
-  });
+  return db.watchRootTasks().map(_sortTasks);
+});
+
+/// Subtasks for a given parent task id.
+final subtasksProvider =
+    StreamProvider.family<List<Task>, String>((ref, parentId) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchSubtasks(parentId).map(_sortTasks);
 });
 
 final tasksNotifierProvider =
@@ -45,7 +53,7 @@ class TasksNotifier extends AsyncNotifier<void> {
 
   AppDatabase get _db => ref.read(databaseProvider)!;
 
-  Future<void> create({
+  Future<String> create({
     required String title,
     String? description,
     DateTime? dueDate,
@@ -54,9 +62,12 @@ class TasksNotifier extends AsyncNotifier<void> {
     int? recurrenceInterval,
     String priority = 'medium',
     String? notes,
+    String? parentId,
+    String? linkedItemId,
   }) async {
+    final id = _uuid.v4();
     await _db.insertTask(TasksCompanion.insert(
-      id: _uuid.v4(),
+      id: id,
       title: title,
       description: Value(description),
       dueDate: Value(dueDate),
@@ -65,7 +76,10 @@ class TasksNotifier extends AsyncNotifier<void> {
       recurrenceInterval: Value(recurrenceInterval),
       priority: Value(priority),
       notes: Value(notes),
+      parentId: Value(parentId),
+      linkedItemId: Value(linkedItemId),
     ));
+    return id;
   }
 
   Future<void> save(Task task) async {
@@ -82,6 +96,8 @@ class TasksNotifier extends AsyncNotifier<void> {
       notes: Value(task.notes),
       completedAt: Value(task.completedAt),
       updatedAt: Value(DateTime.now()),
+      parentId: Value(task.parentId),
+      linkedItemId: Value(task.linkedItemId),
     ));
   }
 
@@ -104,6 +120,7 @@ class TasksNotifier extends AsyncNotifier<void> {
           recurrenceInterval: task.recurrenceInterval,
           priority: task.priority,
           notes: task.notes,
+          linkedItemId: task.linkedItemId,
         );
       }
     }

@@ -12866,6 +12866,34 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tasks (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _linkedItemIdMeta = const VerificationMeta(
+    'linkedItemId',
+  );
+  @override
+  late final GeneratedColumn<String> linkedItemId = GeneratedColumn<String>(
+    'linked_item_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE SET NULL',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -12881,6 +12909,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     completedAt,
     createdAt,
     updatedAt,
+    parentId,
+    linkedItemId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -12985,6 +13015,21 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('linked_item_id')) {
+      context.handle(
+        _linkedItemIdMeta,
+        linkedItemId.isAcceptableOrUnknown(
+          data['linked_item_id']!,
+          _linkedItemIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -13046,6 +13091,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_id'],
+      ),
+      linkedItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}linked_item_id'],
+      ),
     );
   }
 
@@ -13069,6 +13122,8 @@ class Task extends DataClass implements Insertable<Task> {
   final DateTime? completedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? parentId;
+  final String? linkedItemId;
   const Task({
     required this.id,
     required this.title,
@@ -13083,6 +13138,8 @@ class Task extends DataClass implements Insertable<Task> {
     this.completedAt,
     required this.createdAt,
     required this.updatedAt,
+    this.parentId,
+    this.linkedItemId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -13112,6 +13169,12 @@ class Task extends DataClass implements Insertable<Task> {
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    if (!nullToAbsent || linkedItemId != null) {
+      map['linked_item_id'] = Variable<String>(linkedItemId);
+    }
     return map;
   }
 
@@ -13142,6 +13205,12 @@ class Task extends DataClass implements Insertable<Task> {
           : Value(completedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      linkedItemId: linkedItemId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedItemId),
     );
   }
 
@@ -13164,6 +13233,8 @@ class Task extends DataClass implements Insertable<Task> {
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      linkedItemId: serializer.fromJson<String?>(json['linkedItemId']),
     );
   }
   @override
@@ -13183,6 +13254,8 @@ class Task extends DataClass implements Insertable<Task> {
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'parentId': serializer.toJson<String?>(parentId),
+      'linkedItemId': serializer.toJson<String?>(linkedItemId),
     };
   }
 
@@ -13200,6 +13273,8 @@ class Task extends DataClass implements Insertable<Task> {
     Value<DateTime?> completedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
+    Value<String?> parentId = const Value.absent(),
+    Value<String?> linkedItemId = const Value.absent(),
   }) => Task(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -13218,6 +13293,8 @@ class Task extends DataClass implements Insertable<Task> {
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    linkedItemId: linkedItemId.present ? linkedItemId.value : this.linkedItemId,
   );
   Task copyWithCompanion(TasksCompanion data) {
     return Task(
@@ -13242,6 +13319,10 @@ class Task extends DataClass implements Insertable<Task> {
           : this.completedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      linkedItemId: data.linkedItemId.present
+          ? data.linkedItemId.value
+          : this.linkedItemId,
     );
   }
 
@@ -13260,7 +13341,9 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('dueDate: $dueDate, ')
           ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('parentId: $parentId, ')
+          ..write('linkedItemId: $linkedItemId')
           ..write(')'))
         .toString();
   }
@@ -13280,6 +13363,8 @@ class Task extends DataClass implements Insertable<Task> {
     completedAt,
     createdAt,
     updatedAt,
+    parentId,
+    linkedItemId,
   );
   @override
   bool operator ==(Object other) =>
@@ -13297,7 +13382,9 @@ class Task extends DataClass implements Insertable<Task> {
           other.dueDate == this.dueDate &&
           other.completedAt == this.completedAt &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.parentId == this.parentId &&
+          other.linkedItemId == this.linkedItemId);
 }
 
 class TasksCompanion extends UpdateCompanion<Task> {
@@ -13314,6 +13401,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<DateTime?> completedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<String?> parentId;
+  final Value<String?> linkedItemId;
   final Value<int> rowid;
   const TasksCompanion({
     this.id = const Value.absent(),
@@ -13329,6 +13418,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.completedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.linkedItemId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TasksCompanion.insert({
@@ -13345,6 +13436,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.completedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.linkedItemId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title);
@@ -13362,6 +13455,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<DateTime>? completedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<String>? parentId,
+    Expression<String>? linkedItemId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -13378,6 +13473,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (completedAt != null) 'completed_at': completedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (parentId != null) 'parent_id': parentId,
+      if (linkedItemId != null) 'linked_item_id': linkedItemId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -13396,6 +13493,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<DateTime?>? completedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<String?>? parentId,
+    Value<String?>? linkedItemId,
     Value<int>? rowid,
   }) {
     return TasksCompanion(
@@ -13412,6 +13511,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      parentId: parentId ?? this.parentId,
+      linkedItemId: linkedItemId ?? this.linkedItemId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -13458,6 +13559,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (linkedItemId.present) {
+      map['linked_item_id'] = Variable<String>(linkedItemId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -13480,6 +13587,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('parentId: $parentId, ')
+          ..write('linkedItemId: $linkedItemId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -25843,6 +25952,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
+        'tasks',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('tasks', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('tasks', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
         'items',
         limitUpdateKind: UpdateKind.delete,
       ),
@@ -27090,6 +27213,25 @@ final class $$ItemsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$TasksTable, List<Task>> _tasksRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.tasks,
+    aliasName: $_aliasNameGenerator(db.items.id, db.tasks.linkedItemId),
+  );
+
+  $$TasksTableProcessedTableManager get tasksRefs {
+    final manager = $$TasksTableTableManager(
+      $_db,
+      $_db.tasks,
+    ).filter((f) => f.linkedItemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_tasksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$WishListEntriesTable, List<WishListEntry>>
   _wishListEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.wishListEntries,
@@ -27647,6 +27789,31 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
                     $removeJoinBuilderFromRootComposer,
               ),
         );
+    return f(composer);
+  }
+
+  Expression<bool> tasksRefs(
+    Expression<bool> Function($$TasksTableFilterComposer f) f,
+  ) {
+    final $$TasksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.linkedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableFilterComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 
@@ -28476,6 +28643,31 @@ class $$ItemsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> tasksRefs<T extends Object>(
+    Expression<T> Function($$TasksTableAnnotationComposer a) f,
+  ) {
+    final $$TasksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.linkedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> wishListEntriesRefs<T extends Object>(
     Expression<T> Function($$WishListEntriesTableAnnotationComposer a) f,
   ) {
@@ -28628,6 +28820,7 @@ class $$ItemsTableTableManager
             bool itemTagsRefs,
             bool recipeIngredientsRefs,
             bool standardMealIngredientsRefs,
+            bool tasksRefs,
             bool wishListEntriesRefs,
             bool mealPlanItemRefs,
             bool fromRelations,
@@ -28833,6 +29026,7 @@ class $$ItemsTableTableManager
                 itemTagsRefs = false,
                 recipeIngredientsRefs = false,
                 standardMealIngredientsRefs = false,
+                tasksRefs = false,
                 wishListEntriesRefs = false,
                 mealPlanItemRefs = false,
                 fromRelations = false,
@@ -28850,6 +29044,7 @@ class $$ItemsTableTableManager
                     if (itemTagsRefs) db.itemTags,
                     if (recipeIngredientsRefs) db.recipeIngredients,
                     if (standardMealIngredientsRefs) db.standardMealIngredients,
+                    if (tasksRefs) db.tasks,
                     if (wishListEntriesRefs) db.wishListEntries,
                     if (mealPlanItemRefs) db.mealPlanEntries,
                     if (fromRelations) db.itemRelations,
@@ -29072,6 +29267,19 @@ class $$ItemsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (tasksRefs)
+                        await $_getPrefetchedData<Item, $ItemsTable, Task>(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._tasksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(db, table, p0).tasksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.linkedItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (wishListEntriesRefs)
                         await $_getPrefetchedData<
                           Item,
@@ -29205,6 +29413,7 @@ typedef $$ItemsTableProcessedTableManager =
         bool itemTagsRefs,
         bool recipeIngredientsRefs,
         bool standardMealIngredientsRefs,
+        bool tasksRefs,
         bool wishListEntriesRefs,
         bool mealPlanItemRefs,
         bool fromRelations,
@@ -39013,6 +39222,8 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<String?> parentId,
+      Value<String?> linkedItemId,
       Value<int> rowid,
     });
 typedef $$TasksTableUpdateCompanionBuilder =
@@ -39030,8 +39241,50 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<String?> parentId,
+      Value<String?> linkedItemId,
       Value<int> rowid,
     });
+
+final class $$TasksTableReferences
+    extends BaseReferences<_$AppDatabase, $TasksTable, Task> {
+  $$TasksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $TasksTable _parentIdTable(_$AppDatabase db) => db.tasks.createAlias(
+    $_aliasNameGenerator(db.tasks.parentId, db.tasks.id),
+  );
+
+  $$TasksTableProcessedTableManager? get parentId {
+    final $_column = $_itemColumn<String>('parent_id');
+    if ($_column == null) return null;
+    final manager = $$TasksTableTableManager(
+      $_db,
+      $_db.tasks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_parentIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ItemsTable _linkedItemIdTable(_$AppDatabase db) => db.items
+      .createAlias($_aliasNameGenerator(db.tasks.linkedItemId, db.items.id));
+
+  $$ItemsTableProcessedTableManager? get linkedItemId {
+    final $_column = $_itemColumn<String>('linked_item_id');
+    if ($_column == null) return null;
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_linkedItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
   $$TasksTableFilterComposer({
@@ -39105,6 +39358,52 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$TasksTableFilterComposer get parentId {
+    final $$TasksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableFilterComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableFilterComposer get linkedItemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$TasksTableOrderingComposer
@@ -39180,6 +39479,52 @@ class $$TasksTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$TasksTableOrderingComposer get parentId {
+    final $$TasksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableOrderingComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableOrderingComposer get linkedItemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$TasksTableAnnotationComposer
@@ -39237,6 +39582,52 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$TasksTableAnnotationComposer get parentId {
+    final $$TasksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableAnnotationComposer get linkedItemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkedItemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$TasksTableTableManager
@@ -39250,9 +39641,9 @@ class $$TasksTableTableManager
           $$TasksTableAnnotationComposer,
           $$TasksTableCreateCompanionBuilder,
           $$TasksTableUpdateCompanionBuilder,
-          (Task, BaseReferences<_$AppDatabase, $TasksTable, Task>),
+          (Task, $$TasksTableReferences),
           Task,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool parentId, bool linkedItemId})
         > {
   $$TasksTableTableManager(_$AppDatabase db, $TasksTable table)
     : super(
@@ -39280,6 +39671,8 @@ class $$TasksTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<String?> linkedItemId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
@@ -39295,6 +39688,8 @@ class $$TasksTableTableManager
                 completedAt: completedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                parentId: parentId,
+                linkedItemId: linkedItemId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -39312,6 +39707,8 @@ class $$TasksTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<String?> linkedItemId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
@@ -39327,12 +39724,70 @@ class $$TasksTableTableManager
                 completedAt: completedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                parentId: parentId,
+                linkedItemId: linkedItemId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) =>
+                    (e.readTable(table), $$TasksTableReferences(db, table, e)),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({parentId = false, linkedItemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (parentId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.parentId,
+                                referencedTable: $$TasksTableReferences
+                                    ._parentIdTable(db),
+                                referencedColumn: $$TasksTableReferences
+                                    ._parentIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (linkedItemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.linkedItemId,
+                                referencedTable: $$TasksTableReferences
+                                    ._linkedItemIdTable(db),
+                                referencedColumn: $$TasksTableReferences
+                                    ._linkedItemIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -39347,9 +39802,9 @@ typedef $$TasksTableProcessedTableManager =
       $$TasksTableAnnotationComposer,
       $$TasksTableCreateCompanionBuilder,
       $$TasksTableUpdateCompanionBuilder,
-      (Task, BaseReferences<_$AppDatabase, $TasksTable, Task>),
+      (Task, $$TasksTableReferences),
       Task,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool parentId, bool linkedItemId})
     >;
 typedef $$WishListEntriesTableCreateCompanionBuilder =
     WishListEntriesCompanion Function({

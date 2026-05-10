@@ -364,13 +364,14 @@ class _NeedCard extends ConsumerWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
-                Flexible(
+                Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _showBuyFlow(context, ref, need),
                     icon: const Icon(Icons.add_shopping_cart, size: 18),
                     label: Text(
                       '+${_fmt(need.neededQty)} $unit einkaufen',
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),

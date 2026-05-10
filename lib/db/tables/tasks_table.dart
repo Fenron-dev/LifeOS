@@ -18,6 +18,13 @@ class Tasks extends Table {
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  // Hierarchy: subtask support
+  @ReferenceName('childTaskRefs')
+  TextColumn get parentId =>
+      text().nullable().references(Tasks, #id, onDelete: KeyAction.cascade)();
+  // Item link: quick navigation to a related product
+  TextColumn get linkedItemId =>
+      text().nullable().references(Items, #id, onDelete: KeyAction.setNull)();
 
   @override
   Set<Column> get primaryKey => {id};
