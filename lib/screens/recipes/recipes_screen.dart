@@ -3,28 +3,57 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../db/database.dart';
+import '../../providers/recipe_suggestions_provider.dart';
 import '../../providers/recipes_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 import 'recipe_detail_screen.dart';
 
-class RecipesScreen extends ConsumerWidget {
+class RecipesScreen extends ConsumerStatefulWidget {
   const RecipesScreen({super.key});
 
+  @override
+  ConsumerState<RecipesScreen> createState() => _RecipesScreenState();
+}
+
+class _RecipesScreenState extends ConsumerState<RecipesScreen> {
   static const double _splitBreakpoint = 720;
+  bool _filterExpiring = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final recipesAsync = ref.watch(filteredRecipesProvider);
     final query = ref.watch(recipeSearchQueryProvider);
     final isSplit = MediaQuery.sizeOf(context).width >= _splitBreakpoint;
     final selectedId = ref.watch(selectedRecipeIdProvider);
 
+    final suggestedIds = _filterExpiring
+        ? ref
+                .watch(recipeSuggestionsForExpiringProvider)
+                .valueOrNull
+                ?.map((r) => r.id)
+                .toSet() ??
+            {}
+        : null;
+
+    Widget buildList(List<Recipe> recipes) {
+      final filtered = suggestedIds != null
+          ? recipes.where((r) => suggestedIds.contains(r.id)).toList()
+          : recipes;
+
+      if (filtered.isEmpty) {
+        return _EmptyState(
+          hasQuery: query.isNotEmpty,
+          filterExpiring: _filterExpiring,
+          onClearFilter: () => setState(() => _filterExpiring = false),
+        );
+      }
+      return _RecipesList(recipes: filtered, splitMode: isSplit);
+    }
+
     final listPane = recipesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Fehler: $e')),
-      data: (recipes) => recipes.isEmpty
-          ? _EmptyState(hasQuery: query.isNotEmpty)
-          : _RecipesList(recipes: recipes, splitMode: isSplit),
+      data: buildList,
     );
 
     return Scaffold(
@@ -32,37 +61,62 @@ class RecipesScreen extends ConsumerWidget {
         title: const Text('Rezepte'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_month),
-            tooltip: 'Mahlzeitenplan',
-            onPressed: () => context.push('/haushalt/plan'),
+            icon: const Icon(Icons.cloud_download_outlined),
+            tooltip: 'Von Mealie importieren',
+            onPressed: () => context.push('/haushalt/recipe/import'),
           ),
           IconButton(
-            icon: const Icon(Icons.restaurant_menu),
-            tooltip: 'Gerichte',
-            onPressed: () => context.push('/haushalt/meals'),
+            icon: const Icon(Icons.add),
+            tooltip: 'Rezept hinzufügen',
+            onPressed: () => context.push('/haushalt/recipe/new'),
           ),
           ...shellMenuActions(context),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SearchBar(
-              hintText: 'Rezept suchen…',
-              leading: const Icon(Icons.search),
-              trailing: query.isNotEmpty
-                  ? [
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => ref
-                            .read(recipeSearchQueryProvider.notifier)
-                            .state = '',
+          preferredSize: const Size.fromHeight(104),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: SearchBar(
+                  hintText: 'Rezept suchen…',
+                  leading: const Icon(Icons.search),
+                  trailing: query.isNotEmpty
+                      ? [
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => ref
+                                .read(recipeSearchQueryProvider.notifier)
+                                .state = '',
+                          ),
+                        ]
+                      : null,
+                  onChanged: (v) =>
+                      ref.read(recipeSearchQueryProvider.notifier).state = v,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Row(
+                  children: [
+                    FilterChip(
+                      label: const Text('Ablaufende Zutaten'),
+                      avatar: Icon(
+                        Icons.event_busy_outlined,
+                        size: 16,
+                        color: _filterExpiring
+                            ? Theme.of(context)
+                                .colorScheme
+                                .onSecondaryContainer
+                            : null,
                       ),
-                    ]
-                  : null,
-              onChanged: (v) =>
-                  ref.read(recipeSearchQueryProvider.notifier).state = v,
-            ),
+                      selected: _filterExpiring,
+                      onSelected: (v) => setState(() => _filterExpiring = v),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -80,24 +134,6 @@ class RecipesScreen extends ConsumerWidget {
               ],
             )
           : listPane,
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'import',
-            onPressed: () => context.push('/haushalt/recipe/import'),
-            tooltip: 'Von Mealie importieren',
-            child: const Icon(Icons.cloud_download_outlined),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            heroTag: 'add_recipe',
-            onPressed: () => context.push('/haushalt/recipe/new'),
-            tooltip: 'Rezept hinzufügen',
-            child: const Icon(Icons.add),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -112,7 +148,7 @@ class _RecipesList extends ConsumerWidget {
     final selectedId =
         splitMode ? ref.watch(selectedRecipeIdProvider) : null;
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       itemCount: recipes.length,
       itemBuilder: (context, i) => _RecipeCard(
         recipe: recipes[i],
@@ -211,7 +247,13 @@ class _SplitPlaceholder extends StatelessWidget {
 
 class _EmptyState extends StatelessWidget {
   final bool hasQuery;
-  const _EmptyState({required this.hasQuery});
+  final bool filterExpiring;
+  final VoidCallback onClearFilter;
+  const _EmptyState({
+    required this.hasQuery,
+    required this.filterExpiring,
+    required this.onClearFilter,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -223,10 +265,20 @@ class _EmptyState extends StatelessWidget {
               size: 64, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 16),
           Text(
-            hasQuery ? 'Keine Treffer' : 'Noch keine Rezepte',
+            filterExpiring
+                ? 'Keine passenden Rezepte gefunden'
+                : hasQuery
+                    ? 'Keine Treffer'
+                    : 'Noch keine Rezepte',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          if (!hasQuery) ...[
+          if (filterExpiring) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onClearFilter,
+              child: const Text('Filter entfernen'),
+            ),
+          ] else if (!hasQuery) ...[
             const SizedBox(height: 8),
             const Text(
                 'Tippe + um ein Rezept hinzuzufügen\noder importiere aus Mealie.'),

@@ -562,7 +562,13 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                   ...ItemCategory.allItemCategories.map((c) =>
                       DropdownMenuItem(
                         value: c,
-                        child: Text(ItemCategory.labelDe(c)),
+                        child: Row(
+                          children: [
+                            Icon(ItemCategory.iconFor(c), size: 16),
+                            const SizedBox(width: 8),
+                            Text(ItemCategory.labelDe(c)),
+                          ],
+                        ),
                       )),
                   if (customCats.isNotEmpty) ...[
                     const DropdownMenuItem(

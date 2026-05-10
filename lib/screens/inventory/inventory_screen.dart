@@ -49,16 +49,20 @@ class InventoryScreen extends ConsumerWidget {
                 child: SearchBar(
                   hintText: 'Artikel suchen…',
                   leading: const Icon(Icons.search),
-                  trailing: query.isNotEmpty
-                      ? [
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => ref
-                                .read(itemSearchQueryProvider.notifier)
-                                .state = '',
-                          ),
-                        ]
-                      : null,
+                  trailing: [
+                    if (query.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => ref
+                            .read(itemSearchQueryProvider.notifier)
+                            .state = '',
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.qr_code_scanner),
+                      tooltip: 'Barcode scannen',
+                      onPressed: () => context.push('/scan'),
+                    ),
+                  ],
                   onChanged: (v) =>
                       ref.read(itemSearchQueryProvider.notifier).state = v,
                 ),

@@ -1,9 +1,12 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
+import '../../providers/shops_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../items/item_detail_screen.dart';
 
@@ -18,8 +21,13 @@ class ShoppingListScreen extends ConsumerWidget {
 
     final appBarActions = [
       IconButton(
+        icon: const Icon(Icons.add),
+        tooltip: 'Eintrag hinzufügen',
+        onPressed: () => _showAddDialog(context, ref),
+      ),
+      IconButton(
         icon: const Icon(Icons.category_outlined),
-        tooltip: 'Produktgruppen verwalten',
+        tooltip: 'Gruppen verwalten',
         onPressed: () => context.push('/haushalt/groups'),
       ),
       IconButton(
@@ -34,7 +42,9 @@ class ShoppingListScreen extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Fehler: $e')),
       data: (sections) {
         final allNeeds = sections.expand((s) => s.needs).toList();
-        if (allNeeds.isEmpty) {
+        final allCustom = sections.expand((s) => s.customItems).toList();
+
+        if (allNeeds.isEmpty && allCustom.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -43,23 +53,26 @@ class ShoppingListScreen extends ConsumerWidget {
                     size: 64,
                     color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 16),
-                const Text('Alles ausreichend vorhanden!'),
+                const Text('Einkaufsliste ist leer!'),
                 const SizedBox(height: 8),
                 const Text(
-                  'Definiere Produktgruppen oder Mindestbestände,\num automatisch zu sehen was fehlt.',
+                  'Tippe + um Einträge hinzuzufügen,\noder definiere Mindestbestände.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
-                  onPressed: () => context.push('/haushalt/groups'),
-                  icon: const Icon(Icons.category_outlined),
-                  label: const Text('Produktgruppen'),
+                  onPressed: () => _showAddDialog(context, ref),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Eintrag hinzufügen'),
                 ),
               ],
             ),
           );
         }
+
+        final checkedCount =
+            allCustom.where((c) => c.checked).length;
 
         return Column(
           children: [
@@ -71,10 +84,28 @@ class ShoppingListScreen extends ConsumerWidget {
                       size: 16,
                       color: Theme.of(context).colorScheme.outline),
                   const SizedBox(width: 8),
-                  Text(
-                    '${allNeeds.length} Artikel unter Mindestbestand',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Expanded(
+                    child: Text(
+                      [
+                        if (allNeeds.isNotEmpty)
+                          '${allNeeds.length} unter Mindestbestand',
+                        if (allCustom.isNotEmpty)
+                          '${allCustom.length} manuell',
+                      ].join(' · '),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
+                  if (checkedCount > 0)
+                    TextButton.icon(
+                      onPressed: () =>
+                          ref.read(databaseProvider)?.deleteCheckedCustomShoppingItems(),
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 16),
+                      label: Text('$checkedCount erledigt löschen'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -84,7 +115,11 @@ class ShoppingListScreen extends ConsumerWidget {
                 itemCount: sections.length,
                 itemBuilder: (context, si) {
                   final section = sections[si];
-                  return _ShopSection(section: section);
+                  return _ShopSection(
+                    section: section,
+                    onAddCustom: () => _showAddDialog(context, ref,
+                        preselectedShopId: section.shop?.id),
+                  );
                 },
               ),
             ),
@@ -93,7 +128,23 @@ class ShoppingListScreen extends ConsumerWidget {
       },
     );
 
-    if (embedded) return body;
+    if (embedded) {
+      return Stack(
+        children: [
+          body,
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              heroTag: 'add_shopping',
+              onPressed: () => _showAddDialog(context, ref),
+              tooltip: 'Eintrag hinzufügen',
+              child: const Icon(Icons.add),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -103,13 +154,24 @@ class ShoppingListScreen extends ConsumerWidget {
       body: body,
     );
   }
+
+  void _showAddDialog(BuildContext context, WidgetRef ref,
+      {String? preselectedShopId}) {
+    showDialog(
+      context: context,
+      builder: (_) => _AddCustomItemDialog(
+        preselectedShopId: preselectedShopId,
+      ),
+    );
+  }
 }
 
 // ── Shop section ──────────────────────────────────────────────────────────────
 
 class _ShopSection extends StatelessWidget {
   final ShoppingSection section;
-  const _ShopSection({required this.section});
+  final VoidCallback onAddCustom;
+  const _ShopSection({required this.section, required this.onAddCustom});
 
   @override
   Widget build(BuildContext context) {
@@ -131,21 +193,81 @@ class _ShopSection extends StatelessWidget {
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 6),
-              Text(
-                shopName,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  shopName,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: onAddCustom,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.add, size: 16,
+                      color: theme.colorScheme.primary),
                 ),
               ),
             ],
           ),
         ),
         ...section.needs.map((need) => _NeedCard(need: need)),
+        ...section.customItems
+            .map((item) => _CustomItemTile(item: item)),
         const SizedBox(height: 4),
       ],
     );
   }
+}
+
+// ── Custom item tile ──────────────────────────────────────────────────────────
+
+class _CustomItemTile extends ConsumerWidget {
+  final CustomShoppingItem item;
+  const _CustomItemTile({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.read(databaseProvider);
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        dense: true,
+        leading: Checkbox(
+          value: item.checked,
+          onChanged: (v) => db?.toggleCustomShoppingItem(item.id, v ?? false),
+        ),
+        title: Text(
+          item.name,
+          style: item.checked
+              ? TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                  color: theme.colorScheme.outline,
+                )
+              : null,
+        ),
+        subtitle: item.quantity != null
+            ? Text(
+                '${_fmt(item.quantity!)} ${item.unit ?? ''}',
+                style: const TextStyle(fontSize: 12),
+              )
+            : null,
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, size: 18),
+          onPressed: () => db?.deleteCustomShoppingItem(item.id),
+          tooltip: 'Entfernen',
+        ),
+      ),
+    );
+  }
+
+  String _fmt(double q) =>
+      q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
 }
 
 // ── Need card ─────────────────────────────────────────────────────────────────
@@ -229,7 +351,6 @@ class _NeedCard extends ConsumerWidget {
     if (need.item != null) {
       selectedItem = need.item;
     } else {
-      // Group-based: find member items
       final members = await db.membersForGroup(need.group!.id);
       if (members.isEmpty || !context.mounted) return;
 
@@ -297,6 +418,130 @@ class _StockIndicator extends StatelessWidget {
         Text('vorhanden / Minimum',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.outline)),
+      ],
+    );
+  }
+}
+
+// ── Add custom item dialog ────────────────────────────────────────────────────
+
+class _AddCustomItemDialog extends ConsumerStatefulWidget {
+  final String? preselectedShopId;
+  const _AddCustomItemDialog({this.preselectedShopId});
+
+  @override
+  ConsumerState<_AddCustomItemDialog> createState() =>
+      _AddCustomItemDialogState();
+}
+
+class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
+  static const _uuid = Uuid();
+  final _nameCtrl = TextEditingController();
+  final _qtyCtrl = TextEditingController();
+  String? _unit;
+  String? _shopId;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _shopId = widget.preselectedShopId;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) return;
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    setState(() => _saving = true);
+    try {
+      final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
+      await db.insertCustomShoppingItem(CustomShoppingItemsCompanion.insert(
+        id: _uuid.v4(),
+        name: _nameCtrl.text.trim(),
+        quantity: Value(qty),
+        unit: Value(_unit),
+        shopId: Value(_shopId),
+      ));
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shopsAsync = ref.watch(allShopsProvider);
+    final shops = shopsAsync.valueOrNull ?? [];
+
+    return AlertDialog(
+      title: const Text('Eintrag hinzufügen'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameCtrl,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(labelText: 'Bezeichnung *'),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _qtyCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Menge'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  onChanged: (v) => setState(() => _unit = v.trim().isEmpty ? null : v.trim()),
+                  decoration: const InputDecoration(labelText: 'Einheit'),
+                ),
+              ),
+            ],
+          ),
+          if (shops.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              // ignore: deprecated_member_use
+              value: _shopId,
+              decoration: const InputDecoration(labelText: 'Geschäft'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Kein Geschäft')),
+                ...shops.map((s) =>
+                    DropdownMenuItem(value: s.id, child: Text(s.name))),
+              ],
+              onChanged: (v) => setState(() => _shopId = v),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Hinzufügen'),
+        ),
       ],
     );
   }

@@ -39,26 +39,55 @@ class ShoppingNeed {
 class ShoppingSection {
   final Shop? shop;
   final List<ShoppingNeed> needs;
-  const ShoppingSection({this.shop, required this.needs});
+  final List<CustomShoppingItem> customItems;
+  const ShoppingSection({
+    this.shop,
+    required this.needs,
+    this.customItems = const [],
+  });
 }
+
+// ---------------------------------------------------------------------------
+// Custom shopping items
+// ---------------------------------------------------------------------------
+
+final customShoppingItemsProvider =
+    StreamProvider<List<CustomShoppingItem>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchCustomShoppingItems();
+});
 
 final shoppingByShopProvider = FutureProvider<List<ShoppingSection>>((ref) async {
   final needs = await ref.watch(shoppingNeedsProvider.future);
+  final customItems = ref.watch(customShoppingItemsProvider).valueOrNull ?? [];
   final db = ref.watch(databaseProvider);
   if (db == null) return [];
 
   final shops = await db.watchAllShops().first;
   final shopMap = {for (final s in shops) s.id: s};
 
-  // Group by shopId (null = no shop)
-  final grouped = <String?, List<ShoppingNeed>>{};
+  // Group needs by shopId (null = no shop)
+  final groupedNeeds = <String?, List<ShoppingNeed>>{};
   for (final need in needs) {
-    grouped.putIfAbsent(need.shopId, () => []).add(need);
+    groupedNeeds.putIfAbsent(need.shopId, () => []).add(need);
   }
+
+  // Group custom items by shopId
+  final groupedCustom = <String?, List<CustomShoppingItem>>{};
+  for (final item in customItems) {
+    groupedCustom.putIfAbsent(item.shopId, () => []).add(item);
+  }
+
+  // Collect all shop IDs that appear in either collection
+  final allShopIds = <String?>{
+    ...groupedNeeds.keys,
+    ...groupedCustom.keys,
+  };
 
   // Build sections: named shops first (sorted by name), then null
   final sections = <ShoppingSection>[];
-  final shopIds = grouped.keys
+  final namedShopIds = allShopIds
       .where((k) => k != null)
       .cast<String>()
       .toList()
@@ -68,14 +97,19 @@ final shoppingByShopProvider = FutureProvider<List<ShoppingSection>>((ref) async
       return sa.compareTo(sb);
     });
 
-  for (final id in shopIds) {
+  for (final id in namedShopIds) {
     sections.add(ShoppingSection(
       shop: shopMap[id],
-      needs: grouped[id]!,
+      needs: groupedNeeds[id] ?? [],
+      customItems: groupedCustom[id] ?? [],
     ));
   }
-  if (grouped.containsKey(null)) {
-    sections.add(ShoppingSection(shop: null, needs: grouped[null]!));
+  if (allShopIds.contains(null)) {
+    sections.add(ShoppingSection(
+      shop: null,
+      needs: groupedNeeds[null] ?? [],
+      customItems: groupedCustom[null] ?? [],
+    ));
   }
   return sections;
 });

@@ -17,7 +17,16 @@ class GroupsScreen extends ConsumerWidget {
     final groupsAsync = ref.watch(allGroupsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Produktgruppen')),
+      appBar: AppBar(
+        title: const Text('Gruppen'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Gruppe anlegen',
+            onPressed: () => _showDialog(context, ref),
+          ),
+        ],
+      ),
       body: groupsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Fehler: $e')),
@@ -51,16 +60,11 @@ class GroupsScreen extends ConsumerWidget {
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             itemCount: groups.length,
             itemBuilder: (context, i) => _GroupCard(group: groups[i]),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showDialog(context, ref),
-        tooltip: 'Gruppe anlegen',
-        child: const Icon(Icons.add),
       ),
     );
   }

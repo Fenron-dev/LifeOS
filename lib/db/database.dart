@@ -25,6 +25,7 @@ import 'tables/meal_plan_table.dart';
 import 'tables/categories_table.dart';
 import 'tables/body_photos_table.dart';
 import 'tables/fitness_table.dart';
+import 'tables/shopping_table.dart';
 
 part 'database.g.dart';
 
@@ -80,6 +81,8 @@ part 'database.g.dart';
   Exercises,
   Workouts,
   WorkoutSets,
+  // Custom shopping list entries
+  CustomShoppingItems,
 ])
 class AppDatabase extends _$AppDatabase {
   /// [encryptionKey] enables SQLCipher when non-null. Pass `null` for plain
@@ -94,7 +97,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -279,6 +282,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(items, items.minStockUnit);
             await m.addColumn(items, items.preferredShopId);
             await m.addColumn(itemGroups, itemGroups.preferredShopId);
+          }
+          if (from < 26) {
+            // Phase 7.2 — custom shopping list entries.
+            await m.createTable(customShoppingItems);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -1733,4 +1740,28 @@ extension BodyPhotosDao on AppDatabase {
   Future<void> updateBodyPhotoNotes(String id, String? notes) =>
       (update(bodyPhotos)..where((p) => p.id.equals(id)))
           .write(BodyPhotosCompanion(notes: Value(notes)));
+
+  // ── Custom Shopping Items ─────────────────────────────────────────────────
+
+  Stream<List<CustomShoppingItem>> watchCustomShoppingItems() =>
+      (select(customShoppingItems)
+            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+          .watch();
+
+  Future<void> insertCustomShoppingItem(CustomShoppingItemsCompanion entry) =>
+      into(customShoppingItems).insert(entry);
+
+  Future<void> toggleCustomShoppingItem(String id, bool checked) =>
+      (update(customShoppingItems)..where((t) => t.id.equals(id)))
+          .write(CustomShoppingItemsCompanion(checked: Value(checked)));
+
+  Future<void> updateCustomShoppingItem(CustomShoppingItemsCompanion entry) =>
+      (update(customShoppingItems)..where((t) => t.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteCustomShoppingItem(String id) =>
+      (delete(customShoppingItems)..where((t) => t.id.equals(id))).go();
+
+  Future<void> deleteCheckedCustomShoppingItems() =>
+      (delete(customShoppingItems)..where((t) => t.checked.equals(true))).go();
 }

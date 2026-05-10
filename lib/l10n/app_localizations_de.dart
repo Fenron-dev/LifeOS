@@ -274,6 +274,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get quickActionConsumeInventory => 'Ausbuchen';
 
   @override
+  String get quickActionQuickDeduct => 'Schnellausbuchen';
+
+  @override
   String get quickActionAddTask => 'Aufgabe';
 
   @override

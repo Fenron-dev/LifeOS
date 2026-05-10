@@ -7,14 +7,25 @@
 /// Never hard-code raw category strings — always use [ItemCategory].
 library;
 
+import 'package:flutter/material.dart';
+
 class ItemCategory {
   ItemCategory._();
 
   /// Groceries, drinks, cooking ingredients.
   static const food = 'food';
 
-  /// Appliances and household goods (electronics, tools, cleaning supplies…).
+  /// Electronics, tools, household appliances.
   static const appliance = 'appliance';
+
+  /// Accessories and spare parts for appliances/devices.
+  static const equipment = 'equipment';
+
+  /// Consumables: cleaning supplies, batteries, paper products, etc.
+  static const consumable = 'consumable';
+
+  /// Personal care & hygiene products.
+  static const personalCare = 'personal_care';
 
   /// Household tasks and chores.
   static const task = 'task';
@@ -30,6 +41,9 @@ class ItemCategory {
   static const allItemCategories = <String>[
     food,
     appliance,
+    equipment,
+    consumable,
+    personalCare,
     task,
     wishlist,
   ];
@@ -42,6 +56,12 @@ class ItemCategory {
         return 'Lebensmittel';
       case appliance:
         return 'Gerät / Haushalt';
+      case equipment:
+        return 'Zubehör / Ersatzteile';
+      case consumable:
+        return 'Verbrauchsmaterial';
+      case personalCare:
+        return 'Körperpflege';
       case task:
         return 'Aufgabe';
       case wishlist:
@@ -50,6 +70,30 @@ class ItemCategory {
         return 'Rezept';
       default:
         return id;
+    }
+  }
+
+  /// Material icon for a built-in category.
+  static IconData iconFor(String id) {
+    switch (id) {
+      case food:
+        return Icons.local_grocery_store_outlined;
+      case appliance:
+        return Icons.devices_outlined;
+      case equipment:
+        return Icons.handyman_outlined;
+      case consumable:
+        return Icons.cleaning_services_outlined;
+      case personalCare:
+        return Icons.spa_outlined;
+      case task:
+        return Icons.task_outlined;
+      case wishlist:
+        return Icons.star_outline;
+      case recipe:
+        return Icons.menu_book_outlined;
+      default:
+        return Icons.category_outlined;
     }
   }
 }

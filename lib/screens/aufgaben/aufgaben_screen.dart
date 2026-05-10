@@ -5,6 +5,10 @@ import '../../widgets/adaptive_shell.dart';
 import '../inventory/shopping_list_screen.dart';
 import '../tasks/tasks_screen.dart';
 
+/// Set to 1 before navigating to /aufgaben to pre-select the Einkaufsliste tab.
+/// The screen resets this to 0 after consuming it.
+final aufgabenInitialTabProvider = StateProvider<int>((ref) => 0);
+
 class AufgabenScreen extends ConsumerStatefulWidget {
   const AufgabenScreen({super.key});
 
@@ -24,7 +28,13 @@ class _AufgabenScreenState extends ConsumerState<AufgabenScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: _tabs.length, vsync: this);
+    final initialTab = ref.read(aufgabenInitialTabProvider);
+    _tab = TabController(length: _tabs.length, vsync: this, initialIndex: initialTab);
+    if (initialTab != 0) {
+      Future.microtask(() {
+        if (mounted) ref.read(aufgabenInitialTabProvider.notifier).state = 0;
+      });
+    }
   }
 
   @override
@@ -35,6 +45,16 @@ class _AufgabenScreenState extends ConsumerState<AufgabenScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Listen for external tab switches (e.g. from dashboard while already on screen)
+    ref.listen(aufgabenInitialTabProvider, (_, next) {
+      if (next != 0 && next != _tab.index) {
+        _tab.animateTo(next);
+        Future.microtask(() {
+          if (mounted) ref.read(aufgabenInitialTabProvider.notifier).state = 0;
+        });
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aufgaben'),

@@ -20,14 +20,6 @@ List<Widget> shellMenuActions(BuildContext context) => [
         onSelected: (route) => context.push(route),
         itemBuilder: (_) => const [
           PopupMenuItem(
-            value: '/wishlist',
-            child: Row(children: [
-              Icon(Icons.star_outline),
-              SizedBox(width: 12),
-              Text('Wunschliste'),
-            ]),
-          ),
-          PopupMenuItem(
             value: '/settings',
             child: Row(children: [
               Icon(Icons.settings_outlined),
@@ -212,7 +204,9 @@ class _MobileShell extends ConsumerWidget {
       context: context,
       builder: (ctx) => _QuickActionsSheet(
         actions: actions,
-        onScanRequest: () => _handleScan(context, ref),
+        onScanToAdd: () => _handleScan(context, ref),
+        onScanToConsume: () => _handleConsumeWithScan(context, ref),
+        onQuickDeduct: () => _handleQuickDeduct(context, ref),
       ),
     );
   }
@@ -227,6 +221,97 @@ class _MobileShell extends ConsumerWidget {
       context.push('/haushalt/item/${existing.id}');
     } else {
       context.push('/haushalt/item/new', extra: ean);
+    }
+  }
+
+  Future<void> _handleConsumeWithScan(
+      BuildContext context, WidgetRef ref) async {
+    final ean = await context.push<String>('/scan');
+    if (ean == null || !context.mounted) return;
+    final dao = ref.read(itemsDaoProvider);
+    final item = await dao?.itemByEan(ean);
+    if (!context.mounted) return;
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kein Artikel mit diesem Barcode gefunden')),
+      );
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _QuickDeductSheet(item: item),
+    );
+  }
+
+  Future<void> _handleQuickDeduct(BuildContext context, WidgetRef ref) async {
+    final ean = await context.push<String>('/scan');
+    if (ean == null || !context.mounted) return;
+    final dao = ref.read(itemsDaoProvider);
+    final item = await dao?.itemByEan(ean);
+    if (!context.mounted) return;
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kein Artikel mit diesem Barcode gefunden')),
+      );
+      return;
+    }
+
+    final db = ref.read(databaseProvider);
+    if (db == null || !context.mounted) return;
+
+    final entries = await db.inventoryEntriesForItem(item.id);
+    if (!context.mounted) return;
+    if (entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.name}: kein Bestand vorhanden')),
+      );
+      return;
+    }
+
+    final entry = entries.first;
+    final invUnit = entry.unit;
+
+    final itemConvs = await db.watchConversionsForItem(item.id).first;
+    final globalConvs = await db.watchConversionsGlobal().first;
+    final opts = buildDeductUnitOptions(
+      inventoryUnit: invUnit,
+      conversions: [...itemConvs, ...globalConvs],
+      consumeQty: item.consumeQty,
+      consumeUnit: item.consumeUnit,
+      fallbackQty: 1.0,
+    );
+
+    final cu = item.consumeUnit?.toLowerCase().trim();
+    final sel = cu != null
+        ? opts.firstWhere(
+            (o) => o.unit.toLowerCase().trim() == cu,
+            orElse: () => opts.first,
+          )
+        : opts.first;
+
+    final logicalQty = item.consumeQty ?? sel.defaultQty;
+    final physicalQty = logicalQty * sel.factor;
+    final remaining =
+        (entry.quantity - physicalQty).clamp(0.0, double.infinity);
+
+    if (!context.mounted) return;
+    await ref.read(inventoryOpsProvider.notifier).consume(
+          itemId: item.id,
+          inventoryEntryId: entry.id,
+          quantity: physicalQty,
+          unit: invUnit,
+          remainingQuantity: remaining,
+          consumptionReason: 'consumed',
+        );
+
+    if (context.mounted) {
+      final qty = logicalQty % 1 == 0
+          ? logicalQty.toStringAsFixed(0)
+          : logicalQty.toStringAsFixed(2);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.name}: $qty ${sel.unit} ausgebucht')),
+      );
     }
   }
 }
@@ -291,8 +376,15 @@ class _BottomNavItem extends StatelessWidget {
 
 class _QuickActionsSheet extends ConsumerWidget {
   final List<QuickAction> actions;
-  final VoidCallback onScanRequest;
-  const _QuickActionsSheet({required this.actions, required this.onScanRequest});
+  final VoidCallback onScanToAdd;
+  final VoidCallback onScanToConsume;
+  final VoidCallback onQuickDeduct;
+  const _QuickActionsSheet({
+    required this.actions,
+    required this.onScanToAdd,
+    required this.onScanToConsume,
+    required this.onQuickDeduct,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -329,14 +421,13 @@ class _QuickActionsSheet extends ConsumerWidget {
                 title: Text(a.label(AppLocalizations.of(context))),
                 onTap: () {
                   Navigator.of(context).pop();
-                  if (a == QuickAction.scanBarcode) {
-                    onScanRequest();
+                  if (a == QuickAction.scanBarcode ||
+                      a == QuickAction.addInventory) {
+                    onScanToAdd();
                   } else if (a == QuickAction.consumeInventory) {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (ctx) => const _ConsumePickerSheet(),
-                    );
+                    onScanToConsume();
+                  } else if (a == QuickAction.quickDeduct) {
+                    onQuickDeduct();
                   } else {
                     _navigate(context, a);
                   }
@@ -350,18 +441,18 @@ class _QuickActionsSheet extends ConsumerWidget {
 
   void _navigate(BuildContext context, QuickAction action) {
     switch (action) {
-      case QuickAction.addInventory:
-        context.push('/haushalt/item/new');
-      case QuickAction.consumeInventory:
-        context.push('/haushalt');
       case QuickAction.addTask:
         context.push('/aufgaben');
       case QuickAction.addWishlist:
         context.push('/wishlist');
       case QuickAction.addRecipe:
         context.push('/haushalt/recipe/new');
+      // scanner-first actions handled before _navigate is called
+      case QuickAction.addInventory:
+      case QuickAction.consumeInventory:
+      case QuickAction.quickDeduct:
       case QuickAction.scanBarcode:
-        context.push('/scan');
+        break;
     }
   }
 }

@@ -13,6 +13,7 @@ import 'vault_provider.dart';
 enum QuickAction {
   addInventory,
   consumeInventory,
+  quickDeduct,
   addTask,
   addWishlist,
   addRecipe,
@@ -24,6 +25,7 @@ extension QuickActionX on QuickAction {
   String label(AppLocalizations l10n) => switch (this) {
         QuickAction.addInventory => l10n.quickActionAddInventory,
         QuickAction.consumeInventory => l10n.quickActionConsumeInventory,
+        QuickAction.quickDeduct => l10n.quickActionQuickDeduct,
         QuickAction.addTask => l10n.quickActionAddTask,
         QuickAction.addWishlist => l10n.quickActionAddWishlist,
         QuickAction.addRecipe => l10n.quickActionAddRecipe,
@@ -32,6 +34,7 @@ extension QuickActionX on QuickAction {
   IconData get icon => switch (this) {
         QuickAction.addInventory => Icons.add_shopping_cart,
         QuickAction.consumeInventory => Icons.remove_shopping_cart,
+        QuickAction.quickDeduct => Icons.bolt,
         QuickAction.addTask => Icons.add_task,
         QuickAction.addWishlist => Icons.favorite_border,
         QuickAction.addRecipe => Icons.menu_book_outlined,

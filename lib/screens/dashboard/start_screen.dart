@@ -10,6 +10,7 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/meal_plan_provider.dart';
 import '../../providers/tasks_provider.dart';
 import '../../widgets/adaptive_shell.dart';
+import '../aufgaben/aufgaben_screen.dart';
 
 class StartScreen extends ConsumerWidget {
   const StartScreen({super.key});
@@ -449,7 +450,10 @@ class _RemindersCard extends ConsumerWidget {
                   ? 'Einkaufsliste leer'
                   : '$shoppingCount Artikel einzukaufen',
               highlight: shoppingCount > 0,
-              onTap: () => context.push('/aufgaben'),
+              onTap: () {
+                ref.read(aufgabenInitialTabProvider.notifier).state = 1;
+                context.go('/aufgaben');
+              },
             ),
           ],
         ),
@@ -543,7 +547,10 @@ class _QuickAccessCard extends ConsumerWidget {
                 _QuickBtn(
                     icon: Icons.shopping_cart_outlined,
                     label: 'Einkaufsliste',
-                    onTap: () => context.push('/aufgaben')),
+                    onTap: () {
+                      ref.read(aufgabenInitialTabProvider.notifier).state = 1;
+                      context.go('/aufgaben');
+                    }),
                 _QuickBtn(
                     icon: Icons.restaurant_outlined,
                     label: 'Gerichte',

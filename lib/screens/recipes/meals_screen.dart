@@ -47,6 +47,13 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gerichte'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Gericht hinzufügen',
+            onPressed: () => _showMealDialog(context, ref),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40),
           child: Padding(
@@ -111,12 +118,6 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                   ),
                 );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'add_meal',
-        onPressed: () => _showMealDialog(context, ref),
-        tooltip: 'Gericht hinzufügen',
-        child: const Icon(Icons.add),
       ),
     );
   }

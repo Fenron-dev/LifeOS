@@ -6,6 +6,7 @@ import '../../providers/groups_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/recipes_provider.dart';
+import '../../providers/wishlist_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 
 class HaushaltScreen extends ConsumerWidget {
@@ -35,6 +36,7 @@ class _HaushaltGrid extends ConsumerWidget {
     final groups = ref.watch(allGroupsProvider).valueOrNull?.length ?? 0;
     final recipes = ref.watch(allRecipesProvider).valueOrNull?.length ?? 0;
     final meals = ref.watch(allMealsProvider).valueOrNull?.length ?? 0;
+    final wishlistCount = ref.watch(wishlistProvider).valueOrNull?.length ?? 0;
 
     final width = MediaQuery.sizeOf(context).width;
     final crossAxisCount = width >= 900 ? 3 : 2;
@@ -60,7 +62,7 @@ class _HaushaltGrid extends ConsumerWidget {
         stat: '$totalItems gesamt',
       ),
       _CardData(
-        title: 'Produktgruppen',
+        title: 'Gruppen',
         icon: Icons.folder_outlined,
         route: '/haushalt/groups',
         stat: '$groups Gruppen',
@@ -78,10 +80,16 @@ class _HaushaltGrid extends ConsumerWidget {
         stat: '$recipes Rezepte',
       ),
       _CardData(
-        title: 'Mahlzeitenplan',
+        title: 'Menüplan',
         icon: Icons.calendar_month_outlined,
         route: '/haushalt/plan',
         stat: '',
+      ),
+      _CardData(
+        title: 'Wunschliste',
+        icon: Icons.star_outline,
+        route: '/wishlist',
+        stat: wishlistCount > 0 ? '$wishlistCount Wünsche' : 'Leer',
       ),
     ];
 

@@ -115,6 +115,7 @@
 
   "quickActionAddInventory": "Einlagern",
   "quickActionConsumeInventory": "Ausbuchen",
+  "quickActionQuickDeduct": "Schnellausbuchen",
   "quickActionAddTask": "Aufgabe",
   "quickActionAddWishlist": "Wunschliste",
   "quickActionAddRecipe": "Rezept",
