@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/shops_provider.dart';
 import '../../providers/vault_provider.dart';
@@ -186,7 +187,7 @@ class ShoppingListScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _AddCustomItemDialog(
+      builder: (_) => _AddCustomItemSheet(
         preselectedShopId: preselectedShopId,
       ),
     );
@@ -242,15 +243,16 @@ class _ShopSection extends StatelessWidget {
           ),
         ),
         ...section.needs.map((need) => _NeedCard(need: need)),
-        ...section.customItems
-            .map((item) => _CustomItemTile(item: item)),
+        ...section.customItems.map((item) => item.itemId != null
+            ? _LinkedItemCard(customItem: item)
+            : _CustomItemTile(item: item)),
         const SizedBox(height: 4),
       ],
     );
   }
 }
 
-// ── Custom item tile ──────────────────────────────────────────────────────────
+// ── Custom item tile (no item link) ──────────────────────────────────────────
 
 class _CustomItemTile extends ConsumerWidget {
   final CustomShoppingItem item;
@@ -267,21 +269,8 @@ class _CustomItemTile extends ConsumerWidget {
         dense: true,
         leading: Checkbox(
           value: item.checked,
-          onChanged: (v) async {
-            await db?.toggleCustomShoppingItem(item.id, v ?? false);
-            // If linked to an inventory item and just checked, open add-stock.
-            if ((v ?? false) && item.itemId != null && context.mounted) {
-              final linkedItem = await db?.itemById(item.itemId!);
-              if (linkedItem != null && context.mounted) {
-                showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  builder: (_) => AddStockSheet(item: linkedItem),
-                );
-              }
-            }
-          },
+          onChanged: (v) =>
+              db?.toggleCustomShoppingItem(item.id, v ?? false),
         ),
         title: Text(
           item.name,
@@ -292,35 +281,43 @@ class _CustomItemTile extends ConsumerWidget {
                 )
               : null,
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (item.quantity != null)
-              Text(
+        subtitle: item.quantity != null
+            ? Text(
                 '${_fmt(item.quantity!)} ${item.unit ?? ''}',
                 style: const TextStyle(fontSize: 12),
-              ),
-            if (item.itemId != null)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.inventory_2_outlined,
-                      size: 11,
-                      color: theme.colorScheme.secondary),
-                  const SizedBox(width: 3),
-                  Text('Verlinkt',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.secondary)),
-                ],
-              ),
+              )
+            : null,
+        trailing: PopupMenuButton<String>(
+          onSelected: (v) {
+            if (v == 'edit') {
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => _AddCustomItemSheet(existing: item),
+              );
+            } else if (v == 'delete') {
+              db?.deleteCustomShoppingItem(item.id);
+            }
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(children: [
+                Icon(Icons.edit_outlined),
+                SizedBox(width: 8),
+                Text('Bearbeiten'),
+              ]),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(children: [
+                Icon(Icons.delete_outline, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Löschen', style: TextStyle(color: Colors.red)),
+              ]),
+            ),
           ],
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, size: 18),
-          onPressed: () => db?.deleteCustomShoppingItem(item.id),
-          tooltip: 'Entfernen',
         ),
       ),
     );
@@ -328,6 +325,151 @@ class _CustomItemTile extends ConsumerWidget {
 
   String _fmt(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
+}
+
+// ── Linked item card (mirrors _NeedCard, shows current stock) ─────────────────
+
+class _LinkedItemCard extends ConsumerWidget {
+  final CustomShoppingItem customItem;
+  const _LinkedItemCard({required this.customItem});
+
+  String _fmt(double q) =>
+      q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final itemAsync = ref.watch(itemByIdProvider(customItem.itemId!));
+    final statesAsync =
+        ref.watch(itemStatesForItemProvider(customItem.itemId!));
+    final db = ref.read(databaseProvider);
+    final theme = Theme.of(context);
+
+    return itemAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, st) => _CustomItemTile(item: customItem),
+      data: (item) {
+        if (item == null) return _CustomItemTile(item: customItem);
+
+        final states = statesAsync.valueOrNull ?? [];
+        final unit =
+            customItem.unit ?? item.minStockUnit ?? item.stockUnit ?? '';
+        double currentQty = 0;
+        for (final s in states) {
+          if (unit.isEmpty || s.unit == unit) {
+            currentQty += s.currentQuantity;
+          }
+        }
+        final neededQty = customItem.quantity ?? item.minStockQuantity ?? 0;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(Icons.inventory_2_outlined,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    Expanded(
+                      child: Text(item.name,
+                          style: theme.textTheme.titleMedium),
+                    ),
+                    if (neededQty > 0)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${_fmt(currentQty)} / ${_fmt(neededQty)} $unit',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text('vorhanden / Ziel',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.outline)),
+                        ],
+                      ),
+                  ],
+                ),
+                if (neededQty > 0) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (currentQty / neededQty).clamp(0.0, 1.0),
+                      minHeight: 6,
+                      backgroundColor: theme.colorScheme.errorContainer,
+                      valueColor: AlwaysStoppedAnimation(
+                          theme.colorScheme.error),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    // Edit
+                    TextButton.icon(
+                      onPressed: () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (_) =>
+                            _AddCustomItemSheet(existing: customItem),
+                      ),
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('Bearbeiten'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.outline,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    // Delete
+                    TextButton.icon(
+                      onPressed: () =>
+                          db?.deleteCustomShoppingItem(customItem.id),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Entfernen'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.outline,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    const Spacer(),
+                    // Buy button → opens AddStockSheet
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => showModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          useSafeArea: true,
+                          builder: (_) => AddStockSheet(item: item),
+                        ),
+                        icon: const Icon(Icons.add_shopping_cart, size: 18),
+                        label: Text(
+                          neededQty > 0
+                              ? '+${_fmt(neededQty)} $unit einkaufen'
+                              : 'Einlagern',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 // ── Item search sheet for linking ─────────────────────────────────────────────
@@ -565,37 +707,64 @@ class _StockIndicator extends StatelessWidget {
   }
 }
 
-// ── Add custom item dialog ────────────────────────────────────────────────────
+// ── Add / edit custom item sheet ──────────────────────────────────────────────
 
-class _AddCustomItemDialog extends ConsumerStatefulWidget {
+class _AddCustomItemSheet extends ConsumerStatefulWidget {
   final String? preselectedShopId;
-  const _AddCustomItemDialog({this.preselectedShopId});
+  final CustomShoppingItem? existing;
+  const _AddCustomItemSheet({this.preselectedShopId, this.existing});
 
   @override
-  ConsumerState<_AddCustomItemDialog> createState() =>
-      _AddCustomItemDialogState();
+  ConsumerState<_AddCustomItemSheet> createState() =>
+      _AddCustomItemSheetState();
 }
 
-class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
+class _AddCustomItemSheetState extends ConsumerState<_AddCustomItemSheet> {
   static const _uuid = Uuid();
   final _nameCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController();
-  String? _unit;
+  final _unitCtrl = TextEditingController();
   String? _shopId;
   String? _linkedItemId;
   String? _linkedItemName;
   bool _saving = false;
 
+  bool get _isEdit => widget.existing != null;
+
   @override
   void initState() {
     super.initState();
-    _shopId = widget.preselectedShopId;
+    final e = widget.existing;
+    if (e != null) {
+      _nameCtrl.text = e.name;
+      if (e.quantity != null) {
+        _qtyCtrl.text = e.quantity!.toStringAsFixed(
+            e.quantity! == e.quantity!.truncateToDouble() ? 0 : 1);
+      }
+      _unitCtrl.text = e.unit ?? '';
+      _shopId = e.shopId;
+      _linkedItemId = e.itemId;
+    } else {
+      _shopId = widget.preselectedShopId;
+    }
+    // If editing a linked item, load the name asynchronously
+    if (_linkedItemId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final db = ref.read(databaseProvider);
+        if (db == null) return;
+        final item = await db.itemById(_linkedItemId!);
+        if (mounted && item != null) {
+          setState(() => _linkedItemName = item.name);
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _qtyCtrl.dispose();
+    _unitCtrl.dispose();
     super.dispose();
   }
 
@@ -621,15 +790,30 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
     if (db == null) return;
     setState(() => _saving = true);
     try {
-      final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
-      await db.insertCustomShoppingItem(CustomShoppingItemsCompanion.insert(
-        id: _uuid.v4(),
-        name: _nameCtrl.text.trim(),
-        quantity: Value(qty),
-        unit: Value(_unit),
-        shopId: Value(_shopId),
-        itemId: Value(_linkedItemId),
-      ));
+      final qty =
+          double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
+      final unit =
+          _unitCtrl.text.trim().isEmpty ? null : _unitCtrl.text.trim();
+
+      if (_isEdit) {
+        await db.updateCustomShoppingItem(CustomShoppingItemsCompanion(
+          id: Value(widget.existing!.id),
+          name: Value(_nameCtrl.text.trim()),
+          quantity: Value(qty),
+          unit: Value(unit),
+          shopId: Value(_shopId),
+          itemId: Value(_linkedItemId),
+        ));
+      } else {
+        await db.insertCustomShoppingItem(CustomShoppingItemsCompanion.insert(
+          id: _uuid.v4(),
+          name: _nameCtrl.text.trim(),
+          quantity: Value(qty),
+          unit: Value(unit),
+          shopId: Value(_shopId),
+          itemId: Value(_linkedItemId),
+        ));
+      }
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -648,12 +832,14 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Eintrag hinzufügen',
-              style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            _isEdit ? 'Eintrag bearbeiten' : 'Eintrag hinzufügen',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 16),
           TextField(
             controller: _nameCtrl,
-            autofocus: true,
+            autofocus: !_isEdit,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(labelText: 'Bezeichnung *'),
           ),
@@ -673,15 +859,13 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
               Expanded(
                 flex: 3,
                 child: TextField(
-                  onChanged: (v) =>
-                      setState(() => _unit = v.trim().isEmpty ? null : v.trim()),
+                  controller: _unitCtrl,
                   decoration: const InputDecoration(labelText: 'Einheit'),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          // Optional inventory item link
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
@@ -691,7 +875,8 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
                   : null,
             ),
             title: Text(
-              _linkedItemName ?? 'Artikel verlinken (optional)',
+              _linkedItemName ??
+                  (_linkedItemId != null ? '…' : 'Artikel verlinken (optional)'),
               style: _linkedItemId != null
                   ? TextStyle(
                       color: Theme.of(context).colorScheme.secondary,
@@ -699,14 +884,16 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
                   : null,
             ),
             subtitle: _linkedItemId != null
-                ? const Text('Beim Abhaken wird Einlagerung geöffnet',
+                ? const Text('Lagerbestand + Einlagern-Flow verfügbar',
                     style: TextStyle(fontSize: 11))
                 : null,
             trailing: _linkedItemId != null
                 ? IconButton(
                     icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => setState(
-                        () { _linkedItemId = null; _linkedItemName = null; }),
+                    onPressed: () => setState(() {
+                      _linkedItemId = null;
+                      _linkedItemName = null;
+                    }),
                   )
                 : const Icon(Icons.chevron_right, size: 18),
             onTap: _pickItem,
@@ -747,7 +934,7 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Hinzufügen'),
+                    : Text(_isEdit ? 'Speichern' : 'Hinzufügen'),
               ),
             ],
           ),
