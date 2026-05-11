@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
 
 import '../../db/database.dart';
+import '../../providers/entity_photos_provider.dart';
 import '../../providers/recipe_suggestions_provider.dart';
 import '../../providers/recipes_provider.dart';
+import '../../providers/vault_provider.dart';
 import '../../widgets/adaptive_shell.dart';
+import '../../widgets/thumbnail_image.dart';
 import 'recipe_detail_screen.dart';
 
 class RecipesScreen extends ConsumerStatefulWidget {
@@ -18,6 +22,7 @@ class RecipesScreen extends ConsumerStatefulWidget {
 class _RecipesScreenState extends ConsumerState<RecipesScreen> {
   static const double _splitBreakpoint = 720;
   bool _filterExpiring = false;
+  bool _isGridView = false;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +52,14 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
           onClearFilter: () => setState(() => _filterExpiring = false),
         );
       }
+      if (_isGridView) {
+        return _RecipesGrid(
+          recipes: filtered,
+          onTap: (r) => isSplit
+              ? ref.read(selectedRecipeIdProvider.notifier).state = r.id
+              : context.push('/haushalt/recipe/${r.id}'),
+        );
+      }
       return _RecipesList(recipes: filtered, splitMode: isSplit);
     }
 
@@ -60,6 +73,12 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
       appBar: AppBar(
         title: const Text('Rezepte'),
         actions: [
+          IconButton(
+            icon: Icon(
+                _isGridView ? Icons.view_list_outlined : Icons.grid_view),
+            tooltip: _isGridView ? 'Listenansicht' : 'Rasteransicht',
+            onPressed: () => setState(() => _isGridView = !_isGridView),
+          ),
           IconButton(
             icon: const Icon(Icons.cloud_download_outlined),
             tooltip: 'Von Mealie importieren',
@@ -164,6 +183,135 @@ class _RecipesList extends ConsumerWidget {
     );
   }
 }
+
+// ── Grid view ─────────────────────────────────────────────────────────────────
+
+class _RecipesGrid extends ConsumerWidget {
+  final List<Recipe> recipes;
+  final void Function(Recipe) onTap;
+  const _RecipesGrid({required this.recipes, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: recipes.length,
+      itemBuilder: (context, i) =>
+          _RecipeGridCard(recipe: recipes[i], onTap: () => onTap(recipes[i])),
+    );
+  }
+}
+
+class _RecipeGridCard extends ConsumerWidget {
+  final Recipe recipe;
+  final VoidCallback onTap;
+  const _RecipeGridCard({required this.recipe, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final photosAsync = ref.watch(entityPhotosProvider(recipe.id));
+    final firstPhoto = photosAsync.valueOrNull?.firstOrNull;
+    final vaultPath = ref.watch(vaultPathProvider);
+
+    Widget photoWidget;
+    if (firstPhoto != null && vaultPath != null) {
+      final fullPath = p.join(vaultPath, firstPhoto.photoPath);
+      photoWidget = ThumbnailImage(
+        sourcePath: fullPath,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+      );
+    } else if (recipe.imageUrl != null) {
+      photoWidget = Image.network(
+        recipe.imageUrl!,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, e, st) => _NoPhotoPlaceholder(cs: cs),
+      );
+    } else {
+      photoWidget = _NoPhotoPlaceholder(cs: cs);
+    }
+
+    final totalTime =
+        (recipe.prepTimeMinutes ?? 0) + (recipe.cookTimeMinutes ?? 0);
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: photoWidget),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    recipe.name,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (totalTime > 0) ...[
+                        Icon(Icons.schedule,
+                            size: 11, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 2),
+                        Text('$totalTime Min.',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurfaceVariant)),
+                        const SizedBox(width: 6),
+                      ],
+                      Icon(Icons.people_outline,
+                          size: 11, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 2),
+                      Text('${recipe.servings}',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoPhotoPlaceholder extends StatelessWidget {
+  final ColorScheme cs;
+  const _NoPhotoPlaceholder({required this.cs});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        color: cs.surfaceContainerHighest,
+        child: Center(
+          child: Icon(Icons.restaurant,
+              size: 40, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+        ),
+      );
+}
+
+// ── List card ─────────────────────────────────────────────────────────────────
 
 class _RecipeCard extends StatelessWidget {
   final Recipe recipe;

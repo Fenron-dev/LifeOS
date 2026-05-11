@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/product_types.dart';
 import '../../db/database.dart';
@@ -107,13 +108,30 @@ class _ItemDetailBody extends ConsumerWidget {
         children: [
           _ItemInfoCard(item: item),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: logConsumption,
-            icon: const Icon(Icons.restaurant_outlined),
-            label: const Text('Im Tagebuch erfassen'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(40),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: logConsumption,
+                  icon: const Icon(Icons.restaurant_outlined),
+                  label: const Text('Im Tagebuch'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(40),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showAddToShoppingList(context, ref, item),
+                  icon: const Icon(Icons.add_shopping_cart_outlined),
+                  label: const Text('Kaufen'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(40),
+                  ),
+                ),
+              ),
+            ],
           ),
           if (_hasNutrition(item)) ...[
             const SizedBox(height: 12),
@@ -179,6 +197,168 @@ void _showAddStockDialog(BuildContext context, WidgetRef ref, Item item) {
     useSafeArea: true,
     builder: (_) => AddStockSheet(item: item),
   );
+}
+
+void _showAddToShoppingList(BuildContext context, WidgetRef ref, Item item) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => _AddToShoppingListSheet(item: item),
+  );
+}
+
+// ── Add to shopping list sheet ────────────────────────────────────────────────
+
+class _AddToShoppingListSheet extends ConsumerStatefulWidget {
+  final Item item;
+  const _AddToShoppingListSheet({required this.item});
+
+  @override
+  ConsumerState<_AddToShoppingListSheet> createState() =>
+      _AddToShoppingListSheetState();
+}
+
+class _AddToShoppingListSheetState
+    extends ConsumerState<_AddToShoppingListSheet> {
+  static const _uuid = Uuid();
+  late final TextEditingController _qtyCtrl;
+  late final TextEditingController _unitCtrl;
+  String? _shopId;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    _qtyCtrl = TextEditingController(
+        text: item.consumeQty != null
+            ? _fmt(item.consumeQty!)
+            : item.minStockQuantity != null
+                ? _fmt(item.minStockQuantity!)
+                : '');
+    _unitCtrl = TextEditingController(
+        text: item.consumeUnit ?? item.stockUnit ?? item.minStockUnit ?? '');
+    _shopId = item.preferredShopId;
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    _unitCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmt(double q) =>
+      q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
+
+  Future<void> _save() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    setState(() => _saving = true);
+    try {
+      final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
+      final unit =
+          _unitCtrl.text.trim().isEmpty ? null : _unitCtrl.text.trim();
+      await db.insertCustomShoppingItem(CustomShoppingItemsCompanion.insert(
+        id: _uuid.v4(),
+        name: widget.item.name,
+        quantity: Value(qty),
+        unit: Value(unit),
+        shopId: Value(_shopId),
+        itemId: Value(widget.item.id),
+      ));
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.item.name} zur Einkaufsliste hinzugefügt'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shops = ref.watch(allShopsProvider).valueOrNull ?? [];
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 20, 16, bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Kaufen: ${widget.item.name}',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text('Wird zur Einkaufsliste hinzugefügt',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _qtyCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Menge'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _unitCtrl,
+                  decoration: const InputDecoration(labelText: 'Einheit'),
+                ),
+              ),
+            ],
+          ),
+          if (shops.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            InputDecorator(
+              decoration: const InputDecoration(labelText: 'Geschäft'),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _shopId,
+                  isDense: true,
+                  isExpanded: true,
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('Kein Geschäft')),
+                    ...shops.map((s) =>
+                        DropdownMenuItem(value: s.id, child: Text(s.name))),
+                  ],
+                  onChanged: (v) => setState(() => _shopId = v),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            icon: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.add_shopping_cart_outlined),
+            label: const Text('Zur Einkaufsliste'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 bool _hasNutrition(Item item) =>

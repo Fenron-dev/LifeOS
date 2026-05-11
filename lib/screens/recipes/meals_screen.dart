@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../db/database.dart';
@@ -14,7 +15,10 @@ import '../../providers/locations_provider.dart';
 import '../../providers/recipe_suggestions_provider.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/units_provider.dart';
+import '../../providers/entity_photos_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../widgets/entity_photo_section.dart';
+import '../../widgets/thumbnail_image.dart';
 
 class MealsScreen extends ConsumerStatefulWidget {
   final bool filterExpiring;
@@ -26,6 +30,7 @@ class MealsScreen extends ConsumerStatefulWidget {
 
 class _MealsScreenState extends ConsumerState<MealsScreen> {
   late bool _filterExpiring;
+  bool _isGridView = false;
 
   @override
   void initState() {
@@ -54,6 +59,12 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
       appBar: AppBar(
         title: const Text('Gerichte'),
         actions: [
+          IconButton(
+            icon: Icon(
+                _isGridView ? Icons.view_list_outlined : Icons.grid_view),
+            tooltip: _isGridView ? 'Listenansicht' : 'Rasteransicht',
+            onPressed: () => setState(() => _isGridView = !_isGridView),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Gericht hinzufügen',
@@ -114,33 +125,65 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
             );
           }
 
-          return filtered.isEmpty && allMeals.isEmpty
-              ? _EmptyState()
-              : CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _PreparedDishSection(allMeals: allMeals),
+          if (filtered.isEmpty && allMeals.isEmpty) return _EmptyState();
+
+          if (_isGridView) {
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                    child: _PreparedDishSection(allMeals: allMeals)),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+                  sliver: SliverGrid.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.85,
                     ),
-                    if (filtered.isEmpty)
-                      const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: Text('Keine passenden Gerichte')),
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                        sliver: SliverList.builder(
-                          itemCount: filtered.length,
-                          itemBuilder: (context, i) => _MealCard(
-                            meal: filtered[i],
-                            expiringItemIds: expiringIds,
-                          ),
-                        ),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, i) => _MealGridCard(
+                      meal: filtered[i],
+                      onTap: () => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (_) =>
+                            _MealConsumeSheet(meal: filtered[i]),
                       ),
-                  ],
-                );
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _PreparedDishSection(allMeals: allMeals),
+                ),
+                if (filtered.isEmpty)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: Text('Keine passenden Gerichte')),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                    sliver: SliverList.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) => _MealCard(
+                        meal: filtered[i],
+                        expiringItemIds: expiringIds,
+                      ),
+                    ),
+                  ),
+              ],
+            );
         },
       ),
     );
@@ -152,6 +195,68 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => _MealForm(meal: meal),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Meal grid card
+// ---------------------------------------------------------------------------
+
+class _MealGridCard extends ConsumerWidget {
+  final StandardMeal meal;
+  final VoidCallback onTap;
+  const _MealGridCard({required this.meal, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final photosAsync = ref.watch(entityPhotosProvider(meal.id));
+    final firstPhoto = photosAsync.valueOrNull?.firstOrNull;
+    final vaultPath = ref.watch(vaultPathProvider);
+
+    Widget photoWidget;
+    if (firstPhoto != null && vaultPath != null) {
+      final fullPath = p.join(vaultPath, firstPhoto.photoPath);
+      photoWidget = ThumbnailImage(
+        sourcePath: fullPath,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+      );
+    } else {
+      photoWidget = Container(
+        color: cs.surfaceContainerHighest,
+        child: Center(
+          child: Icon(Icons.restaurant_menu,
+              size: 40,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+        ),
+      );
+    }
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: photoWidget),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+              child: Text(
+                meal.name,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -173,7 +278,8 @@ class _MealCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         leading: const CircleAvatar(child: Icon(Icons.restaurant_menu)),
-        title: Text(meal.name),
+        // Title and subtitle use full available width — trailing is only 2 items.
+        title: Text(meal.name, softWrap: true),
         subtitle: ingsAsync.when(
           loading: () => const Text('…'),
           error: (err, st) => const SizedBox.shrink(),
@@ -183,29 +289,34 @@ class _MealCard extends ConsumerWidget {
                     i.itemId != null &&
                     expiringItemIds.contains(i.itemId))
                 .length;
-            return Row(
+            return Wrap(
+              spacing: 6,
               children: [
                 Text(
                   '${ings.length} Zutat${ings.length == 1 ? '' : 'en'}',
                   style: const TextStyle(fontSize: 12),
                 ),
-                if (expiringCount > 0) ...[
-                  const SizedBox(width: 6),
-                  Icon(Icons.event_busy_outlined,
-                      size: 12,
-                      color: Theme.of(context).colorScheme.error),
-                  const SizedBox(width: 2),
-                  Text(
-                    '$expiringCount ablaufend',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.error),
+                if (expiringCount > 0)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.event_busy_outlined,
+                          size: 12,
+                          color: Theme.of(context).colorScheme.error),
+                      const SizedBox(width: 2),
+                      Text(
+                        '$expiringCount ablaufend',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.error),
+                      ),
+                    ],
                   ),
-                ],
               ],
             );
           },
         ),
+        // Only 2 items in trailing: play + popup menu (freeze/edit/delete)
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -219,27 +330,83 @@ class _MealCard extends ConsumerWidget {
                 builder: (_) => _MealConsumeSheet(meal: meal),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.ac_unit_outlined, size: 20),
-              tooltip: 'Einfrieren',
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                builder: (_) => _FreezeDishSheet(meal: meal),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 20),
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (ctx) => _MealForm(meal: meal),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              onPressed: () => _confirmDelete(context, ref),
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                if (v == 'freeze') {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (_) => _FreezeDishSheet(meal: meal),
+                  );
+                } else if (v == 'photos') {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (ctx) => Padding(
+                      padding: EdgeInsets.fromLTRB(
+                          16, 20, 16,
+                          MediaQuery.viewInsetsOf(ctx).bottom + 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(meal.name,
+                              style:
+                                  Theme.of(ctx).textTheme.titleMedium),
+                          const SizedBox(height: 12),
+                          EntityPhotoSection(
+                              entityId: meal.id,
+                              entityType: 'meal'),
+                        ],
+                      ),
+                    ),
+                  );
+                } else if (v == 'edit') {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (ctx) => _MealForm(meal: meal),
+                  );
+                } else if (v == 'delete') {
+                  _confirmDelete(context, ref);
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'freeze',
+                  child: Row(children: [
+                    Icon(Icons.ac_unit_outlined),
+                    SizedBox(width: 8),
+                    Text('Einfrieren'),
+                  ]),
+                ),
+                const PopupMenuItem(
+                  value: 'photos',
+                  child: Row(children: [
+                    Icon(Icons.photo_library_outlined),
+                    SizedBox(width: 8),
+                    Text('Fotos'),
+                  ]),
+                ),
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(children: [
+                    Icon(Icons.edit_outlined),
+                    SizedBox(width: 8),
+                    Text('Bearbeiten'),
+                  ]),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(children: [
+                    Icon(Icons.delete_outline, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Löschen',
+                        style: TextStyle(color: Colors.red)),
+                  ]),
+                ),
+              ],
             ),
           ],
         ),

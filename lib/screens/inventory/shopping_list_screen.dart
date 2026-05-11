@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../db/database.dart';
 import '../../providers/groups_provider.dart';
+import '../../providers/items_provider.dart';
 import '../../providers/shops_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../items/item_detail_screen.dart';
@@ -181,8 +182,10 @@ class ShoppingListScreen extends ConsumerWidget {
 
   void _showAddDialog(BuildContext context, WidgetRef ref,
       {String? preselectedShopId}) {
-    showDialog(
+    showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => _AddCustomItemDialog(
         preselectedShopId: preselectedShopId,
       ),
@@ -264,7 +267,21 @@ class _CustomItemTile extends ConsumerWidget {
         dense: true,
         leading: Checkbox(
           value: item.checked,
-          onChanged: (v) => db?.toggleCustomShoppingItem(item.id, v ?? false),
+          onChanged: (v) async {
+            await db?.toggleCustomShoppingItem(item.id, v ?? false);
+            // If linked to an inventory item and just checked, open add-stock.
+            if ((v ?? false) && item.itemId != null && context.mounted) {
+              final linkedItem = await db?.itemById(item.itemId!);
+              if (linkedItem != null && context.mounted) {
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => AddStockSheet(item: linkedItem),
+                );
+              }
+            }
+          },
         ),
         title: Text(
           item.name,
@@ -275,12 +292,31 @@ class _CustomItemTile extends ConsumerWidget {
                 )
               : null,
         ),
-        subtitle: item.quantity != null
-            ? Text(
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (item.quantity != null)
+              Text(
                 '${_fmt(item.quantity!)} ${item.unit ?? ''}',
                 style: const TextStyle(fontSize: 12),
-              )
-            : null,
+              ),
+            if (item.itemId != null)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.inventory_2_outlined,
+                      size: 11,
+                      color: theme.colorScheme.secondary),
+                  const SizedBox(width: 3),
+                  Text('Verlinkt',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.secondary)),
+                ],
+              ),
+          ],
+        ),
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline, size: 18),
           onPressed: () => db?.deleteCustomShoppingItem(item.id),
@@ -292,6 +328,67 @@ class _CustomItemTile extends ConsumerWidget {
 
   String _fmt(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
+}
+
+// ── Item search sheet for linking ─────────────────────────────────────────────
+
+class _ItemSearchSheet extends StatefulWidget {
+  final List<Item> items;
+  const _ItemSearchSheet({required this.items});
+
+  @override
+  State<_ItemSearchSheet> createState() => _ItemSearchSheetState();
+}
+
+class _ItemSearchSheetState extends State<_ItemSearchSheet> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _query.isEmpty
+        ? widget.items
+        : widget.items
+            .where((i) =>
+                i.name.toLowerCase().contains(_query.toLowerCase()) ||
+                (i.brand?.toLowerCase().contains(_query.toLowerCase()) ??
+                    false))
+            .toList();
+
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Artikel suchen…',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: filtered.length,
+              itemBuilder: (ctx, i) {
+                final item = filtered[i];
+                return ListTile(
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title: Text(item.name),
+                  subtitle: item.brand != null ? Text(item.brand!) : null,
+                  onTap: () => Navigator.of(ctx).pop(item),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Need card ─────────────────────────────────────────────────────────────────
@@ -485,6 +582,8 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
   final _qtyCtrl = TextEditingController();
   String? _unit;
   String? _shopId;
+  String? _linkedItemId;
+  String? _linkedItemName;
   bool _saving = false;
 
   @override
@@ -500,6 +599,22 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
     super.dispose();
   }
 
+  Future<void> _pickItem() async {
+    final allItems = ref.read(allItemsProvider).valueOrNull ?? [];
+    if (allItems.isEmpty) return;
+    final picked = await showModalBottomSheet<Item>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _ItemSearchSheet(items: allItems),
+    );
+    if (picked == null) return;
+    setState(() {
+      _linkedItemId = picked.id;
+      _linkedItemName = picked.name;
+      if (_nameCtrl.text.trim().isEmpty) _nameCtrl.text = picked.name;
+    });
+  }
+
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) return;
     final db = ref.read(databaseProvider);
@@ -513,6 +628,7 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
         quantity: Value(qty),
         unit: Value(_unit),
         shopId: Value(_shopId),
+        itemId: Value(_linkedItemId),
       ));
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -524,12 +640,17 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
   Widget build(BuildContext context) {
     final shopsAsync = ref.watch(allShopsProvider);
     final shops = shopsAsync.valueOrNull ?? [];
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
 
-    return AlertDialog(
-      title: const Text('Eintrag hinzufügen'),
-      content: Column(
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 20, 16, bottom + 24),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text('Eintrag hinzufügen',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
           TextField(
             controller: _nameCtrl,
             autofocus: true,
@@ -552,43 +673,86 @@ class _AddCustomItemDialogState extends ConsumerState<_AddCustomItemDialog> {
               Expanded(
                 flex: 3,
                 child: TextField(
-                  onChanged: (v) => setState(() => _unit = v.trim().isEmpty ? null : v.trim()),
+                  onChanged: (v) =>
+                      setState(() => _unit = v.trim().isEmpty ? null : v.trim()),
                   decoration: const InputDecoration(labelText: 'Einheit'),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // Optional inventory item link
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              Icons.inventory_2_outlined,
+              color: _linkedItemId != null
+                  ? Theme.of(context).colorScheme.secondary
+                  : null,
+            ),
+            title: Text(
+              _linkedItemName ?? 'Artikel verlinken (optional)',
+              style: _linkedItemId != null
+                  ? TextStyle(
+                      color: Theme.of(context).colorScheme.secondary,
+                      fontWeight: FontWeight.w500)
+                  : null,
+            ),
+            subtitle: _linkedItemId != null
+                ? const Text('Beim Abhaken wird Einlagerung geöffnet',
+                    style: TextStyle(fontSize: 11))
+                : null,
+            trailing: _linkedItemId != null
+                ? IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(
+                        () { _linkedItemId = null; _linkedItemName = null; }),
+                  )
+                : const Icon(Icons.chevron_right, size: 18),
+            onTap: _pickItem,
+          ),
           if (shops.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String?>(
-              // ignore: deprecated_member_use
-              value: _shopId,
-              isExpanded: true,
+            const SizedBox(height: 4),
+            InputDecorator(
               decoration: const InputDecoration(labelText: 'Geschäft'),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Kein Geschäft')),
-                ...shops.map((s) =>
-                    DropdownMenuItem(value: s.id, child: Text(s.name))),
-              ],
-              onChanged: (v) => setState(() => _shopId = v),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _shopId,
+                  isDense: true,
+                  isExpanded: true,
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('Kein Geschäft')),
+                    ...shops.map((s) =>
+                        DropdownMenuItem(value: s.id, child: Text(s.name))),
+                  ],
+                  onChanged: (v) => setState(() => _shopId = v),
+                ),
+              ),
             ),
           ],
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Abbrechen'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Hinzufügen'),
+              ),
+            ],
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Hinzufügen'),
-        ),
-      ],
     );
   }
 }

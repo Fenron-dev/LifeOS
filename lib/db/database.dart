@@ -110,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 33;
+  int get schemaVersion => 34;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -342,6 +342,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 33) {
             // Sprint H — entity photos (general photo attachments).
             await m.createTable(entityPhotos);
+          }
+          if (from < 34) {
+            // Sprint I — item link on custom shopping list entries.
+            await m.addColumn(customShoppingItems, customShoppingItems.itemId);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.

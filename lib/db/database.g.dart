@@ -23129,6 +23129,18 @@ class $CustomShoppingItemsTable extends CustomShoppingItems
       'REFERENCES shops (id)',
     ),
   );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<String> itemId = GeneratedColumn<String>(
+    'item_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE SET NULL',
+    ),
+  );
   static const VerificationMeta _checkedMeta = const VerificationMeta(
     'checked',
   );
@@ -23163,6 +23175,7 @@ class $CustomShoppingItemsTable extends CustomShoppingItems
     quantity,
     unit,
     shopId,
+    itemId,
     checked,
     createdAt,
   ];
@@ -23209,6 +23222,12 @@ class $CustomShoppingItemsTable extends CustomShoppingItems
         shopId.isAcceptableOrUnknown(data['shop_id']!, _shopIdMeta),
       );
     }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    }
     if (data.containsKey('checked')) {
       context.handle(
         _checkedMeta,
@@ -23250,6 +23269,10 @@ class $CustomShoppingItemsTable extends CustomShoppingItems
         DriftSqlType.string,
         data['${effectivePrefix}shop_id'],
       ),
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_id'],
+      ),
       checked: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}checked'],
@@ -23274,6 +23297,10 @@ class CustomShoppingItem extends DataClass
   final double? quantity;
   final String? unit;
   final String? shopId;
+
+  /// Optional link to an inventory item — when checked off the add-stock flow
+  /// opens automatically so the purchase gets booked into inventory.
+  final String? itemId;
   final bool checked;
   final DateTime createdAt;
   const CustomShoppingItem({
@@ -23282,6 +23309,7 @@ class CustomShoppingItem extends DataClass
     this.quantity,
     this.unit,
     this.shopId,
+    this.itemId,
     required this.checked,
     required this.createdAt,
   });
@@ -23299,6 +23327,9 @@ class CustomShoppingItem extends DataClass
     if (!nullToAbsent || shopId != null) {
       map['shop_id'] = Variable<String>(shopId);
     }
+    if (!nullToAbsent || itemId != null) {
+      map['item_id'] = Variable<String>(itemId);
+    }
     map['checked'] = Variable<bool>(checked);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -23315,6 +23346,9 @@ class CustomShoppingItem extends DataClass
       shopId: shopId == null && nullToAbsent
           ? const Value.absent()
           : Value(shopId),
+      itemId: itemId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(itemId),
       checked: Value(checked),
       createdAt: Value(createdAt),
     );
@@ -23331,6 +23365,7 @@ class CustomShoppingItem extends DataClass
       quantity: serializer.fromJson<double?>(json['quantity']),
       unit: serializer.fromJson<String?>(json['unit']),
       shopId: serializer.fromJson<String?>(json['shopId']),
+      itemId: serializer.fromJson<String?>(json['itemId']),
       checked: serializer.fromJson<bool>(json['checked']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -23344,6 +23379,7 @@ class CustomShoppingItem extends DataClass
       'quantity': serializer.toJson<double?>(quantity),
       'unit': serializer.toJson<String?>(unit),
       'shopId': serializer.toJson<String?>(shopId),
+      'itemId': serializer.toJson<String?>(itemId),
       'checked': serializer.toJson<bool>(checked),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -23355,6 +23391,7 @@ class CustomShoppingItem extends DataClass
     Value<double?> quantity = const Value.absent(),
     Value<String?> unit = const Value.absent(),
     Value<String?> shopId = const Value.absent(),
+    Value<String?> itemId = const Value.absent(),
     bool? checked,
     DateTime? createdAt,
   }) => CustomShoppingItem(
@@ -23363,6 +23400,7 @@ class CustomShoppingItem extends DataClass
     quantity: quantity.present ? quantity.value : this.quantity,
     unit: unit.present ? unit.value : this.unit,
     shopId: shopId.present ? shopId.value : this.shopId,
+    itemId: itemId.present ? itemId.value : this.itemId,
     checked: checked ?? this.checked,
     createdAt: createdAt ?? this.createdAt,
   );
@@ -23373,6 +23411,7 @@ class CustomShoppingItem extends DataClass
       quantity: data.quantity.present ? data.quantity.value : this.quantity,
       unit: data.unit.present ? data.unit.value : this.unit,
       shopId: data.shopId.present ? data.shopId.value : this.shopId,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
       checked: data.checked.present ? data.checked.value : this.checked,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -23386,6 +23425,7 @@ class CustomShoppingItem extends DataClass
           ..write('quantity: $quantity, ')
           ..write('unit: $unit, ')
           ..write('shopId: $shopId, ')
+          ..write('itemId: $itemId, ')
           ..write('checked: $checked, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -23394,7 +23434,7 @@ class CustomShoppingItem extends DataClass
 
   @override
   int get hashCode =>
-      Object.hash(id, name, quantity, unit, shopId, checked, createdAt);
+      Object.hash(id, name, quantity, unit, shopId, itemId, checked, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -23404,6 +23444,7 @@ class CustomShoppingItem extends DataClass
           other.quantity == this.quantity &&
           other.unit == this.unit &&
           other.shopId == this.shopId &&
+          other.itemId == this.itemId &&
           other.checked == this.checked &&
           other.createdAt == this.createdAt);
 }
@@ -23414,6 +23455,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
   final Value<double?> quantity;
   final Value<String?> unit;
   final Value<String?> shopId;
+  final Value<String?> itemId;
   final Value<bool> checked;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
@@ -23423,6 +23465,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
     this.quantity = const Value.absent(),
     this.unit = const Value.absent(),
     this.shopId = const Value.absent(),
+    this.itemId = const Value.absent(),
     this.checked = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -23433,6 +23476,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
     this.quantity = const Value.absent(),
     this.unit = const Value.absent(),
     this.shopId = const Value.absent(),
+    this.itemId = const Value.absent(),
     this.checked = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -23444,6 +23488,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
     Expression<double>? quantity,
     Expression<String>? unit,
     Expression<String>? shopId,
+    Expression<String>? itemId,
     Expression<bool>? checked,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
@@ -23454,6 +23499,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
       if (quantity != null) 'quantity': quantity,
       if (unit != null) 'unit': unit,
       if (shopId != null) 'shop_id': shopId,
+      if (itemId != null) 'item_id': itemId,
       if (checked != null) 'checked': checked,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
@@ -23466,6 +23512,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
     Value<double?>? quantity,
     Value<String?>? unit,
     Value<String?>? shopId,
+    Value<String?>? itemId,
     Value<bool>? checked,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
@@ -23476,6 +23523,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
       quantity: quantity ?? this.quantity,
       unit: unit ?? this.unit,
       shopId: shopId ?? this.shopId,
+      itemId: itemId ?? this.itemId,
       checked: checked ?? this.checked,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
@@ -23500,6 +23548,9 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
     if (shopId.present) {
       map['shop_id'] = Variable<String>(shopId.value);
     }
+    if (itemId.present) {
+      map['item_id'] = Variable<String>(itemId.value);
+    }
     if (checked.present) {
       map['checked'] = Variable<bool>(checked.value);
     }
@@ -23520,6 +23571,7 @@ class CustomShoppingItemsCompanion extends UpdateCompanion<CustomShoppingItem> {
           ..write('quantity: $quantity, ')
           ..write('unit: $unit, ')
           ..write('shopId: $shopId, ')
+          ..write('itemId: $itemId, ')
           ..write('checked: $checked, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
@@ -26011,6 +26063,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         'items',
         limitUpdateKind: UpdateKind.delete,
       ),
+      result: [TableUpdate('custom_shopping_items', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
       result: [TableUpdate('item_relations', kind: UpdateKind.delete)],
     ),
     WritePropagation(
@@ -27273,6 +27332,33 @@ final class $$ItemsTableReferences
     );
   }
 
+  static MultiTypedResultKey<
+    $CustomShoppingItemsTable,
+    List<CustomShoppingItem>
+  >
+  _customShoppingItemsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.customShoppingItems,
+        aliasName: $_aliasNameGenerator(
+          db.items.id,
+          db.customShoppingItems.itemId,
+        ),
+      );
+
+  $$CustomShoppingItemsTableProcessedTableManager get customShoppingItemsRefs {
+    final manager = $$CustomShoppingItemsTableTableManager(
+      $_db,
+      $_db.customShoppingItems,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _customShoppingItemsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$ItemRelationsTable, List<ItemRelation>>
   _fromRelationsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.itemRelations,
@@ -27858,6 +27944,31 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
           }) => $$MealPlanEntriesTableFilterComposer(
             $db: $db,
             $table: $db.mealPlanEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> customShoppingItemsRefs(
+    Expression<bool> Function($$CustomShoppingItemsTableFilterComposer f) f,
+  ) {
+    final $$CustomShoppingItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.customShoppingItems,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomShoppingItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.customShoppingItems,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -28718,6 +28829,32 @@ class $$ItemsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> customShoppingItemsRefs<T extends Object>(
+    Expression<T> Function($$CustomShoppingItemsTableAnnotationComposer a) f,
+  ) {
+    final $$CustomShoppingItemsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.customShoppingItems,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CustomShoppingItemsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.customShoppingItems,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> fromRelations<T extends Object>(
     Expression<T> Function($$ItemRelationsTableAnnotationComposer a) f,
   ) {
@@ -28823,6 +28960,7 @@ class $$ItemsTableTableManager
             bool tasksRefs,
             bool wishListEntriesRefs,
             bool mealPlanItemRefs,
+            bool customShoppingItemsRefs,
             bool fromRelations,
             bool toRelations,
             bool itemPropertyValuesRefs,
@@ -29029,6 +29167,7 @@ class $$ItemsTableTableManager
                 tasksRefs = false,
                 wishListEntriesRefs = false,
                 mealPlanItemRefs = false,
+                customShoppingItemsRefs = false,
                 fromRelations = false,
                 toRelations = false,
                 itemPropertyValuesRefs = false,
@@ -29047,6 +29186,7 @@ class $$ItemsTableTableManager
                     if (tasksRefs) db.tasks,
                     if (wishListEntriesRefs) db.wishListEntries,
                     if (mealPlanItemRefs) db.mealPlanEntries,
+                    if (customShoppingItemsRefs) db.customShoppingItems,
                     if (fromRelations) db.itemRelations,
                     if (toRelations) db.itemRelations,
                     if (itemPropertyValuesRefs) db.itemPropertyValues,
@@ -29322,6 +29462,27 @@ class $$ItemsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (customShoppingItemsRefs)
+                        await $_getPrefetchedData<
+                          Item,
+                          $ItemsTable,
+                          CustomShoppingItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ItemsTableReferences
+                              ._customShoppingItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).customShoppingItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (fromRelations)
                         await $_getPrefetchedData<
                           Item,
@@ -29416,6 +29577,7 @@ typedef $$ItemsTableProcessedTableManager =
         bool tasksRefs,
         bool wishListEntriesRefs,
         bool mealPlanItemRefs,
+        bool customShoppingItemsRefs,
         bool fromRelations,
         bool toRelations,
         bool itemPropertyValuesRefs,
@@ -45568,6 +45730,7 @@ typedef $$CustomShoppingItemsTableCreateCompanionBuilder =
       Value<double?> quantity,
       Value<String?> unit,
       Value<String?> shopId,
+      Value<String?> itemId,
       Value<bool> checked,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -45579,6 +45742,7 @@ typedef $$CustomShoppingItemsTableUpdateCompanionBuilder =
       Value<double?> quantity,
       Value<String?> unit,
       Value<String?> shopId,
+      Value<String?> itemId,
       Value<bool> checked,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -45609,6 +45773,24 @@ final class $$CustomShoppingItemsTableReferences
       $_db.shops,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_shopIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ItemsTable _itemIdTable(_$AppDatabase db) => db.items.createAlias(
+    $_aliasNameGenerator(db.customShoppingItems.itemId, db.items.id),
+  );
+
+  $$ItemsTableProcessedTableManager? get itemId {
+    final $_column = $_itemColumn<String>('item_id');
+    if ($_column == null) return null;
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -45669,6 +45851,29 @@ class $$CustomShoppingItemsTableFilterComposer
           }) => $$ShopsTableFilterComposer(
             $db: $db,
             $table: $db.shops,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ItemsTableFilterComposer get itemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -45740,6 +45945,29 @@ class $$CustomShoppingItemsTableOrderingComposer
     );
     return composer;
   }
+
+  $$ItemsTableOrderingComposer get itemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CustomShoppingItemsTableAnnotationComposer
@@ -45791,6 +46019,29 @@ class $$CustomShoppingItemsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$ItemsTableAnnotationComposer get itemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CustomShoppingItemsTableTableManager
@@ -45806,7 +46057,7 @@ class $$CustomShoppingItemsTableTableManager
           $$CustomShoppingItemsTableUpdateCompanionBuilder,
           (CustomShoppingItem, $$CustomShoppingItemsTableReferences),
           CustomShoppingItem,
-          PrefetchHooks Function({bool shopId})
+          PrefetchHooks Function({bool shopId, bool itemId})
         > {
   $$CustomShoppingItemsTableTableManager(
     _$AppDatabase db,
@@ -45834,6 +46085,7 @@ class $$CustomShoppingItemsTableTableManager
                 Value<double?> quantity = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
                 Value<String?> shopId = const Value.absent(),
+                Value<String?> itemId = const Value.absent(),
                 Value<bool> checked = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -45843,6 +46095,7 @@ class $$CustomShoppingItemsTableTableManager
                 quantity: quantity,
                 unit: unit,
                 shopId: shopId,
+                itemId: itemId,
                 checked: checked,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -45854,6 +46107,7 @@ class $$CustomShoppingItemsTableTableManager
                 Value<double?> quantity = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
                 Value<String?> shopId = const Value.absent(),
+                Value<String?> itemId = const Value.absent(),
                 Value<bool> checked = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -45863,6 +46117,7 @@ class $$CustomShoppingItemsTableTableManager
                 quantity: quantity,
                 unit: unit,
                 shopId: shopId,
+                itemId: itemId,
                 checked: checked,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -45875,7 +46130,7 @@ class $$CustomShoppingItemsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({shopId = false}) {
+          prefetchHooksCallback: ({shopId = false, itemId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -45910,6 +46165,21 @@ class $$CustomShoppingItemsTableTableManager
                               )
                               as T;
                     }
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable:
+                                    $$CustomShoppingItemsTableReferences
+                                        ._itemIdTable(db),
+                                referencedColumn:
+                                    $$CustomShoppingItemsTableReferences
+                                        ._itemIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
 
                     return state;
                   },
@@ -45934,7 +46204,7 @@ typedef $$CustomShoppingItemsTableProcessedTableManager =
       $$CustomShoppingItemsTableUpdateCompanionBuilder,
       (CustomShoppingItem, $$CustomShoppingItemsTableReferences),
       CustomShoppingItem,
-      PrefetchHooks Function({bool shopId})
+      PrefetchHooks Function({bool shopId, bool itemId})
     >;
 typedef $$ItemRelationsTableCreateCompanionBuilder =
     ItemRelationsCompanion Function({
