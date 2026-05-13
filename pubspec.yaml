@@ -57,8 +57,11 @@ dependencies:
   cryptography: ^2.9.0
   local_auth: ^2.3.0
 
-  # Charts (Health: Gewichtsverlauf, später Makro-Donut, etc.)
+  # Charts (Health: Gewichtsverlauf, Makros, Workout-Statistiken)
   fl_chart: ^0.69.0
+
+  # Audio (Workout-Timer Beep-Cues)
+  audioplayers: ^6.4.0
 
 dev_dependencies:
   flutter_test:

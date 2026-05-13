@@ -82,6 +82,10 @@ class UserProfile extends Table {
   // Diet plan tag: keto|mediterranean|if|highprotein|lowcarb|balanced|custom
   TextColumn get dietPlan => text().nullable()();
 
+  // Fitness goal: target workouts per week (default 3)
+  IntColumn get workoutsPerWeekGoal =>
+      integer().withDefault(const Constant(3))();
+
   DateTimeColumn get updatedAt =>
       dateTime().withDefault(currentDateAndTime)();
 

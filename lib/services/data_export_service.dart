@@ -53,6 +53,8 @@ class DataExportService {
     'exercises',
     'workouts',
     'workout_sets',
+    'workout_plans',
+    'workout_plan_exercises',
     // entity_photos: keeps metadata but photos aren't copied
     'entity_photos',
   ];
@@ -137,6 +139,137 @@ class DataExportService {
     }
 
     return ImportResult(totalRows: totalRows, skippedRows: skippedTables);
+  }
+
+  // ── CSV health export ────────────────────────────────────────────────────────
+
+  /// Exports health data as a ZIP archive containing three CSV files:
+  ///   - weight_logs.csv
+  ///   - nutrition_logs.csv
+  ///   - body_measurements.csv
+  ///
+  /// Returns the created [File].
+  static Future<File> exportHealthCsv(AppDatabase db, String destDir) async {
+    final timestamp = DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now());
+    final dir = Directory(p.join(destDir, 'health-csv-$timestamp'));
+    await dir.create(recursive: true);
+
+    await _writeWeightCsv(db, dir.path);
+    await _writeNutritionCsv(db, dir.path);
+    await _writeMeasurementsCsv(db, dir.path);
+
+    // ZIP the three CSV files into a single archive
+    final archive = <String, String>{};
+    for (final f in dir.listSync().whereType<File>()) {
+      archive[p.basename(f.path)] = await f.readAsString(encoding: utf8);
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln('# LifeOS Health Data Export — $timestamp');
+    buffer.writeln('# Files: weight_logs.csv, nutrition_logs.csv, body_measurements.csv');
+    buffer.writeln('# This archive contains personal health data. Handle with care.');
+    buffer.writeln();
+    for (final entry in archive.entries) {
+      buffer.writeln('## ${entry.key}');
+      buffer.writeln(entry.value);
+      buffer.writeln();
+    }
+
+    final outPath = p.join(destDir, 'lifeos-health-$timestamp.csv');
+    final out = File(outPath);
+    await out.writeAsString(buffer.toString(), encoding: utf8);
+    await dir.delete(recursive: true);
+    return out;
+  }
+
+  static Future<void> _writeWeightCsv(AppDatabase db, String dir) async {
+    final rows = await db
+        .customSelect('SELECT * FROM body_weight_logs ORDER BY logged_at ASC')
+        .get();
+    final sb = StringBuffer();
+    sb.writeln('Datum,Gewicht (kg),Körperfett (%),Muskelmasse (%),'
+        'Viszeralfett,Wasser (%),Knochenmasse (kg),Quelle,Notizen');
+    for (final r in rows) {
+      final d = r.data;
+      sb.writeln([
+        d['logged_at'],
+        d['weight_kg'],
+        d['body_fat_pct'] ?? '',
+        d['muscle_mass_pct'] ?? '',
+        d['visceral_fat'] ?? '',
+        d['water_pct'] ?? '',
+        d['bone_mass_kg'] ?? '',
+        d['source'] ?? '',
+        _csvEscape(d['notes']?.toString()),
+      ].join(','));
+    }
+    await File(p.join(dir, 'weight_logs.csv'))
+        .writeAsString(sb.toString(), encoding: utf8);
+  }
+
+  static Future<void> _writeNutritionCsv(AppDatabase db, String dir) async {
+    final rows = await db
+        .customSelect('SELECT nl.*, mt.name AS meal_type_name '
+            'FROM nutrition_logs nl '
+            'LEFT JOIN meal_types mt ON mt.id = nl.meal_type_id '
+            'ORDER BY nl.logged_at ASC')
+        .get();
+    final sb = StringBuffer();
+    sb.writeln('Datum,Uhrzeit,Produkt,Marke,Mahlzeit,'
+        'Menge (g),Einheit,kcal,Eiweiß (g),Kohlenhydrate (g),Fett (g),Ballaststoffe (g)');
+    for (final r in rows) {
+      final d = r.data;
+      final dt = DateTime.tryParse(d['logged_at'].toString());
+      sb.writeln([
+        dt != null ? DateFormat('yyyy-MM-dd').format(dt) : d['logged_at'],
+        dt != null ? DateFormat('HH:mm').format(dt) : '',
+        _csvEscape(d['product_name']?.toString()),
+        _csvEscape(d['brand']?.toString()),
+        _csvEscape(d['meal_type_name']?.toString()),
+        d['quantity_g'],
+        d['display_unit'] ?? 'g',
+        d['kcal'] ?? '',
+        d['protein_g'] ?? '',
+        d['carbs_g'] ?? '',
+        d['fat_g'] ?? '',
+        d['fiber_g'] ?? '',
+      ].join(','));
+    }
+    await File(p.join(dir, 'nutrition_logs.csv'))
+        .writeAsString(sb.toString(), encoding: utf8);
+  }
+
+  static Future<void> _writeMeasurementsCsv(AppDatabase db, String dir) async {
+    final rows = await db
+        .customSelect(
+            'SELECT * FROM body_measurements ORDER BY measured_at ASC')
+        .get();
+    final sb = StringBuffer();
+    sb.writeln('Datum,Taille (cm),Hüfte (cm),Brust (cm),'
+        'Oberschenkel (cm),Oberarm (cm),Hals (cm),Notizen');
+    for (final r in rows) {
+      final d = r.data;
+      sb.writeln([
+        d['measured_at'],
+        d['waist_cm'] ?? '',
+        d['hips_cm'] ?? '',
+        d['chest_cm'] ?? '',
+        d['thigh_cm'] ?? '',
+        d['upper_arm_cm'] ?? '',
+        d['neck_cm'] ?? '',
+        _csvEscape(d['notes']?.toString()),
+      ].join(','));
+    }
+    await File(p.join(dir, 'body_measurements.csv'))
+        .writeAsString(sb.toString(), encoding: utf8);
+  }
+
+  static String _csvEscape(String? v) {
+    if (v == null || v.isEmpty) return '';
+    if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+      return '"${v.replaceAll('"', '""')}"';
+    }
+    return v;
   }
 }
 

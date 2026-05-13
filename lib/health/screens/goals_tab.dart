@@ -104,7 +104,11 @@ class GoalsTab extends ConsumerWidget {
         _GoalCard(
           icon: Icons.fitness_center_outlined,
           title: 'Workouts diese Woche',
-          child: _WorkoutGoalContent(count: weeklyWorkouts),
+          child: _WorkoutGoalContent(
+            count: weeklyWorkouts,
+            goal: profile?.workoutsPerWeekGoal ?? 3,
+            streak: _computeStreak(workouts, profile?.workoutsPerWeekGoal ?? 3),
+          ),
         ),
       ],
     );
@@ -118,8 +122,34 @@ class GoalsTab extends ConsumerWidget {
   DateTime _weekStart() {
     final n = DateTime.now();
     final d = DateTime(n.year, n.month, n.day);
-    // Monday = weekday 1
     return d.subtract(Duration(days: d.weekday - 1));
+  }
+
+  // Returns how many consecutive past weeks met the workout goal.
+  int _computeStreak(List<Workout> workouts, int goal) {
+    var streak = 0;
+    var weekStart = _weekStart();
+    // Check up to 52 weeks back
+    for (var i = 0; i < 52; i++) {
+      final weekEnd = weekStart.add(const Duration(days: 7));
+      final count = workouts
+          .where((w) =>
+              !w.startedAt.isBefore(weekStart) && w.startedAt.isBefore(weekEnd))
+          .length;
+      // Current week is allowed to be incomplete
+      if (i == 0) {
+        weekStart = weekStart.subtract(const Duration(days: 7));
+        streak = 0;
+        continue;
+      }
+      if (count >= goal) {
+        streak++;
+        weekStart = weekStart.subtract(const Duration(days: 7));
+      } else {
+        break;
+      }
+    }
+    return streak;
   }
 
   void _showEditSheet(
@@ -453,38 +483,59 @@ class _MacroRow extends StatelessWidget {
 
 class _WorkoutGoalContent extends StatelessWidget {
   final int count;
-  const _WorkoutGoalContent({required this.count});
+  final int goal;
+  final int streak;
+  const _WorkoutGoalContent(
+      {required this.count, required this.goal, required this.streak});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return Row(
+    final done = (count / goal).clamp(0.0, 1.0);
+    final reached = count >= goal;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '$count',
-          style: theme.textTheme.headlineMedium
-              ?.copyWith(fontWeight: FontWeight.bold, color: cs.primary),
+        Row(
+          children: [
+            Text(
+              '$count / $goal',
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold, color: cs.primary),
+            ),
+            const SizedBox(width: 8),
+            Text('Workouts diese Woche', style: theme.textTheme.bodyMedium),
+            const Spacer(),
+            if (streak > 0)
+              Chip(
+                avatar: const Icon(Icons.local_fire_department, size: 16,
+                    color: Colors.deepOrange),
+                label: Text('$streak ${streak == 1 ? 'Woche' : 'Wochen'}',
+                    style: const TextStyle(fontSize: 12)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                backgroundColor: Colors.deepOrange.withValues(alpha: 0.1),
+              ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Text(
-          count == 1 ? 'Workout' : 'Workouts',
-          style: theme.textTheme.bodyLarge,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          'diese Woche',
-          style:
-              theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-        ),
-        const Spacer(),
-        // Motivational icons
-        ...List.generate(
-          count.clamp(0, 7),
-          (_) => Padding(
-            padding: const EdgeInsets.only(left: 3),
-            child: Icon(Icons.fitness_center, size: 16, color: cs.primary),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: done,
+            minHeight: 8,
+            backgroundColor: cs.surfaceContainerHighest,
+            valueColor: AlwaysStoppedAnimation(reached ? Colors.green : cs.primary),
           ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          reached
+              ? 'Wochenziel erreicht!'
+              : '${goal - count} ${goal - count == 1 ? 'Workout' : 'Workouts'} verbleibend',
+          style: theme.textTheme.bodySmall?.copyWith(
+              color: reached ? Colors.green : cs.onSurfaceVariant),
         ),
       ],
     );
@@ -508,6 +559,7 @@ class _GoalEditSheetState extends ConsumerState<_GoalEditSheet> {
   late final TextEditingController _proteinCtrl;
   late final TextEditingController _carbsCtrl;
   late final TextEditingController _fatCtrl;
+  late final TextEditingController _workoutsPerWeekCtrl;
   bool _saving = false;
 
   @override
@@ -515,9 +567,7 @@ class _GoalEditSheetState extends ConsumerState<_GoalEditSheet> {
     super.initState();
     final p = widget.profile;
     _targetWeightCtrl = TextEditingController(
-        text: p?.targetWeightKg != null
-            ? _fmt(p!.targetWeightKg!)
-            : '');
+        text: p?.targetWeightKg != null ? _fmt(p!.targetWeightKg!) : '');
     _kcalGoalCtrl = TextEditingController(
         text: p?.dailyCalorieGoal?.toString() ?? '');
     _waterGoalCtrl = TextEditingController(
@@ -528,6 +578,8 @@ class _GoalEditSheetState extends ConsumerState<_GoalEditSheet> {
         text: p?.carbsTargetG != null ? _fmt(p!.carbsTargetG!) : '');
     _fatCtrl = TextEditingController(
         text: p?.fatTargetG != null ? _fmt(p!.fatTargetG!) : '');
+    _workoutsPerWeekCtrl = TextEditingController(
+        text: (p?.workoutsPerWeekGoal ?? 3).toString());
   }
 
   @override
@@ -538,6 +590,7 @@ class _GoalEditSheetState extends ConsumerState<_GoalEditSheet> {
     _proteinCtrl.dispose();
     _carbsCtrl.dispose();
     _fatCtrl.dispose();
+    _workoutsPerWeekCtrl.dispose();
     super.dispose();
   }
 
@@ -552,6 +605,7 @@ class _GoalEditSheetState extends ConsumerState<_GoalEditSheet> {
     try {
       final kcal = int.tryParse(_kcalGoalCtrl.text.trim());
       final water = int.tryParse(_waterGoalCtrl.text.trim());
+      final wPerWeek = int.tryParse(_workoutsPerWeekCtrl.text.trim());
       await ref.read(profileOpsProvider.notifier).save(
             targetWeightKg: Value(_parse(_targetWeightCtrl)),
             dailyCalorieGoal: Value(kcal),
@@ -560,6 +614,9 @@ class _GoalEditSheetState extends ConsumerState<_GoalEditSheet> {
             proteinTargetG: Value(_parse(_proteinCtrl)),
             carbsTargetG: Value(_parse(_carbsCtrl)),
             fatTargetG: Value(_parse(_fatCtrl)),
+            workoutsPerWeekGoal: wPerWeek != null
+                ? Value(wPerWeek.clamp(1, 14))
+                : const Value.absent(),
           );
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -604,6 +661,15 @@ class _GoalEditSheetState extends ConsumerState<_GoalEditSheet> {
               decoration: const InputDecoration(
                 labelText: 'Wasserziel (ml/Tag)',
                 prefixIcon: Icon(Icons.water_drop_outlined),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _workoutsPerWeekCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Trainings-Ziel (Workouts/Woche)',
+                prefixIcon: Icon(Icons.fitness_center_outlined),
               ),
               keyboardType: TextInputType.number,
             ),

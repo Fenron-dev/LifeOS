@@ -8,6 +8,7 @@ import 'goals_tab.dart';
 import 'measurements_tab.dart';
 import 'photos_tab.dart';
 import 'profile_tab.dart';
+import 'stats_tab.dart';
 import 'weight_tab.dart';
 import 'workouts_tab.dart';
 
@@ -33,6 +34,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
     _MeTabSpec(label: 'Maße', icon: Icons.straighten, ready: true),
     _MeTabSpec(label: 'Fotos', icon: Icons.photo_library_outlined, ready: true),
     _MeTabSpec(label: 'Workouts', icon: Icons.fitness_center, ready: true),
+    _MeTabSpec(label: 'Statistiken', icon: Icons.bar_chart, ready: true),
     _MeTabSpec(label: 'Ziele', icon: Icons.flag_outlined, ready: true),
     _MeTabSpec(label: 'Profil', icon: Icons.person_outline, ready: true),
   ];
@@ -129,6 +131,7 @@ class _MeScreenState extends ConsumerState<MeScreen>
             'Gewicht' => const WeightTab(),
             'Maße' => const MeasurementsTab(),
             'Workouts' => const WorkoutsTab(),
+            'Statistiken' => const StatsTab(),
             'Ziele' => const GoalsTab(),
             'Profil' => const ProfileTab(),
             _ => _PlaceholderTab(label: t.label, icon: t.icon),

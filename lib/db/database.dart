@@ -82,10 +82,12 @@ part 'database.g.dart';
   CategoryDefinitions,
   // Private body photos (Phase 6.7)
   BodyPhotos,
-  // Fitness tracking (Phase 6.8)
+  // Fitness tracking (Phase 6.8 / 7.x)
   Exercises,
   Workouts,
   WorkoutSets,
+  WorkoutPlans,
+  WorkoutPlanExercises,
   // Custom shopping list entries
   CustomShoppingItems,
   // Item relations (Obsidian-style)
@@ -110,7 +112,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 34;
+  int get schemaVersion => 36;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -346,6 +348,22 @@ class AppDatabase extends _$AppDatabase {
           if (from < 34) {
             // Sprint I — item link on custom shopping list entries.
             await m.addColumn(customShoppingItems, customShoppingItems.itemId);
+          }
+          if (from < 35) {
+            // Phase 7.x — extended exercise details + workout plans.
+            await m.addColumn(exercises, exercises.muscleGroupsSecondary);
+            await m.addColumn(exercises, exercises.difficulty);
+            await m.addColumn(exercises, exercises.instructions);
+            await m.addColumn(exercises, exercises.videoUrl);
+            await m.addColumn(exercises, exercises.caloriesPerMinute);
+            await m.addColumn(exercises, exercises.tips);
+            await m.addColumn(workouts, workouts.planId);
+            await m.createTable(workoutPlans);
+            await m.createTable(workoutPlanExercises);
+          }
+          if (from < 36) {
+            // Configurable workout frequency goal.
+            await m.addColumn(userProfile, userProfile.workoutsPerWeekGoal);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -2034,83 +2052,370 @@ extension FitnessDao on AppDatabase {
             ..where((s) => s.workoutId.equals(workoutId)))
           .go();
 
-  // Seed
+  // ── Workout Plans ────────────────────────────────────────────────────────
+
+  Stream<List<WorkoutPlan>> watchAllWorkoutPlans() =>
+      (select(workoutPlans)
+            ..orderBy([(p) => OrderingTerm.asc(p.name)]))
+          .watch();
+
+  Future<WorkoutPlan?> workoutPlanById(String id) =>
+      (select(workoutPlans)..where((p) => p.id.equals(id))).getSingleOrNull();
+
+  Future<void> insertWorkoutPlan(WorkoutPlansCompanion entry) =>
+      into(workoutPlans).insert(entry);
+
+  Future<void> updateWorkoutPlan(WorkoutPlansCompanion entry) =>
+      (update(workoutPlans)..where((p) => p.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deleteWorkoutPlan(String id) =>
+      (delete(workoutPlans)..where((p) => p.id.equals(id))).go();
+
+  Stream<List<WorkoutPlanExercise>> watchPlanExercises(String planId) =>
+      (select(workoutPlanExercises)
+            ..where((e) => e.planId.equals(planId))
+            ..orderBy([
+              (e) => OrderingTerm.asc(e.dayOfWeek),
+              (e) => OrderingTerm.asc(e.sortOrder),
+            ]))
+          .watch();
+
+  Future<void> insertPlanExercise(WorkoutPlanExercisesCompanion entry) =>
+      into(workoutPlanExercises).insert(entry);
+
+  Future<void> updatePlanExercise(WorkoutPlanExercisesCompanion entry) =>
+      (update(workoutPlanExercises)
+            ..where((e) => e.id.equals(entry.id.value)))
+          .write(entry);
+
+  Future<void> deletePlanExercise(String id) =>
+      (delete(workoutPlanExercises)..where((e) => e.id.equals(id))).go();
+
+  Future<void> deletePlanExercisesForDay(String planId, int dayOfWeek) =>
+      (delete(workoutPlanExercises)
+            ..where((e) =>
+                e.planId.equals(planId) & e.dayOfWeek.equals(dayOfWeek)))
+          .go();
+
+  // ── Exercise statistics ─────────────────────────────────────────────────
+
+  /// Best performance for a given exercise (max weight × reps in a single set).
+  Future<WorkoutSet?> bestSetForExercise(String exerciseId) async {
+    final allSets = await (select(workoutSets)
+          ..where((s) => s.exerciseId.equals(exerciseId)))
+        .get();
+    if (allSets.isEmpty) return null;
+    allSets.sort((a, b) {
+      final scoreA = (a.weightKg ?? 0) * (a.reps ?? 1);
+      final scoreB = (b.weightKg ?? 0) * (b.reps ?? 1);
+      return scoreB.compareTo(scoreA);
+    });
+    return allSets.first;
+  }
+
+  /// Volume (sum of weightKg × reps) per workout session for an exercise.
+  Future<List<({DateTime date, double volume, int totalSets})>>
+      exerciseVolumeHistory(String exerciseId) async {
+    final rows = await customSelect(
+      '''
+      SELECT w.started_at,
+             SUM(COALESCE(ws.weight_kg, 0) * COALESCE(ws.reps, 1)) as volume,
+             COUNT(ws.id) as total_sets
+      FROM workout_sets ws
+      JOIN workouts w ON w.id = ws.workout_id
+      WHERE ws.exercise_id = ?
+      GROUP BY w.id
+      ORDER BY w.started_at ASC
+      ''',
+      variables: [Variable.withString(exerciseId)],
+      readsFrom: {workoutSets, workouts},
+    ).get();
+    return rows
+        .map((r) => (
+              date: DateTime.fromMillisecondsSinceEpoch(
+                  r.read<int>('started_at')),
+              volume: r.read<double>('volume'),
+              totalSets: r.read<int>('total_sets'),
+            ))
+        .toList();
+  }
+
+  // ── Seed ─────────────────────────────────────────────────────────────────
+
   Future<void> _seedDefaultExercises() async {
     for (final e in _defaultExercises) {
       final existing = await (select(exercises)
-                ..where((ex) => ex.id.equals(e.$1)))
+                ..where((ex) => ex.id.equals(e.id)))
             .getSingleOrNull();
-      if (existing != null) continue;
+      if (existing != null) {
+        // Update details for built-in exercises on every open (non-destructive)
+        await (update(exercises)..where((ex) => ex.id.equals(e.id))).write(
+          ExercisesCompanion(
+            instructions: Value(e.instructions),
+            difficulty: Value(e.difficulty),
+            caloriesPerMinute: Value(e.caloriesPerMinute),
+            tips: Value(e.tips),
+            muscleGroupsSecondary: Value(e.muscleGroupsSecondary),
+          ),
+        );
+        continue;
+      }
       await into(exercises).insert(ExercisesCompanion.insert(
-        id: e.$1,
-        name: e.$2,
-        category: e.$3,
-        equipment: Value(e.$4),
-        muscleGroups: Value(e.$5),
+        id: e.id,
+        name: e.name,
+        category: e.category,
+        equipment: Value(e.equipment),
+        muscleGroups: Value(e.muscleGroups),
+        muscleGroupsSecondary: Value(e.muscleGroupsSecondary),
+        difficulty: Value(e.difficulty),
+        instructions: Value(e.instructions),
+        caloriesPerMinute: Value(e.caloriesPerMinute),
+        tips: Value(e.tips),
       ));
     }
   }
 }
 
-// (id, name, category, equipment, muscleGroupsJson)
-const _defaultExercises = <(String, String, String, String?, String?)>[
+class _ExSeed {
+  final String id;
+  final String name;
+  final String category;
+  final String? equipment;
+  final String? muscleGroups;
+  final String? muscleGroupsSecondary;
+  final String? difficulty;
+  final String? instructions;
+  final double? caloriesPerMinute;
+  final String? tips;
+  const _ExSeed(this.id, this.name, this.category, this.equipment,
+      this.muscleGroups, this.muscleGroupsSecondary, this.difficulty,
+      this.instructions, this.caloriesPerMinute, this.tips);
+}
+
+const _defaultExercises = <_ExSeed>[
   // ── Brust ──────────────────────────────────────────────────────────────────
-  ('ex_bench_bar',   'Bankdrücken',             'chest',     'barbell',   '["Brust","Trizeps","Schultern"]'),
-  ('ex_bench_db',    'Kurzhantel Bankdrücken',   'chest',     'dumbbell',  '["Brust","Trizeps"]'),
-  ('ex_incline_bar', 'Schrägbankdrücken',        'chest',     'barbell',   '["Obere Brust","Trizeps"]'),
-  ('ex_incline_db',  'Schrägbank Kurzhantel',    'chest',     'dumbbell',  '["Obere Brust"]'),
-  ('ex_fly_db',      'Fliegende',                'chest',     'dumbbell',  '["Brust"]'),
-  ('ex_cable_cross', 'Kabelkreuzen',             'chest',     'cable',     '["Brust"]'),
-  ('ex_pushup',      'Liegestütze',              'chest',     'bodyweight','["Brust","Trizeps"]'),
-  ('ex_dip',         'Dips',                     'chest',     'bodyweight','["Brust","Trizeps"]'),
+  _ExSeed('ex_bench_bar','Bankdrücken','chest','barbell',
+    '["Brust","Trizeps","Schultern"]','["Rumpf"]','intermediate',
+    '1. Lege dich flach auf die Bank, Stange über der Brust.\n2. Greife die Stange schulterbreit oder etwas weiter.\n3. Senke die Stange kontrolliert zur Mitte der Brust.\n4. Drücke explosiv nach oben, ohne die Ellbogen zu sperren.',
+    5.5,'Halte die Schulterblätter zusammengezogen. Nicht mit dem Rücken Brücke machen.'),
+  _ExSeed('ex_bench_db','Kurzhantel Bankdrücken','chest','dumbbell',
+    '["Brust","Trizeps"]','["Schultern"]','beginner',
+    '1. Setze dich auf die Bank, Kurzhanteln auf den Oberschenkeln.\n2. Schwinge die Hanteln nach oben und lege dich zurück.\n3. Senke die Hanteln seitlich ab, bis die Ellbogen auf Bankhöhe sind.\n4. Drücke beide Hanteln gleichmäßig nach oben.',
+    5.0,'Guter Einstieg für Anfänger, da der Bewegungsradius frei wählbar ist.'),
+  _ExSeed('ex_incline_bar','Schrägbankdrücken','chest','barbell',
+    '["Obere Brust","Trizeps"]','["Schultern"]','intermediate',
+    '1. Stelle die Bank auf 30–45° Neigung.\n2. Greife die Stange etwas breiter als schulterbreit.\n3. Senke die Stange zur oberen Brust.\n4. Drücke zurück in die Ausgangsposition.',
+    5.5,'Betont die obere Brust. Neigung nicht zu steil wählen, sonst wird es zur Schulterübung.'),
+  _ExSeed('ex_incline_db','Schrägbank Kurzhantel','chest','dumbbell',
+    '["Obere Brust"]','["Schultern","Trizeps"]','beginner',null,5.0,null),
+  _ExSeed('ex_fly_db','Fliegende','chest','dumbbell',
+    '["Brust"]','["Schultern"]','intermediate',
+    '1. Lege dich flach auf die Bank, Hanteln über der Brust.\n2. Senke die Hanteln seitlich mit leicht gebeugten Ellbogen.\n3. Stoppe, wenn du eine Dehnung in der Brust spürst.\n4. Führe die Hanteln in einer Bogenbewegung wieder zusammen.',
+    4.5,'Führe die Bewegung langsam aus. Keine zu schweren Gewichte – Risiko für Schulterprobleme.'),
+  _ExSeed('ex_cable_cross','Kabelkreuzen','chest','cable',
+    '["Brust"]','["Schultern"]','intermediate',
+    '1. Stehe in der Mitte der Kabelstation, je ein Kabel in jeder Hand (oben oder unten).\n2. Tritt einen Schritt vor.\n3. Führe die Kabel in einem Bogen vor dem Körper zusammen.\n4. Kehre kontrolliert zur Ausgangsposition zurück.',
+    4.5,'Perfekt für Kontraktion am Ende der Bewegung. Kein Körperschwung.'),
+  _ExSeed('ex_pushup','Liegestütze','chest','bodyweight',
+    '["Brust","Trizeps"]','["Schultern","Core"]','beginner',
+    '1. Stütze dich auf Hände und Zehen, Hände etwas breiter als schulterbreit.\n2. Halte den Körper von Kopf bis Ferse in einer geraden Linie.\n3. Senke den Körper, bis die Brust fast den Boden berührt.\n4. Drücke dich zurück in die Ausgangsposition.',
+    7.0,'Variante für Anfänger: auf den Knien abstützen. Körperspannung halten – kein Hohlkreuz.'),
+  _ExSeed('ex_dip','Dips','chest','bodyweight',
+    '["Brust","Trizeps"]','["Schultern"]','intermediate',
+    '1. Stütze dich auf parallelen Stangen, Arme gestreckt.\n2. Lehne den Oberkörper leicht nach vorne (betont Brust).\n3. Senke den Körper, bis Oberarme waagerecht sind.\n4. Drücke zurück in die Ausgangsposition.',
+    7.0,'Leicht vorgebeugt = Brust. Aufrecht = Trizeps. Bei Schulterproblemen vermeiden.'),
   // ── Rücken ─────────────────────────────────────────────────────────────────
-  ('ex_deadlift',    'Kreuzheben',               'back',      'barbell',   '["Rücken","Gesäß","Beinbeuger"]'),
-  ('ex_rdl',         'Romanian Deadlift',        'back',      'barbell',   '["Beinbeuger","Gesäß","Rücken"]'),
-  ('ex_pullup',      'Klimmzug',                 'back',      'bodyweight','["Latissimus","Bizeps"]'),
-  ('ex_lat_pull',    'Lat-Pulldown',             'back',      'machine',   '["Latissimus","Bizeps"]'),
-  ('ex_cable_row',   'Kabelrudern',              'back',      'cable',     '["Rücken","Bizeps"]'),
-  ('ex_bb_row',      'Langhantelrudern',         'back',      'barbell',   '["Rücken","Bizeps"]'),
-  ('ex_db_row',      'Kurzhantelrudern',         'back',      'dumbbell',  '["Rücken"]'),
-  ('ex_hyper',       'Rückenstrecker',           'back',      'machine',   '["Unterer Rücken","Gesäß"]'),
+  _ExSeed('ex_deadlift','Kreuzheben','back','barbell',
+    '["Rücken","Gesäß","Beinbeuger"]','["Core","Unterarme"]','intermediate',
+    '1. Stehe schulterbreit, Stange über den Mittelfüßen.\n2. Beuge die Knie, greife die Stange (Schulterbreite).\n3. Brust raus, Rücken gerade – keine Rundung!\n4. Hebe die Stange nah am Körper entlang.\n5. Strecke Knie und Hüfte gleichzeitig aus.\n6. Senke die Stange kontrolliert zurück.',
+    7.0,'Wichtigste Übung für den Rücken. Niemals mit rundem Rücken! Mit leichtem Gewicht beginnen.'),
+  _ExSeed('ex_rdl','Romanian Deadlift','back','barbell',
+    '["Beinbeuger","Gesäß"]','["Rücken"]','intermediate',
+    '1. Stehe aufrecht, Stange in den Händen.\n2. Schiebe die Hüfte zurück, senke die Stange die Beine entlang.\n3. Halte den Rücken gerade und die Knie leicht gebeugt.\n4. Senke bis du Dehnung im hinteren Oberschenkel spürst.\n5. Drücke die Hüfte nach vorne zurück in die Ausgangsposition.',
+    6.0,'Betont Gesäß und Beinbeuger. Knie nicht zu stark beugen – das ist kein Squat.'),
+  _ExSeed('ex_pullup','Klimmzug','back','bodyweight',
+    '["Latissimus","Bizeps"]','["Schultern","Core"]','intermediate',
+    '1. Hänge an der Stange, Hände etwas breiter als schulterbreit (Ristgriff).\n2. Ziehe dich hoch, bis das Kinn über der Stange ist.\n3. Kontrolliert wieder absenken, bis die Arme gestreckt sind.\n4. Wiederholen ohne Schwung.',
+    8.0,'Für Anfänger: mit Band-Unterstützung oder Assisted-Maschine starten. Brustbein zur Stange führen.'),
+  _ExSeed('ex_lat_pull','Lat-Pulldown','back','machine',
+    '["Latissimus","Bizeps"]','["Schultern"]','beginner',
+    '1. Setze dich an die Maschine, Knie unter der Polsterung.\n2. Greife die Stange breiter als schulterbreit.\n3. Ziehe die Stange zu deiner oberen Brust.\n4. Halte kurz an, Schulterblätter zusammendrücken.\n5. Kontrolliert zurück in die Ausgangsposition.',
+    5.5,'Gute Alternative zum Klimmzug für Einsteiger. Stange zur Brust, nicht hinter den Kopf ziehen.'),
+  _ExSeed('ex_cable_row','Kabelrudern','back','cable',
+    '["Rücken","Bizeps"]','["Schultern"]','beginner',
+    '1. Sitze aufrecht, Füße auf den Stützen, Knie leicht gebeugt.\n2. Greife den Griff mit beiden Händen.\n3. Ziehe den Griff zur Körpermitte, Ellbogen nah am Körper.\n4. Schulterblätter zusammendrücken.\n5. Kontrolliert zurück, leichtes Vorbeugen erlaubt.',
+    5.0,'Aufrechter Rücken ist wichtig. Nicht mit Schwung ziehen.'),
+  _ExSeed('ex_bb_row','Langhantelrudern','back','barbell',
+    '["Rücken","Bizeps"]','["Schultern","Core"]','intermediate',
+    '1. Beuge dich mit geradem Rücken ca. 45° vor.\n2. Halte die Stange schulterbreit.\n3. Ziehe die Stange zur unteren Bauchregion.\n4. Schulterblätter zusammendrücken.\n5. Kontrolliert wieder absenken.',
+    6.0,'Niemals mit rundem Rücken. Rumpf stabilisieren.'),
+  _ExSeed('ex_db_row','Kurzhantelrudern','back','dumbbell',
+    '["Rücken"]','["Bizeps"]','beginner',
+    '1. Stütze eine Hand und Knie auf der Bank ab.\n2. Halte die Kurzhantel mit der anderen Hand.\n3. Ziehe die Hantel zur Hüfte, Ellbogen nah am Körper.\n4. Schulterblatt einziehen.\n5. Kontrolliert absenken.',
+    5.0,'Gut für Anfänger. Rücken parallel zum Boden halten.'),
+  _ExSeed('ex_hyper','Rückenstrecker','back','machine',
+    '["Unterer Rücken","Gesäß"]','["Beinbeuger"]','beginner',
+    '1. Lege dich auf die Rückenstreckerbank, Füße unter der Polsterung.\n2. Arme verschränken oder hinter dem Kopf.\n3. Senke den Oberkörper nach unten.\n4. Hebe den Oberkörper wieder auf Linie mit dem Körper.',
+    4.0,'Nicht überstrecken! Nur bis zur geraden Linie heben.'),
   // ── Beine ──────────────────────────────────────────────────────────────────
-  ('ex_squat',       'Kniebeuge',                'legs',      'barbell',   '["Quadrizeps","Gesäß"]'),
-  ('ex_leg_press',   'Beinpresse',               'legs',      'machine',   '["Quadrizeps","Gesäß"]'),
-  ('ex_lunge',       'Ausfallschritte',          'legs',      'dumbbell',  '["Quadrizeps","Gesäß"]'),
-  ('ex_leg_ext',     'Beinstrecker',             'legs',      'machine',   '["Quadrizeps"]'),
-  ('ex_leg_curl',    'Beinbeuger',               'legs',      'machine',   '["Beinbeuger"]'),
-  ('ex_calf_raise',  'Wadenheben',               'legs',      'machine',   '["Waden"]'),
-  ('ex_hip_thrust',  'Hip Thrust',               'legs',      'barbell',   '["Gesäß","Beinbeuger"]'),
+  _ExSeed('ex_squat','Kniebeuge','legs','barbell',
+    '["Quadrizeps","Gesäß"]','["Beinbeuger","Core"]','intermediate',
+    '1. Stange auf den oberen Rücken, schulterbreiter Stand.\n2. Brust raus, Blick geradeaus.\n3. Beuge die Knie und senke die Hüfte nach unten-hinten.\n4. Knie in Fußrichtung halten – nicht nach innen fallen lassen.\n5. Senke bis Oberschenkel parallel zum Boden sind.\n6. Drücke durch die Fersen zurück nach oben.',
+    6.5,'Die Knie-Fußspitzen-Linie einhalten. Fersen bleiben am Boden. Mit Körpergewicht beginnen.'),
+  _ExSeed('ex_leg_press','Beinpresse','legs','machine',
+    '["Quadrizeps","Gesäß"]','["Beinbeuger","Waden"]','beginner',
+    '1. Sitze in der Maschine, Füße schulterbreit auf der Platte.\n2. Löse die Sicherung und senke die Platte kontrolliert.\n3. Knie beugen bis ca. 90°.\n4. Drücke die Platte zurück, Knie nicht sperren.',
+    5.5,'Füße weiter oben auf der Platte = mehr Gesäß. Weiter unten = mehr Quadrizeps.'),
+  _ExSeed('ex_lunge','Ausfallschritte','legs','dumbbell',
+    '["Quadrizeps","Gesäß"]','["Beinbeuger","Gleichgewicht"]','beginner',
+    '1. Stehe aufrecht, Hanteln in den Händen.\n2. Mache einen großen Schritt nach vorne.\n3. Senke das hintere Knie Richtung Boden (ca. 2 cm über dem Boden).\n4. Vorderes Knie bleibt über dem Fuß.\n5. Drücke dich wieder in die Ausgangsposition.',
+    6.0,'Gleichgewicht üben. Oberkörper aufrecht halten.'),
+  _ExSeed('ex_leg_ext','Beinstrecker','legs','machine',
+    '["Quadrizeps"]',null,'beginner',
+    '1. Sitze in der Maschine, Fußpolster auf den Fußrücken.\n2. Strecke die Beine langsam aus.\n3. Kurz oben halten.\n4. Kontrolliert wieder senken.',
+    4.5,'Isolation für den Quadrizeps. Bei Knieproblemen mit Arzt abklären.'),
+  _ExSeed('ex_leg_curl','Beinbeuger','legs','machine',
+    '["Beinbeuger"]',null,'beginner',
+    '1. Lege dich auf die Maschine (Bauch unten), Fußpolster auf die Ferse.\n2. Beugen die Knie und ziehe die Fersen zum Gesäß.\n3. Kurz halten.\n4. Kontrolliert wieder strecken.',
+    4.5,'Isolation für die Beinrückseite. Hüfte auf der Bank halten.'),
+  _ExSeed('ex_calf_raise','Wadenheben','legs','machine',
+    '["Waden"]',null,'beginner',
+    '1. Stehe auf der Maschine oder Erhöhung, Schultern unter den Polstern.\n2. Hebe die Fersen so weit wie möglich.\n3. Kurz oben halten.\n4. Senke die Fersen unter die Zehenebene für volle Dehnung.',
+    4.0,'Voller Bewegungsradius ist wichtig. Nicht bouncing – kontrolliert.'),
+  _ExSeed('ex_hip_thrust','Hip Thrust','legs','barbell',
+    '["Gesäß","Beinbeuger"]','["Core"]','intermediate',
+    '1. Lehne den oberen Rücken gegen eine Bank, Stange auf den Hüften.\n2. Füße schulterbreit, flach auf dem Boden.\n3. Senke die Hüfte nach unten.\n4. Drücke die Hüfte nach oben bis der Körper eine gerade Linie bildet.\n5. Gesäß oben anspannen und kurz halten.',
+    6.0,'Beste Übung für das Gesäß. Kinn an die Brust nehmen, um den Nacken zu schonen.'),
   // ── Schultern ──────────────────────────────────────────────────────────────
-  ('ex_ohp',         'Schulterdrücken',          'shoulders', 'barbell',   '["Schultern","Trizeps"]'),
-  ('ex_db_press_sh', 'Kurzhantel Schulterdrücken','shoulders','dumbbell',  '["Schultern"]'),
-  ('ex_lateral',     'Seitheben',                'shoulders', 'dumbbell',  '["Seitliche Schulter"]'),
-  ('ex_frontal',     'Frontheben',               'shoulders', 'dumbbell',  '["Vordere Schulter"]'),
-  ('ex_face_pull',   'Face Pulls',               'shoulders', 'cable',     '["Hintere Schulter","Rotatorenmanschette"]'),
-  ('ex_upright_row', 'Aufrechtes Rudern',        'shoulders', 'barbell',   '["Schultern","Fallen"]'),
+  _ExSeed('ex_ohp','Schulterdrücken','shoulders','barbell',
+    '["Schultern","Trizeps"]','["Core","Nacken"]','intermediate',
+    '1. Stange auf Schulterhöhe, schulterbreiter Griff.\n2. Drücke die Stange senkrecht nach oben.\n3. Kopf leicht zurückneigen wenn die Stange passiert.\n4. Arme oben fast gestreckt.\n5. Kontrolliert zurück auf Schulterhöhe.',
+    5.5,'Bauch anspannen für Stabilität. Kein Hohlkreuz.'),
+  _ExSeed('ex_db_press_sh','Kurzhantel Schulterdrücken','shoulders','dumbbell',
+    '["Schultern"]','["Trizeps"]','beginner',
+    '1. Sitze aufrecht auf einer Bank (mit Rückenlehne für Anfänger).\n2. Hanteln auf Schulterhöhe, Handflächen nach vorne.\n3. Drücke beide Hanteln gerade nach oben.\n4. Oben kurz halten.\n5. Kontrolliert absenken.',
+    5.0,'Rückenlehne für Anfänger nutzen. Ellbogen 30–45° nach vorne für Schultergesundheit.'),
+  _ExSeed('ex_lateral','Seitheben','shoulders','dumbbell',
+    '["Seitliche Schulter"]','["Fallen"]','beginner',
+    '1. Stehe aufrecht, Hanteln an den Seiten.\n2. Hebe die Arme seitlich bis auf Schulterhöhe.\n3. Daumen leicht nach unten (Ausgießerbewegung).\n4. Kurz halten.\n5. Kontrolliert absenken.',
+    4.0,'Leichte Gewichte verwenden. Keine Schwungbewegung. Nicht über Schulterhöhe heben.'),
+  _ExSeed('ex_frontal','Frontheben','shoulders','dumbbell',
+    '["Vordere Schulter"]',null,'beginner',
+    '1. Stehe aufrecht, Hanteln vor dem Körper.\n2. Hebe eine oder beide Hanteln vor den Körper bis Schulterhöhe.\n3. Kurz halten.\n4. Kontrolliert absenken.',
+    4.0,'Leichte Gewichte. Oft schon durch Drückübungen trainiert – nicht übertreiben.'),
+  _ExSeed('ex_face_pull','Face Pulls','shoulders','cable',
+    '["Hintere Schulter","Rotatorenmanschette"]','["Fallen"]','beginner',
+    '1. Kabelzug auf Gesichtshöhe einstellen, Seilgriff befestigen.\n2. Greife je eine Seite des Seils.\n3. Trete einen Schritt zurück.\n4. Ziehe das Seil zum Gesicht, Ellbogen nach außen und oben.\n5. Schulterblätter zusammendrücken.\n6. Kontrolliert zurück.',
+    4.0,'Gesundheitsübung für die Schulterrotatorenmanschette. In jedes Training integrieren.'),
+  _ExSeed('ex_upright_row','Aufrechtes Rudern','shoulders','barbell',
+    '["Schultern","Fallen"]','["Bizeps"]','intermediate',
+    '1. Stehe mit der Stange, Griff etwas enger als schulterbreit.\n2. Ziehe die Stange nah am Körper nach oben bis Kinnhöhe.\n3. Ellbogen führen die Bewegung nach oben.\n4. Kontrolliert absenken.',
+    5.0,'Bei Schulterproblemen meiden. Ellbogen immer über den Handgelenken.'),
   // ── Arme ───────────────────────────────────────────────────────────────────
-  ('ex_bicurl_bar',  'Bizepscurl',               'arms',      'barbell',   '["Bizeps"]'),
-  ('ex_bicurl_db',   'Kurzhantel Bizepscurl',    'arms',      'dumbbell',  '["Bizeps"]'),
-  ('ex_hammer',      'Hammer Curls',             'arms',      'dumbbell',  '["Bizeps","Brachialis"]'),
-  ('ex_tricep_press','Trizepsdrücken',           'arms',      'machine',   '["Trizeps"]'),
-  ('ex_tricep_dip',  'Trizeps Dips',             'arms',      'bodyweight','["Trizeps"]'),
-  ('ex_tricep_down', 'Trizeps Pushdowns',        'arms',      'cable',     '["Trizeps"]'),
-  ('ex_skull',       'Skull Crushers',           'arms',      'barbell',   '["Trizeps"]'),
+  _ExSeed('ex_bicurl_bar','Bizepscurl','arms','barbell',
+    '["Bizeps"]','["Unterarme"]','beginner',
+    '1. Stehe aufrecht, Stange schulterbreit im Untergriff.\n2. Halte die Ellbogen fest an der Hüfte.\n3. Beuge die Ellbogen und hebe die Stange zur Brust.\n4. Bizeps oben anspannen.\n5. Kontrolliert absenken, Arme nicht ganz strecken.',
+    4.5,'Keine Schwungbewegung. Ellbogen fixiert halten.'),
+  _ExSeed('ex_bicurl_db','Kurzhantel Bizepscurl','arms','dumbbell',
+    '["Bizeps"]','["Unterarme"]','beginner',
+    '1. Stehe aufrecht, je eine Hantel in jeder Hand.\n2. Wechselnd oder gleichzeitig curlen.\n3. Handfläche dreht beim Heben nach außen (Supination).\n4. Kontrolliert absenken.',
+    4.5,'Ermöglicht Supination für bessere Bizepsisolation.'),
+  _ExSeed('ex_hammer','Hammer Curls','arms','dumbbell',
+    '["Bizeps","Brachialis"]','["Unterarme"]','beginner',
+    '1. Stehe aufrecht, Hanteln an den Seiten (Daumen oben).\n2. Beuge die Ellbogen, Handhaltung bleibt neutral (Hammer-Griff).\n3. Bis die Hanteln auf Schulterhöhe sind.\n4. Kontrolliert absenken.',
+    4.5,'Trainiert Brachialis unter dem Bizeps – macht den Arm dicker aussehen.'),
+  _ExSeed('ex_tricep_press','Trizepsdrücken','arms','machine',
+    '["Trizeps"]',null,'beginner',
+    '1. Setze dich an die Trizeps-Maschine.\n2. Greife die Griffe auf Schulterhöhe.\n3. Drücke die Griffe nach unten bis die Arme gestreckt sind.\n4. Kurz halten.\n5. Kontrolliert zurückführen.',
+    4.5,'Gut für Anfänger zur sicheren Trizepsisolation.'),
+  _ExSeed('ex_tricep_dip','Trizeps Dips','arms','bodyweight',
+    '["Trizeps"]','["Schultern","Brust"]','intermediate',
+    '1. Stütze dich auf parallelen Stangen, Arme gestreckt.\n2. Halte den Oberkörper aufrecht (betont Trizeps).\n3. Senke den Körper, bis die Ellbogen ca. 90° gebeugt sind.\n4. Drücke zurück in die Ausgangsposition.',
+    6.5,'Aufrechter Oberkörper = mehr Trizeps. Bei Schulterproblemen vorsichtig.'),
+  _ExSeed('ex_tricep_down','Trizeps Pushdowns','arms','cable',
+    '["Trizeps"]',null,'beginner',
+    '1. Kabelzug auf Höhe einstellen, Seil- oder Stangengriff.\n2. Stehe aufrecht vor der Maschine.\n3. Ellbogen nah am Körper fixiert halten.\n4. Drücke den Griff nach unten bis die Arme gestreckt sind.\n5. Kontrolliert zurückführen.',
+    4.0,'Einsteigerfreundlich. Ellbogen nicht bewegen.'),
+  _ExSeed('ex_skull','Skull Crushers','arms','barbell',
+    '["Trizeps"]',null,'advanced',
+    '1. Lege dich auf die Bank, Stange mit engem Griff über der Brust.\n2. Senke die Stange zur Stirn (daher der Name), Ellbogen zeigen nach oben.\n3. Ellbogen bleiben fixiert.\n4. Strecke die Arme zurück in die Ausgangsposition.',
+    5.0,'Fortgeschrittene Übung. Sicherung durch Partner oder Stangen empfohlen.'),
   // ── Core ───────────────────────────────────────────────────────────────────
-  ('ex_plank',       'Plank',                    'core',      'bodyweight','["Bauch","Core"]'),
-  ('ex_crunch',      'Crunches',                 'core',      'bodyweight','["Bauch"]'),
-  ('ex_legrise',     'Beinheben',                'core',      'bodyweight','["Unterer Bauch"]'),
-  ('ex_russian',     'Russian Twist',            'core',      'bodyweight','["Schrägmuskel"]'),
-  ('ex_abroller',    'Ab-Roller',                'core',      'other',     '["Bauch","Core"]'),
-  ('ex_situp',       'Situps',                   'core',      'bodyweight','["Bauch"]'),
-  ('ex_mountain',    'Mountain Climbers',        'core',      'bodyweight','["Core","Kardio"]'),
+  _ExSeed('ex_plank','Plank (Unterarmstütz)','core','bodyweight',
+    '["Core","Bauch"]','["Schultern","Rücken"]','beginner',
+    '1. Stütze dich auf die Unterarme und Zehen.\n2. Körper von Kopf bis Ferse in einer geraden Linie.\n3. Bauch, Gesäß und Oberschenkel anspannen.\n4. Tief ein- und ausatmen.\n5. Position halten (z.B. 30 Sekunden).',
+    4.0,'Für Anfänger: auf den Knien stützen. Kein Hohlkreuz – Nabel zur Wirbelsäule ziehen.'),
+  _ExSeed('ex_side_plank','Seitstütz','core','bodyweight',
+    '["Schrägmuskel","Core"]','["Schultern"]','beginner',
+    '1. Lege dich auf die Seite, stütze dich auf einen Unterarm.\n2. Hebe die Hüfte, bis Körper gerade ist.\n3. Freie Hand zur Decke oder an der Hüfte.\n4. Position halten (z.B. 20 Sekunden).\n5. Seite wechseln.',
+    3.5,'Für beide Seiten gleich lange halten. Hüfte nicht durchhängen lassen.'),
+  _ExSeed('ex_crunch','Crunches','core','bodyweight',
+    '["Bauch"]','["Hüftbeuger"]','beginner',
+    '1. Lege dich auf den Rücken, Knie angewinkelt, Füße flach.\n2. Hände locker hinter dem Kopf oder an den Schläfen.\n3. Hebe die Schultern vom Boden ab (nicht den Rücken!).\n4. Bauch anspannen und kurz halten.\n5. Kontrolliert absenken.',
+    4.0,'Nur die Schultern heben, nicht den Rücken. Nacken nicht ziehen.'),
+  _ExSeed('ex_legrise','Beinheben','core','bodyweight',
+    '["Unterer Bauch","Hüftbeuger"]',null,'intermediate',
+    '1. Lege dich auf den Rücken, Arme neben dem Körper.\n2. Hebe die Beine gestreckt oder leicht gebeugt bis 90°.\n3. Senke die Beine kontrolliert, ohne den Boden zu berühren.\n4. Rücken bleibt flach auf dem Boden.',
+    4.5,'Beine nicht ganz auf den Boden senken für maximale Spannung. Lendenwirbelsäule geschützt halten.'),
+  _ExSeed('ex_russian','Russian Twist','core','bodyweight',
+    '["Schrägmuskel","Core"]',null,'beginner',
+    '1. Sitze auf dem Boden, Knie angewinkelt, Oberkörper ca. 45° nach hinten geneigt.\n2. Hände zusammen vor der Brust (oder ein Gewicht halten).\n3. Drehe den Oberkörper von Seite zu Seite.\n4. Kontrolliert rotieren, nicht Schwingen.',
+    4.5,'Füße können auf dem Boden bleiben (leichter) oder angehoben werden (schwerer).'),
+  _ExSeed('ex_abroller','Ab-Roller','core','other',
+    '["Bauch","Core"]','["Rücken","Schultern"]','intermediate',
+    '1. Knie auf dem Boden, Hände auf dem Ab-Roller.\n2. Rolle langsam nach vorne, bis du fast flach bist.\n3. Bauch stark anspannen.\n4. Ziehe dich mit den Bauchmuskeln zurück in die Ausgangsposition.',
+    5.0,'Eine der effektivsten Core-Übungen. Anfänger beginnen mit kurzem Rollweg.'),
+  _ExSeed('ex_situp','Situps','core','bodyweight',
+    '["Bauch","Hüftbeuger"]',null,'beginner',
+    '1. Lege dich auf den Rücken, Knie gebeugt, Füße fixiert.\n2. Hände locker hinter dem Kopf.\n3. Setze dich vollständig auf.\n4. Kontrolliert zurücklegen.',
+    4.5,'Trainiert auch den Hüftbeuger. Für reinen Bauchfokus Crunches bevorzugen.'),
+  _ExSeed('ex_mountain','Mountain Climbers','core','bodyweight',
+    '["Core","Kardio"]','["Schultern","Hüftbeuger"]','beginner',
+    '1. Gehe in die Liegestützposition.\n2. Ziehe abwechselnd das rechte und linke Knie zur Brust.\n3. Schneller Wechsel wie Laufen auf der Stelle.\n4. Core angespannt halten.',
+    8.0,'Kombination aus Core-Training und Kardio. Tempo steigerbar.'),
   // ── Kardio ─────────────────────────────────────────────────────────────────
-  ('ex_treadmill',   'Laufband',                 'cardio',    'machine',   '["Kardio"]'),
-  ('ex_bike',        'Ergometer',                'cardio',    'machine',   '["Kardio","Beine"]'),
-  ('ex_rowing_erg',  'Rudergerät',               'cardio',    'machine',   '["Kardio","Rücken","Arme"]'),
-  ('ex_jumprope',    'Seilspringen',             'cardio',    'bodyweight','["Kardio","Waden"]'),
-  ('ex_stairmaster', 'Stairmaster',              'cardio',    'machine',   '["Kardio","Beine"]'),
-  ('ex_run_outdoor', 'Laufen (draußen)',         'cardio',    null,        '["Kardio"]'),
-  ('ex_hiit',        'HIIT',                     'cardio',    'bodyweight','["Kardio"]'),
+  _ExSeed('ex_treadmill','Laufband','cardio','machine',
+    '["Kardio"]','["Beine","Waden"]','beginner',
+    '1. Starte langsam (3–5 km/h) und steigere das Tempo schrittweise.\n2. Aufrechte Körperhaltung, Blick nach vorne.\n3. Arme leicht angewinkelt mitschwingen.\n4. Abkühlen: Letzte 5 Minuten Tempo reduzieren.',
+    10.0,'Vor dem Rennen aufwärmen. Gute Laufschuhe tragen.'),
+  _ExSeed('ex_bike','Ergometer','cardio','machine',
+    '["Kardio"]','["Beine","Gesäß"]','beginner',
+    '1. Sattelhöhe einstellen (Knie leicht gebeugt am unteren Totpunkt).\n2. Gleichmäßiger Tritt in runden Bewegungen.\n3. Aufrechte oder leicht vorgebeugte Haltung.\n4. Widerstand nach Fitness anpassen.',
+    9.0,'Gelenkschonend. Gut für Aufwärmen und Ausdauertraining.'),
+  _ExSeed('ex_rowing_erg','Rudergerät','cardio','machine',
+    '["Kardio","Rücken","Arme"]','["Beine","Core"]','beginner',
+    '1. Sitze auf dem Gerät, Füße fixiert.\n2. Beine strecken (70% der Kraft), dann Rücken aufrichten, dann Arme ziehen.\n3. Umgekehrte Reihenfolge beim Zurückfahren: Arme, Rücken, Beine.\n4. Gleichmäßiger Rhythmus.',
+    10.0,'Ganzköper-Kardio. Häufiger Fehler: mit dem Rücken beginnen statt mit den Beinen.'),
+  _ExSeed('ex_jumprope','Seilspringen','cardio','bodyweight',
+    '["Kardio"]','["Waden","Schultern"]','beginner',
+    '1. Seil hinter den Füßen auf dem Boden.\n2. Schwinge das Seil über den Kopf und springe mit beiden Füßen.\n3. Nur minimal vom Boden abheben (2–3 cm).\n4. Kleine Kreisbewegungen mit den Handgelenken.',
+    12.0,'Einer der effizientesten Kalorienverbrenner. Mit kurzen Intervallen beginnen.'),
+  _ExSeed('ex_stairmaster','Stairmaster','cardio','machine',
+    '["Kardio"]','["Beine","Gesäß"]','beginner',
+    '1. Stelle die Geschwindigkeit niedrig ein.\n2. Aufrechte Körperhaltung, nicht auf den Handläufen abstützen.\n3. Ganze Fußfläche auf die Stufe setzen.\n4. Gleichmäßiger Rhythmus.',
+    10.0,'Intensives Kardio für Gesäß und Beine. Nicht auf die Handläufe stützen.'),
+  _ExSeed('ex_run_outdoor','Laufen (draußen)','cardio',null,
+    '["Kardio"]','["Beine","Waden"]','beginner',
+    '1. Mit Aufwärmen beginnen (5 Minuten zügiges Gehen).\n2. Gleichmäßiges Tempo wählen (Konversationstempo = richtige Intensität).\n3. Aufrechte Haltung, Blick nach vorne.\n4. Mit Abkühlen beenden (5 Minuten langsames Gehen).',
+    10.0,'Kein Vergleich mit dem Laufband – draußen abwechslungsreicher. Gutes Schuhwerk wichtig.'),
+  _ExSeed('ex_hiit','HIIT','cardio','bodyweight',
+    '["Kardio"]','["Core","Beine","Arme"]','advanced',
+    '1. Aufwärmen: 5 Minuten leichtes Kardio.\n2. Intervall: 20–40 Sekunden maximale Intensität (z.B. Burpees, Sprints).\n3. Pause: 10–20 Sekunden Ruhe oder leichte Bewegung.\n4. 8–12 Runden wiederholen.\n5. Abkühlen: 5 Minuten dehnen.',
+    14.0,'Für Anfänger: längere Pausen und weniger Runden. Nicht täglich – Erholung ist wichtig.'),
+  _ExSeed('ex_burpee','Burpees','cardio','bodyweight',
+    '["Kardio","Core"]','["Brust","Beine","Schultern"]','intermediate',
+    '1. Stehe aufrecht.\n2. Gehe in die Kniebeuge und setze die Hände auf den Boden.\n3. Spring oder gehe in die Liegestützposition.\n4. (Optional: eine Liegestütze machen.)\n5. Spring zurück in die Kniebeuge.\n6. Spring hoch und klatsche über dem Kopf.',
+    10.0,'Ganzkörperübung. Tempo bestimmt die Intensität. Modifizierung für Anfänger: ohne Sprung.'),
+  // ── Core / Dehnen ──────────────────────────────────────────────────────────
+  _ExSeed('ex_cat_cow','Katzenbuckel / Kuhkopf','core','bodyweight',
+    '["Rücken","Core"]','["Hals"]','beginner',
+    '1. Knie auf dem Boden, Hände unter den Schultern (Vierfüßlerstand).\n2. Katzenbuckel: Rücken runden, Kinn zur Brust, ausatmen.\n3. Kuhkopf: Rücken durchhängen lassen, Kopf heben, einatmen.\n4. Langsam abwechseln – 10 Wiederholungen.',
+    2.0,'Perfekte Mobilisationsübung für den Rücken. Als Aufwärmen oder Abkühlen nutzen.'),
+  _ExSeed('ex_glute_bridge','Brücke (Glute Bridge)','legs','bodyweight',
+    '["Gesäß","Beinbeuger"]','["Core","Unterer Rücken"]','beginner',
+    '1. Lege dich auf den Rücken, Knie gebeugt, Füße flach.\n2. Drücke die Fersen in den Boden.\n3. Hebe die Hüfte, bis Knie, Hüfte und Schultern eine Linie bilden.\n4. Gesäß oben anspannen.\n5. Kontrolliert absenken.\n6. Variante: einbeinig für mehr Intensität.',
+    4.5,'Einsteigerfreundlich. Perfekt als Aktivierungsübung für das Gesäß.'),
 ];
 
 // ── Body Photos ───────────────────────────────────────────────────────────────

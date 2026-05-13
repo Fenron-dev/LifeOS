@@ -110,6 +110,7 @@ class ProfileOpsNotifier extends AsyncNotifier<void> {
     Value<double?> carbsTargetG = const Value.absent(),
     Value<double?> fatTargetG = const Value.absent(),
     Value<String?> dietPlan = const Value.absent(),
+    Value<int> workoutsPerWeekGoal = const Value.absent(),
   }) async {
     await _db.upsertUserProfile(UserProfileCompanion(
       displayName: displayName,
@@ -125,6 +126,7 @@ class ProfileOpsNotifier extends AsyncNotifier<void> {
       carbsTargetG: carbsTargetG,
       fatTargetG: fatTargetG,
       dietPlan: dietPlan,
+      workoutsPerWeekGoal: workoutsPerWeekGoal,
       updatedAt: Value(DateTime.now()),
     ));
   }

@@ -22,7 +22,14 @@ class InventoryScreen extends ConsumerStatefulWidget {
 }
 
 class _InventoryScreenState extends ConsumerState<InventoryScreen> {
-  final _searchCtrl = TextEditingController();
+  late final TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController(
+        text: ref.read(itemSearchQueryProvider));
+  }
 
   @override
   void dispose() {

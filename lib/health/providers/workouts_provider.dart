@@ -15,6 +15,14 @@ final exercisesProvider = StreamProvider<List<Exercise>>((ref) {
   return db.watchAllExercises();
 });
 
+final exerciseByIdProvider =
+    FutureProvider.family<Exercise?, String>((ref, id) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return null;
+  final list = ref.watch(exercisesProvider).valueOrNull ?? [];
+  return list.where((e) => e.id == id).firstOrNull;
+});
+
 // ── Workout history ───────────────────────────────────────────────────────────
 
 final workoutsProvider = StreamProvider<List<Workout>>((ref) {
@@ -34,8 +42,39 @@ final workoutSetsProvider =
 
 // ── Active workout id ─────────────────────────────────────────────────────────
 
-/// Null = no active workout in progress.
 final activeWorkoutIdProvider = StateProvider<String?>((ref) => null);
+
+// ── Workout Plans ─────────────────────────────────────────────────────────────
+
+final workoutPlansProvider = StreamProvider<List<WorkoutPlan>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchAllWorkoutPlans();
+});
+
+final planExercisesProvider =
+    StreamProvider.family<List<WorkoutPlanExercise>, String>((ref, planId) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchPlanExercises(planId);
+});
+
+// ── Exercise statistics ───────────────────────────────────────────────────────
+
+final exerciseVolumeHistoryProvider = FutureProvider.family<
+    List<({DateTime date, double volume, int totalSets})>,
+    String>((ref, exerciseId) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return [];
+  return db.exerciseVolumeHistory(exerciseId);
+});
+
+final bestSetForExerciseProvider =
+    FutureProvider.family<WorkoutSet?, String>((ref, exerciseId) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return null;
+  return db.bestSetForExercise(exerciseId);
+});
 
 // ── Operations ────────────────────────────────────────────────────────────────
 
@@ -50,12 +89,13 @@ class WorkoutOpsNotifier extends AsyncNotifier<void> {
 
   // ── Workout CRUD ────────────────────────────────────────────────────────────
 
-  Future<String> startWorkout({String? name}) async {
+  Future<String> startWorkout({String? name, String? planId}) async {
     final id = _uuid.v4();
     await _db.insertWorkout(WorkoutsCompanion.insert(
       id: id,
       startedAt: DateTime.now(),
       name: Value(name),
+      planId: Value(planId),
     ));
     ref.read(activeWorkoutIdProvider.notifier).state = id;
     ref.invalidate(workoutsProvider);
@@ -137,19 +177,96 @@ class WorkoutOpsNotifier extends AsyncNotifier<void> {
     required String name,
     required String category,
     String? equipment,
+    String? muscleGroups,
+    String? difficulty,
+    String? instructions,
+    double? caloriesPerMinute,
+    String? tips,
+    String? videoUrl,
   }) async {
     await _db.insertExercise(ExercisesCompanion.insert(
       id: _uuid.v4(),
       name: name,
       category: category,
       equipment: Value(equipment),
+      muscleGroups: Value(muscleGroups),
+      difficulty: Value(difficulty),
+      instructions: Value(instructions),
+      caloriesPerMinute: Value(caloriesPerMinute),
+      tips: Value(tips),
+      videoUrl: Value(videoUrl),
       isCustom: const Value(true),
     ));
+    ref.invalidate(exercisesProvider);
+  }
+
+  Future<void> updateExercise(ExercisesCompanion entry) async {
+    await _db.insertExercise(entry);
     ref.invalidate(exercisesProvider);
   }
 
   Future<void> deleteExercise(String id) async {
     await _db.deleteExercise(id);
     ref.invalidate(exercisesProvider);
+  }
+
+  // ── Workout Plan CRUD ───────────────────────────────────────────────────────
+
+  Future<String> createPlan({required String name, String? description}) async {
+    final id = _uuid.v4();
+    await _db.insertWorkoutPlan(WorkoutPlansCompanion.insert(
+      id: id,
+      name: name,
+      description: Value(description),
+    ));
+    ref.invalidate(workoutPlansProvider);
+    return id;
+  }
+
+  Future<void> updatePlan(WorkoutPlansCompanion entry) async {
+    await _db.updateWorkoutPlan(entry);
+    ref.invalidate(workoutPlansProvider);
+  }
+
+  Future<void> deletePlan(String id) async {
+    await _db.deleteWorkoutPlan(id);
+    ref.invalidate(workoutPlansProvider);
+  }
+
+  Future<String> addPlanExercise({
+    required String planId,
+    required String exerciseId,
+    required int dayOfWeek,
+    int? targetSets,
+    int? targetReps,
+    int? targetDurationSeconds,
+    int? targetRestSeconds,
+    int sortOrder = 0,
+    String? reminderTime,
+  }) async {
+    final id = _uuid.v4();
+    await _db.insertPlanExercise(WorkoutPlanExercisesCompanion.insert(
+      id: id,
+      planId: planId,
+      exerciseId: exerciseId,
+      dayOfWeek: dayOfWeek,
+      targetSets: Value(targetSets),
+      targetReps: Value(targetReps),
+      targetDurationSeconds: Value(targetDurationSeconds),
+      targetRestSeconds: Value(targetRestSeconds ?? 60),
+      sortOrder: Value(sortOrder),
+      reminderTime: Value(reminderTime),
+    ));
+    ref.invalidate(planExercisesProvider(planId));
+    return id;
+  }
+
+  Future<void> removePlanExercise(String id, String planId) async {
+    await _db.deletePlanExercise(id);
+    ref.invalidate(planExercisesProvider(planId));
+  }
+
+  Future<String> startWorkoutFromPlan(WorkoutPlan plan) async {
+    return startWorkout(name: plan.name, planId: plan.id);
   }
 }

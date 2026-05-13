@@ -196,6 +196,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _importData(context, ref),
           ),
           ListTile(
+            leading: const Icon(Icons.monitor_heart_outlined),
+            title: const Text('Gesundheitsdaten als CSV'),
+            subtitle: const Text('Gewicht, Ernährung, Körpermaße exportieren'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _exportHealthCsv(context, ref),
+          ),
+          ListTile(
             leading: const Icon(Icons.add_circle_outline),
             title: const Text('Schnellaktionen'),
             subtitle: const Text('Aktionen im zentralen Button'),
@@ -340,6 +347,28 @@ Future<void> _restoreBackup(
 Future<void> _exportData(BuildContext context, WidgetRef ref) async {
   final db = ref.read(databaseProvider);
   if (db == null) return;
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Daten exportieren'),
+      content: const Text(
+        'Die Export-Datei enthält persönliche Gesundheitsdaten '
+        '(Gewicht, Ernährung, Maße, Aufgaben).\n\n'
+        'Bewahre sie sicher auf und teile sie nur mit vertrauenswürdigen Empfängern.',
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen')),
+        FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Exportieren')),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+
   try {
     final tmpDir = await getTemporaryDirectory();
     final file = await DataExportService.exportData(db, tmpDir.path);
@@ -358,6 +387,27 @@ Future<void> _exportData(BuildContext context, WidgetRef ref) async {
   }
 }
 
+Future<void> _exportHealthCsv(BuildContext context, WidgetRef ref) async {
+  final db = ref.read(databaseProvider);
+  if (db == null) return;
+  try {
+    final tmpDir = await getTemporaryDirectory();
+    final file = await DataExportService.exportHealthCsv(db, tmpDir.path);
+    if (!context.mounted) return;
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        subject: 'LifeOS Gesundheitsdaten CSV',
+      ),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('CSV-Export fehlgeschlagen: $e')),
+    );
+  }
+}
+
 Future<void> _importData(BuildContext context, WidgetRef ref) async {
   final db = ref.read(databaseProvider);
   if (db == null) return;
@@ -369,24 +419,40 @@ Future<void> _importData(BuildContext context, WidgetRef ref) async {
   if (result == null || result.files.single.path == null) return;
   if (!context.mounted) return;
 
-  final ok = await showDialog<bool>(
+  final choice = await showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Daten importieren?'),
       content: const Text(
           'Vorhandene Datensätze werden überschrieben (gleiche IDs), '
-          'neue werden hinzugefügt. Dieser Vorgang kann nicht rückgängig gemacht werden.'),
+          'neue werden hinzugefügt.\n\n'
+          'Empfehlung: Erstelle vorher ein Backup, um den aktuellen '
+          'Zustand sichern zu können.'),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(null),
             child: const Text('Abbrechen')),
+        OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop('backup_first'),
+            child: const Text('Backup + Import')),
         FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Importieren')),
+            onPressed: () => Navigator.of(ctx).pop('import'),
+            child: const Text('Direkt importieren')),
       ],
     ),
   );
-  if (ok != true || !context.mounted) return;
+  if (choice == null || !context.mounted) return;
+
+  if (choice == 'backup_first') {
+    final vaultPath = ref.read(vaultPathProvider);
+    if (vaultPath != null && context.mounted) {
+      try {
+        final tmpDir = await getTemporaryDirectory();
+        await BackupService.createBackup(vaultPath, tmpDir.path);
+      } catch (_) {}
+    }
+    if (!context.mounted) return;
+  }
 
   try {
     final importResult = await DataExportService.importData(

@@ -23,7 +23,14 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
   static const double _splitBreakpoint = 720;
   bool _filterExpiring = false;
   bool _isGridView = false;
-  final _searchCtrl = TextEditingController();
+  late final TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController(
+        text: ref.read(recipeSearchQueryProvider));
+  }
 
   @override
   void dispose() {

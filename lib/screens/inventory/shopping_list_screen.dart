@@ -12,6 +12,10 @@ import '../../providers/shops_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../items/item_detail_screen.dart';
 
+/// Tracks whether the simplified "Einkaufsmodus" is active.
+/// Scoped to the app session — resets on hot restart but not hot reload.
+final _shoppingModeProvider = StateProvider<bool>((ref) => false);
+
 class ShoppingListScreen extends ConsumerWidget {
   /// When true, omits the Scaffold/AppBar — used when embedded in a TabBarView.
   final bool embedded;
@@ -20,14 +24,24 @@ class ShoppingListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sectionsAsync = ref.watch(shoppingByShopProvider);
+    final shoppingMode = ref.watch(_shoppingModeProvider);
 
     final appBarActions = [
       IconButton(
-        icon: const Icon(Icons.add),
-        tooltip: 'Eintrag hinzufügen',
-        onPressed: () => _showAddDialog(context, ref),
+        icon: Icon(shoppingMode ? Icons.shopping_cart : Icons.shopping_cart_outlined),
+        tooltip: shoppingMode ? 'Einkaufsmodus beenden' : 'Einkaufsmodus',
+        color: shoppingMode ? Theme.of(context).colorScheme.primary : null,
+        onPressed: () =>
+            ref.read(_shoppingModeProvider.notifier).state = !shoppingMode,
       ),
-      PopupMenuButton<String>(
+      if (!shoppingMode)
+        IconButton(
+          icon: const Icon(Icons.add),
+          tooltip: 'Eintrag hinzufügen',
+          onPressed: () => _showAddDialog(context, ref),
+        ),
+      if (!shoppingMode)
+        PopupMenuButton<String>(
         tooltip: 'Weitere Optionen',
         onSelected: (v) {
           switch (v) {
@@ -100,7 +114,27 @@ class ShoppingListScreen extends ConsumerWidget {
 
         return Column(
           children: [
-            Padding(
+            if (shoppingMode)
+              MaterialBanner(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                content: Text(
+                  'Einkaufsmodus aktiv – tippe Artikel zum Abhaken',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer),
+                ),
+                backgroundColor:
+                    Theme.of(context).colorScheme.primaryContainer,
+                actions: [
+                  TextButton(
+                    onPressed: () => ref
+                        .read(_shoppingModeProvider.notifier)
+                        .state = false,
+                    child: const Text('Beenden'),
+                  ),
+                ],
+              ),
+            if (!shoppingMode)
+              Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
                 children: [
@@ -143,6 +177,7 @@ class ShoppingListScreen extends ConsumerWidget {
                   final section = sections[si];
                   return _ShopSection(
                     section: section,
+                    shoppingMode: shoppingMode,
                     onAddCustom: () => _showAddDialog(context, ref,
                         preselectedShopId: section.shop?.id),
                   );
@@ -199,7 +234,11 @@ class ShoppingListScreen extends ConsumerWidget {
 class _ShopSection extends StatelessWidget {
   final ShoppingSection section;
   final VoidCallback onAddCustom;
-  const _ShopSection({required this.section, required this.onAddCustom});
+  final bool shoppingMode;
+  const _ShopSection(
+      {required this.section,
+      required this.onAddCustom,
+      this.shoppingMode = false});
 
   @override
   Widget build(BuildContext context) {
@@ -217,35 +256,40 @@ class _ShopSection extends StatelessWidget {
                 section.shop != null
                     ? Icons.store_outlined
                     : Icons.store_mall_directory_outlined,
-                size: 16,
+                size: shoppingMode ? 20 : 16,
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   shopName,
-                  style: theme.textTheme.labelLarge?.copyWith(
+                  style: (shoppingMode
+                          ? theme.textTheme.titleMedium
+                          : theme.textTheme.labelLarge)
+                      ?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              InkWell(
-                onTap: onAddCustom,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(Icons.add, size: 16,
-                      color: theme.colorScheme.primary),
+              if (!shoppingMode)
+                InkWell(
+                  onTap: onAddCustom,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.add, size: 16,
+                        color: theme.colorScheme.primary),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
-        ...section.needs.map((need) => _NeedCard(need: need)),
+        ...section.needs.map((need) =>
+            _NeedCard(need: need, shoppingMode: shoppingMode)),
         ...section.customItems.map((item) => item.itemId != null
-            ? _LinkedItemCard(customItem: item)
-            : _CustomItemTile(item: item)),
+            ? _LinkedItemCard(customItem: item, shoppingMode: shoppingMode)
+            : _CustomItemTile(item: item, shoppingMode: shoppingMode)),
         const SizedBox(height: 4),
       ],
     );
@@ -256,12 +300,53 @@ class _ShopSection extends StatelessWidget {
 
 class _CustomItemTile extends ConsumerWidget {
   final CustomShoppingItem item;
-  const _CustomItemTile({required this.item});
+  final bool shoppingMode;
+  const _CustomItemTile({required this.item, this.shoppingMode = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final db = ref.read(databaseProvider);
     final theme = Theme.of(context);
+
+    if (shoppingMode) {
+      return InkWell(
+        onTap: () => db?.toggleCustomShoppingItem(item.id, !item.checked),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Transform.scale(
+                scale: 1.4,
+                child: Checkbox(
+                  value: item.checked,
+                  onChanged: (v) =>
+                      db?.toggleCustomShoppingItem(item.id, v ?? false),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        decoration:
+                            item.checked ? TextDecoration.lineThrough : null,
+                        color: item.checked ? theme.colorScheme.outline : null,
+                      ),
+                    ),
+                    if (item.quantity != null)
+                      Text('${_fmt(item.quantity!)} ${item.unit ?? ''}',
+                          style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
@@ -331,7 +416,9 @@ class _CustomItemTile extends ConsumerWidget {
 
 class _LinkedItemCard extends ConsumerWidget {
   final CustomShoppingItem customItem;
-  const _LinkedItemCard({required this.customItem});
+  final bool shoppingMode;
+  const _LinkedItemCard(
+      {required this.customItem, this.shoppingMode = false});
 
   String _fmt(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
@@ -346,9 +433,11 @@ class _LinkedItemCard extends ConsumerWidget {
 
     return itemAsync.when(
       loading: () => const SizedBox.shrink(),
-      error: (e, st) => _CustomItemTile(item: customItem),
+      error: (e, _) => _CustomItemTile(item: customItem, shoppingMode: shoppingMode),
       data: (item) {
-        if (item == null) return _CustomItemTile(item: customItem);
+        if (item == null) {
+          return _CustomItemTile(item: customItem, shoppingMode: shoppingMode);
+        }
 
         final states = statesAsync.valueOrNull ?? [];
         final unit =
@@ -360,6 +449,49 @@ class _LinkedItemCard extends ConsumerWidget {
           }
         }
         final neededQty = customItem.quantity ?? item.minStockQuantity ?? 0;
+
+        if (shoppingMode) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Transform.scale(
+                  scale: 1.4,
+                  child: Checkbox(
+                    value: customItem.checked,
+                    onChanged: (v) => db?.toggleCustomShoppingItem(
+                        customItem.id, v ?? false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          decoration: customItem.checked
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: customItem.checked
+                              ? theme.colorScheme.outline
+                              : null,
+                        ),
+                      ),
+                      if (neededQty > 0)
+                        Text(
+                          '+${_fmt(neededQty)} $unit benötigt',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
@@ -537,7 +669,8 @@ class _ItemSearchSheetState extends State<_ItemSearchSheet> {
 
 class _NeedCard extends ConsumerWidget {
   final ShoppingNeed need;
-  const _NeedCard({required this.need});
+  final bool shoppingMode;
+  const _NeedCard({required this.need, this.shoppingMode = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -545,6 +678,37 @@ class _NeedCard extends ConsumerWidget {
     final unit = need.unit;
     final minQty = need.group?.minStockQuantity ?? need.item?.minStockQuantity ?? 0;
     final isItemNeed = need.group == null;
+
+    if (shoppingMode) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Transform.scale(
+              scale: 1.4,
+              child: Checkbox(
+                value: false,
+                onChanged: (_) => _showBuyFlow(context, ref, need),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(need.name, style: theme.textTheme.titleMedium),
+                  Text(
+                    '+${_fmt(need.neededQty)} $unit benötigt',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.error),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

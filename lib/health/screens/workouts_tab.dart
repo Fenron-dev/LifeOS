@@ -1,12 +1,20 @@
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
+import '../../providers/vault_provider.dart';
 import '../providers/workouts_provider.dart';
 
-// ── Category labels ───────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 String _catLabel(String cat) => switch (cat) {
       'chest' => 'Brust',
@@ -19,18 +27,40 @@ String _catLabel(String cat) => switch (cat) {
       _ => cat,
     };
 
+String _diffLabel(String? d) => switch (d) {
+      'beginner' => 'Einsteiger',
+      'intermediate' => 'Fortgeschritten',
+      'advanced' => 'Profi',
+      _ => d ?? '–',
+    };
+
+Color _diffColor(String? d, ColorScheme cs) => switch (d) {
+      'beginner' => Colors.green,
+      'intermediate' => Colors.orange,
+      'advanced' => cs.error,
+      _ => cs.outline,
+    };
+
 String _equipLabel(String? eq) => switch (eq) {
       'barbell' => 'Langhantel',
       'dumbbell' => 'Kurzhantel',
       'machine' => 'Maschine',
       'bodyweight' => 'Körpergewicht',
       'cable' => 'Kabel',
-      null => '–',
+      'other' => 'Sonstiges',
+      null => 'Kein Equipment',
       _ => eq,
     };
 
 const _categories = [
   'chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'cardio',
+];
+
+const _weekDays = [
+  'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So',
+];
+const _weekDaysFull = [
+  'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag',
 ];
 
 // ── Tab root ──────────────────────────────────────────────────────────────────
@@ -49,9 +79,20 @@ class WorkoutsTab extends ConsumerWidget {
         title: const Text('Workouts'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Trainingspläne',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => const WorkoutPlansScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.fitness_center_outlined),
             tooltip: 'Übungsbibliothek',
-            onPressed: () => _openLibrary(context),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => const ExerciseLibraryScreen()),
+            ),
           ),
         ],
       ),
@@ -126,14 +167,6 @@ class WorkoutsTab extends ConsumerWidget {
       ),
     );
   }
-
-  void _openLibrary(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const ExerciseLibraryScreen(),
-      ),
-    );
-  }
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
@@ -158,7 +191,7 @@ class _EmptyState extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
-              'Starte dein erstes Training und\nerfasse deine Sätze und Gewichte.',
+              'Starte dein erstes Training oder\nerstelle einen Trainingsplan.',
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurfaceVariant),
             ),
@@ -188,7 +221,6 @@ class _WorkoutCard extends ConsumerWidget {
     final fmt = DateFormat.yMMMd('de_DE').add_Hm();
     final isActive = ref.watch(activeWorkoutIdProvider) == workout.id;
 
-    // Group sets by exerciseId to count distinct exercises
     final distinctExercises = sets.map((s) => s.exerciseId).toSet().length;
     final totalSets = sets.length;
     final dur = workout.durationMinutes;
@@ -198,8 +230,7 @@ class _WorkoutCard extends ConsumerWidget {
       color: isActive ? cs.tertiaryContainer : null,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor:
-              isActive ? cs.tertiary : cs.secondaryContainer,
+          backgroundColor: isActive ? cs.tertiary : cs.secondaryContainer,
           child: Icon(
             isActive ? Icons.sports_gymnastics : Icons.fitness_center,
             color: isActive ? cs.onTertiary : cs.onSecondaryContainer,
@@ -243,8 +274,7 @@ class _WorkoutDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final setsAsync = ref.watch(workoutSetsProvider(workout.id));
-    final exercises =
-        ref.watch(exercisesProvider).valueOrNull ?? [];
+    final exercises = ref.watch(exercisesProvider).valueOrNull ?? [];
     final exerciseMap = {for (final e in exercises) e.id: e};
     final fmt = DateFormat.yMMMd('de_DE').add_Hm();
     final cs = Theme.of(context).colorScheme;
@@ -280,7 +310,7 @@ class _WorkoutDetailScreen extends ConsumerWidget {
               ...grouped.entries.map((entry) {
                 final ex = exerciseMap[entry.key];
                 return _ExerciseSummaryCard(
-                  exerciseName: ex?.name ?? entry.key,
+                  exercise: ex,
                   sets: entry.value,
                 );
               }),
@@ -322,10 +352,9 @@ class _WorkoutDetailScreen extends ConsumerWidget {
 }
 
 class _ExerciseSummaryCard extends StatelessWidget {
-  final String exerciseName;
+  final Exercise? exercise;
   final List<WorkoutSet> sets;
-  const _ExerciseSummaryCard(
-      {required this.exerciseName, required this.sets});
+  const _ExerciseSummaryCard({required this.exercise, required this.sets});
 
   @override
   Widget build(BuildContext context) {
@@ -337,15 +366,14 @@ class _ExerciseSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(exerciseName,
+            Text(exercise?.name ?? '–',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             ...sets.map((s) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Text(
                     _setLabel(s),
-                    style: TextStyle(
-                        fontSize: 13, color: cs.onSurfaceVariant),
+                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                   ),
                 )),
           ],
@@ -369,6 +397,632 @@ class _ExerciseSummaryCard extends StatelessWidget {
   }
 }
 
+// ── Exercise Detail Screen ────────────────────────────────────────────────────
+
+class ExerciseDetailScreen extends ConsumerWidget {
+  final Exercise exercise;
+  const ExerciseDetailScreen({super.key, required this.exercise});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final muscles = _parseJson(exercise.muscleGroups);
+    final secondary = _parseJson(exercise.muscleGroupsSecondary);
+    final steps = exercise.instructions?.split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList() ?? [];
+    final volumeAsync = ref.watch(exerciseVolumeHistoryProvider(exercise.id));
+    final bestAsync = ref.watch(bestSetForExerciseProvider(exercise.id));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(exercise.name),
+        actions: [
+          if (exercise.isCustom)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _editExercise(context, ref),
+            ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        children: [
+          // ── Info chips ──────────────────────────────────────────────────
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              _InfoChip(
+                icon: Icons.category_outlined,
+                label: _catLabel(exercise.category),
+                color: cs.secondaryContainer,
+                textColor: cs.onSecondaryContainer,
+              ),
+              if (exercise.equipment != null)
+                _InfoChip(
+                  icon: Icons.fitness_center_outlined,
+                  label: _equipLabel(exercise.equipment),
+                  color: cs.surfaceContainerHighest,
+                  textColor: cs.onSurface,
+                ),
+              if (exercise.difficulty != null)
+                _InfoChip(
+                  icon: Icons.signal_cellular_alt,
+                  label: _diffLabel(exercise.difficulty),
+                  color: _diffColor(exercise.difficulty, cs).withValues(alpha: 0.15),
+                  textColor: _diffColor(exercise.difficulty, cs),
+                ),
+              if (exercise.caloriesPerMinute != null)
+                _InfoChip(
+                  icon: Icons.local_fire_department_outlined,
+                  label:
+                      '~${exercise.caloriesPerMinute!.toStringAsFixed(1)} kcal/min',
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  textColor: Colors.orange.shade700,
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Muscles ─────────────────────────────────────────────────────
+          if (muscles.isNotEmpty) ...[
+            _SectionTitle('Primäre Muskeln'),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: muscles
+                  .map((m) => Chip(
+                        label: Text(m,
+                            style: const TextStyle(fontSize: 12)),
+                        backgroundColor: cs.primaryContainer,
+                        labelStyle:
+                            TextStyle(color: cs.onPrimaryContainer),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (secondary.isNotEmpty) ...[
+            _SectionTitle('Hilfsmuskel'),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: secondary
+                  .map((m) => Chip(
+                        label: Text(m,
+                            style: const TextStyle(fontSize: 12)),
+                        backgroundColor: cs.surfaceContainerHighest,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // ── Instructions ─────────────────────────────────────────────────
+          if (steps.isNotEmpty) ...[
+            const Divider(height: 24),
+            _SectionTitle('Durchführung'),
+            const SizedBox(height: 8),
+            ...steps.asMap().entries.map((entry) {
+              final stepText = entry.value.replaceFirst(
+                  RegExp(r'^\d+\.\s*'), '');
+              final hasNum =
+                  entry.value.trimLeft().startsWith(RegExp(r'\d+\.'));
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${entry.key + 1}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: cs.onPrimary),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                          hasNum ? stepText : entry.value,
+                          style: theme.textTheme.bodyMedium),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+
+          // ── Tips ─────────────────────────────────────────────────────────
+          if (exercise.tips != null && exercise.tips!.isNotEmpty) ...[
+            const Divider(height: 24),
+            _SectionTitle('Tipps & Sicherheit'),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: Colors.amber.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.lightbulb_outline,
+                      color: Colors.amber, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(exercise.tips!,
+                        style: theme.textTheme.bodyMedium),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Video ────────────────────────────────────────────────────────
+          if (exercise.videoUrl != null &&
+              exercise.videoUrl!.isNotEmpty) ...[
+            const Divider(height: 24),
+            _SectionTitle('Video / Demonstration'),
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content:
+                          Text('Link: ${exercise.videoUrl}')),
+                );
+              },
+              icon: const Icon(Icons.play_circle_outline),
+              label: const Text('Video öffnen'),
+            ),
+          ],
+
+          // ── Statistics ───────────────────────────────────────────────────
+          const Divider(height: 32),
+          _SectionTitle('Statistiken'),
+          const SizedBox(height: 8),
+          bestAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (best) {
+              if (best == null) {
+                return Text(
+                  'Noch keine aufgezeichneten Sätze.',
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                );
+              }
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.emoji_events_outlined,
+                          color: Colors.amber.shade600),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Beste Leistung',
+                                style:
+                                    theme.textTheme.labelMedium),
+                            Text(
+                              [
+                                if (best.weightKg != null)
+                                  '${best.weightKg} kg',
+                                if (best.reps != null)
+                                  '${best.reps} Wdh',
+                                if (best.durationSeconds != null)
+                                  '${best.durationSeconds}s',
+                              ].join(' × '),
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          volumeAsync.when(
+            loading: () =>
+                const Center(child: CircularProgressIndicator()),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (history) {
+              if (history.length < 2) return const SizedBox.shrink();
+              return _VolumeChart(history: history);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _parseJson(String? json) {
+    if (json == null) return [];
+    try {
+      return (jsonDecode(json) as List).cast<String>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _editExercise(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ExerciseEditSheet(exercise: exercise),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color textColor;
+  const _InfoChip(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.textColor});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: textColor),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: textColor,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: Theme.of(context)
+            .textTheme
+            .labelLarge
+            ?.copyWith(color: Theme.of(context).colorScheme.primary),
+      );
+}
+
+// ── Volume chart ──────────────────────────────────────────────────────────────
+
+class _VolumeChart extends StatelessWidget {
+  final List<({DateTime date, double volume, int totalSets})> history;
+  const _VolumeChart({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final spots = history
+        .asMap()
+        .entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value.volume))
+        .toList();
+    final maxY = history.map((h) => h.volume).fold(0.0, math.max);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Volumen-Verlauf (kg × Wdh)',
+            style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 140,
+          child: LineChart(
+            LineChartData(
+              minY: 0,
+              maxY: maxY * 1.15,
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (_) =>
+                    FlLine(color: cs.outlineVariant, strokeWidth: 0.5),
+              ),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: history.length <= 8,
+                    getTitlesWidget: (v, _) {
+                      final i = v.toInt();
+                      if (i < 0 || i >= history.length) {
+                        return const SizedBox.shrink();
+                      }
+                      return Text(
+                        DateFormat.MMMd('de_DE')
+                            .format(history[i].date),
+                        style: TextStyle(
+                            fontSize: 9,
+                            color: cs.onSurfaceVariant),
+                      );
+                    },
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    getTitlesWidget: (v, _) => Text(
+                      v.toInt().toString(),
+                      style: TextStyle(
+                          fontSize: 9, color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+              ),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  color: cs.primary,
+                  barWidth: 2,
+                  dotData: FlDotData(
+                    getDotPainter: (_, _, _, _) =>
+                        FlDotCirclePainter(
+                            radius: 3,
+                            color: cs.primary,
+                            strokeWidth: 0),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: cs.primary.withValues(alpha: 0.1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Exercise edit sheet (custom exercises) ────────────────────────────────────
+
+class _ExerciseEditSheet extends ConsumerStatefulWidget {
+  final Exercise exercise;
+  const _ExerciseEditSheet({required this.exercise});
+
+  @override
+  ConsumerState<_ExerciseEditSheet> createState() =>
+      _ExerciseEditSheetState();
+}
+
+class _ExerciseEditSheetState extends ConsumerState<_ExerciseEditSheet> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _instructionsCtrl;
+  late final TextEditingController _tipsCtrl;
+  late final TextEditingController _videoCtrl;
+  late final TextEditingController _kcalCtrl;
+  String _cat = 'chest';
+  String? _equip;
+  String? _diff;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.exercise;
+    _nameCtrl = TextEditingController(text: e.name);
+    _instructionsCtrl = TextEditingController(text: e.instructions ?? '');
+    _tipsCtrl = TextEditingController(text: e.tips ?? '');
+    _videoCtrl = TextEditingController(text: e.videoUrl ?? '');
+    _kcalCtrl = TextEditingController(
+        text: e.caloriesPerMinute?.toString() ?? '');
+    _cat = e.category;
+    _equip = e.equipment;
+    _diff = e.difficulty;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _instructionsCtrl.dispose();
+    _tipsCtrl.dispose();
+    _videoCtrl.dispose();
+    _kcalCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await ref.read(workoutOpsProvider.notifier).updateExercise(
+            ExercisesCompanion(
+              id: drift.Value(widget.exercise.id),
+              name: drift.Value(_nameCtrl.text.trim()),
+              category: drift.Value(_cat),
+              equipment: drift.Value(_equip),
+              difficulty: drift.Value(_diff),
+              instructions: drift.Value(
+                  _instructionsCtrl.text.trim().isEmpty
+                      ? null
+                      : _instructionsCtrl.text.trim()),
+              tips: drift.Value(_tipsCtrl.text.trim().isEmpty
+                  ? null
+                  : _tipsCtrl.text.trim()),
+              videoUrl: drift.Value(_videoCtrl.text.trim().isEmpty
+                  ? null
+                  : _videoCtrl.text.trim()),
+              caloriesPerMinute: drift.Value(
+                  double.tryParse(_kcalCtrl.text.replaceAll(',', '.'))),
+            ),
+          );
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Übung bearbeiten',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Name *', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _cat,
+              decoration:
+                  const InputDecoration(labelText: 'Kategorie'),
+              items: _categories
+                  .map((c) => DropdownMenuItem(
+                      value: c, child: Text(_catLabel(c))))
+                  .toList(),
+              onChanged: (v) => setState(() => _cat = v!),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              initialValue: _equip,
+              decoration:
+                  const InputDecoration(labelText: 'Equipment'),
+              items: const [
+                DropdownMenuItem(
+                    value: null, child: Text('Kein Equipment')),
+                DropdownMenuItem(
+                    value: 'barbell', child: Text('Langhantel')),
+                DropdownMenuItem(
+                    value: 'dumbbell', child: Text('Kurzhantel')),
+                DropdownMenuItem(
+                    value: 'machine', child: Text('Maschine')),
+                DropdownMenuItem(
+                    value: 'bodyweight', child: Text('Körpergewicht')),
+                DropdownMenuItem(
+                    value: 'cable', child: Text('Kabel')),
+                DropdownMenuItem(
+                    value: 'other', child: Text('Sonstiges')),
+              ],
+              onChanged: (v) => setState(() => _equip = v),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              initialValue: _diff,
+              decoration: const InputDecoration(
+                  labelText: 'Schwierigkeitsgrad'),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('–')),
+                DropdownMenuItem(
+                    value: 'beginner', child: Text('Einsteiger')),
+                DropdownMenuItem(
+                    value: 'intermediate',
+                    child: Text('Fortgeschritten')),
+                DropdownMenuItem(
+                    value: 'advanced', child: Text('Profi')),
+              ],
+              onChanged: (v) => setState(() => _diff = v),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _kcalCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Kalorien/Minute (kcal)',
+                  border: OutlineInputBorder()),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _instructionsCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Durchführung (Schritt für Schritt)',
+                border: OutlineInputBorder(),
+                hintText: '1. Schritt 1\n2. Schritt 2',
+              ),
+              maxLines: 5,
+              minLines: 3,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _tipsCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Tipps & Sicherheit',
+                  border: OutlineInputBorder()),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _videoCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Video-URL (YouTube, GIF…)',
+                  border: OutlineInputBorder()),
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Active workout screen ─────────────────────────────────────────────────────
 
 class ActiveWorkoutScreen extends ConsumerStatefulWidget {
@@ -380,14 +1034,14 @@ class ActiveWorkoutScreen extends ConsumerStatefulWidget {
       _ActiveWorkoutScreenState();
 }
 
-class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
+class _ActiveWorkoutScreenState
+    extends ConsumerState<ActiveWorkoutScreen> {
   final _stopwatch = Stopwatch()..start();
 
   @override
   Widget build(BuildContext context) {
     final setsAsync = ref.watch(workoutSetsProvider(widget.workoutId));
-    final exercises =
-        ref.watch(exercisesProvider).valueOrNull ?? [];
+    final exercises = ref.watch(exercisesProvider).valueOrNull ?? [];
     final exerciseMap = {for (final e in exercises) e.id: e};
     final cs = Theme.of(context).colorScheme;
 
@@ -411,7 +1065,6 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Fehler: $e')),
         data: (sets) {
-          // Group by exercise
           final groups = <String, List<WorkoutSet>>{};
           for (final s in sets) {
             groups.putIfAbsent(s.exerciseId, () => []).add(s);
@@ -426,9 +1079,8 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                     ...groups.entries.map((entry) {
                       final ex = exerciseMap[entry.key];
                       return _ActiveExerciseCard(
+                        exercise: ex,
                         exerciseId: entry.key,
-                        exerciseName: ex?.name ?? entry.key,
-                        isCardio: ex?.category == 'cardio',
                         sets: entry.value,
                         workoutId: widget.workoutId,
                       );
@@ -440,7 +1092,8 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                           child: Text(
                             'Füge eine Übung hinzu,\num dein Training zu beginnen.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: cs.onSurfaceVariant),
+                            style:
+                                TextStyle(color: cs.onSurfaceVariant),
                           ),
                         ),
                       ),
@@ -466,8 +1119,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
   }
 
   Future<void> _addExercise(BuildContext context) async {
-    final exercises =
-        ref.read(exercisesProvider).valueOrNull ?? [];
+    final exercises = ref.read(exercisesProvider).valueOrNull ?? [];
     final chosen = await showModalBottomSheet<Exercise>(
       context: context,
       isScrollControlled: true,
@@ -476,12 +1128,10 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     );
     if (chosen == null || !context.mounted) return;
 
-    // Check if already in workout
     final currentSets =
         ref.read(workoutSetsProvider(widget.workoutId)).valueOrNull ?? [];
     if (currentSets.any((s) => s.exerciseId == chosen.id)) return;
 
-    // Add first set immediately
     await ref.read(workoutOpsProvider.notifier).addSet(
           workoutId: widget.workoutId,
           exerciseId: chosen.id,
@@ -537,9 +1187,12 @@ class _WorkoutTimerState extends State<_WorkoutTimer> {
       builder: (context, _) {
         final elapsed = widget.stopwatch.elapsed;
         final h = elapsed.inHours;
-        final m = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
-        final s =
-            elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+        final m =
+            elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+        final s = elapsed.inSeconds
+            .remainder(60)
+            .toString()
+            .padLeft(2, '0');
         return Text(h > 0 ? '$h:$m:$s' : '$m:$s');
       },
     );
@@ -549,22 +1202,25 @@ class _WorkoutTimerState extends State<_WorkoutTimer> {
 // ── Active exercise card ──────────────────────────────────────────────────────
 
 class _ActiveExerciseCard extends ConsumerWidget {
+  final Exercise? exercise;
   final String exerciseId;
-  final String exerciseName;
-  final bool isCardio;
   final List<WorkoutSet> sets;
   final String workoutId;
 
   const _ActiveExerciseCard({
+    required this.exercise,
     required this.exerciseId,
-    required this.exerciseName,
-    required this.isCardio,
     required this.sets,
     required this.workoutId,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isCardio = exercise?.category == 'cardio';
+    final isTimed = isCardio ||
+        (exercise?.category == 'core' &&
+            exercise?.equipment == 'bodyweight');
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -575,9 +1231,36 @@ class _ActiveExerciseCard extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(exerciseName,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  child: GestureDetector(
+                    onTap: exercise != null
+                        ? () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ExerciseDetailScreen(
+                                    exercise: exercise!),
+                              ),
+                            )
+                        : null,
+                    child: Text(
+                      exercise?.name ?? exerciseId,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        decoration: exercise != null
+                            ? TextDecoration.underline
+                            : null,
+                        decorationStyle: TextDecorationStyle.dotted,
+                      ),
+                    ),
+                  ),
                 ),
+                if (isTimed)
+                  IconButton(
+                    icon: const Icon(Icons.timer_outlined, size: 18),
+                    tooltip: 'Timer',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _openTimer(context),
+                  ),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
                   tooltip: 'Übung entfernen',
@@ -588,7 +1271,6 @@ class _ActiveExerciseCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 6),
-            // Header row
             _SetHeader(isCardio: isCardio),
             const Divider(height: 8),
             ...sets.map((s) => _SetRow(
@@ -615,6 +1297,14 @@ class _ActiveExerciseCard extends ConsumerWidget {
     );
   }
 
+  void _openTimer(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _IntervalTimerSheet(),
+    );
+  }
+
   Future<void> _addSet(WidgetRef ref) async {
     final nextNum = sets.isEmpty ? 1 : sets.last.setNumber + 1;
     final prev = sets.isEmpty ? null : sets.last;
@@ -638,6 +1328,334 @@ class _ActiveExerciseCard extends ConsumerWidget {
   }
 }
 
+// ── Interval timer sheet ──────────────────────────────────────────────────────
+
+class _IntervalTimerSheet extends StatefulWidget {
+  const _IntervalTimerSheet();
+
+  @override
+  State<_IntervalTimerSheet> createState() => _IntervalTimerSheetState();
+}
+
+class _IntervalTimerSheetState extends State<_IntervalTimerSheet> {
+  int _durationSeconds = 30;
+  int _sets = 2;
+  int _restSeconds = 10;
+  int _currentSet = 0;
+  int _remaining = 30;
+  bool _running = false;
+  bool _isRest = false;
+  bool _done = false;
+  late final AudioPlayer _player;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    _remaining = _durationSeconds;
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _beep({int count = 1}) async {
+    HapticFeedback.mediumImpact();
+    try {
+      final wav = _generateBeepWav(count: count);
+      await _player.play(BytesSource(wav));
+    } catch (_) {}
+  }
+
+  static Uint8List _generateBeepWav({
+    int frequency = 880,
+    int durationMs = 120,
+    int count = 1,
+  }) {
+    const sampleRate = 22050;
+    final numSamples = (sampleRate * durationMs / 1000).round();
+    final gap = (sampleRate * 150 / 1000).round();
+    final total = count * numSamples + (count - 1) * gap;
+    final data = Int16List(total);
+
+    for (int c = 0; c < count; c++) {
+      final offset = c * (numSamples + gap);
+      for (int i = 0; i < numSamples; i++) {
+        final t = i / sampleRate;
+        final env = i < 400
+            ? i / 400.0
+            : i > numSamples - 400
+                ? (numSamples - i) / 400.0
+                : 1.0;
+        data[offset + i] =
+            (28000 * math.sin(2 * math.pi * frequency * t) * env)
+                .toInt();
+      }
+    }
+
+    final dataBytes = data.buffer.asUint8List();
+    final bytes = BytesBuilder();
+    void w32(int v) {
+      bytes.addByte(v & 0xFF);
+      bytes.addByte((v >> 8) & 0xFF);
+      bytes.addByte((v >> 16) & 0xFF);
+      bytes.addByte((v >> 24) & 0xFF);
+    }
+    void w16(int v) {
+      bytes.addByte(v & 0xFF);
+      bytes.addByte((v >> 8) & 0xFF);
+    }
+
+    bytes.add(ascii.encode('RIFF'));
+    w32(36 + dataBytes.length);
+    bytes.add(ascii.encode('WAVE'));
+    bytes.add(ascii.encode('fmt '));
+    w32(16);
+    w16(1); // PCM
+    w16(1); // mono
+    w32(sampleRate);
+    w32(sampleRate * 2);
+    w16(2);
+    w16(16);
+    bytes.add(ascii.encode('data'));
+    w32(dataBytes.length);
+    bytes.add(dataBytes);
+    return bytes.toBytes();
+  }
+
+  void _startTimer() {
+    _currentSet = 1;
+    _remaining = _durationSeconds;
+    _isRest = false;
+    _done = false;
+    setState(() => _running = true);
+    _tick();
+  }
+
+  void _tick() {
+    if (!_running || !mounted) return;
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted || !_running) return;
+      setState(() => _remaining--);
+
+      if (_remaining == 3 && !_isRest) _beep();
+      if (_remaining == 0) {
+        if (!_isRest && _currentSet < _sets) {
+          _beep(count: 2);
+          setState(() {
+            _isRest = true;
+            _remaining = _restSeconds;
+          });
+          _tick();
+        } else if (_isRest) {
+          _currentSet++;
+          if (_currentSet <= _sets) {
+            _beep(count: 1);
+            setState(() {
+              _isRest = false;
+              _remaining = _durationSeconds;
+            });
+            _tick();
+          } else {
+            _beep(count: 3);
+            setState(() {
+              _running = false;
+              _done = true;
+            });
+          }
+        } else {
+          _beep(count: 3);
+          setState(() {
+            _running = false;
+            _done = true;
+          });
+        }
+      } else {
+        _tick();
+      }
+    });
+  }
+
+  void _stopTimer() => setState(() => _running = false);
+
+  void _reset() => setState(() {
+        _running = false;
+        _done = false;
+        _currentSet = 0;
+        _remaining = _durationSeconds;
+        _isRest = false;
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Intervall-Timer',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+
+          if (!_running && !_done) ...[
+            // Config
+            Row(
+              children: [
+                Expanded(
+                  child: _TimerInput(
+                    label: 'Sek. aktiv',
+                    value: _durationSeconds,
+                    onChanged: (v) => setState(() {
+                      _durationSeconds = v;
+                      _remaining = v;
+                    }),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TimerInput(
+                    label: 'Sätze',
+                    value: _sets,
+                    onChanged: (v) => setState(() => _sets = v),
+                    min: 1,
+                    max: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TimerInput(
+                    label: 'Pause (s)',
+                    value: _restSeconds,
+                    onChanged: (v) => setState(() => _restSeconds = v),
+                    min: 0,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _startTimer,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Starten'),
+            ),
+          ] else if (_done) ...[
+            Icon(Icons.check_circle, color: Colors.green, size: 64),
+            const SizedBox(height: 8),
+            Text('Fertig! $_sets Sätze absolviert.',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 16),
+            FilledButton(
+                onPressed: _reset, child: const Text('Neu starten')),
+          ] else ...[
+            // Running
+            Text(
+              _isRest ? 'Pause' : 'Satz $_currentSet / $_sets',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(
+                      color:
+                          _isRest ? cs.secondary : cs.primary),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 120,
+              width: 120,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: _isRest
+                        ? _remaining / _restSeconds
+                        : _remaining / _durationSeconds,
+                    strokeWidth: 8,
+                    color: _isRest ? cs.secondary : cs.primary,
+                    backgroundColor: cs.surfaceContainerHighest,
+                  ),
+                  Text(
+                    '$_remaining',
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _stopTimer,
+              icon: const Icon(Icons.stop),
+              label: const Text('Stopp'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TimerInput extends StatelessWidget {
+  final String label;
+  final int value;
+  final int min;
+  final int? max;
+  final void Function(int) onChanged;
+  const _TimerInput(
+      {required this.label,
+      required this.value,
+      required this.onChanged,
+      this.min = 5,
+      this.max});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(label,
+            style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.remove, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: value > min
+                  ? () => onChanged(value - (label.contains('s') ? 5 : 1))
+                  : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text('$value',
+                  style:
+                      const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed:
+                  (max == null || value < max!)
+                      ? () => onChanged(
+                          value + (label.contains('s') ? 5 : 1))
+                      : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ── Set header / row ──────────────────────────────────────────────────────────
+
 class _SetHeader extends StatelessWidget {
   final bool isCardio;
   const _SetHeader({required this.isCardio});
@@ -653,7 +1671,8 @@ class _SetHeader extends StatelessWidget {
       children: [
         SizedBox(
             width: 32,
-            child: Text('Satz', style: style, textAlign: TextAlign.center)),
+            child:
+                Text('Satz', style: style, textAlign: TextAlign.center)),
         if (!isCardio) ...[
           const SizedBox(width: 8),
           SizedBox(
@@ -663,42 +1682,46 @@ class _SetHeader extends StatelessWidget {
           const SizedBox(width: 8),
           SizedBox(
               width: 56,
-              child: Text('Wdh', style: style, textAlign: TextAlign.center)),
+              child: Text('Wdh',
+                  style: style, textAlign: TextAlign.center)),
         ] else ...[
           const SizedBox(width: 8),
           SizedBox(
               width: 64,
-              child: Text('Zeit', style: style, textAlign: TextAlign.center)),
+              child: Text('Zeit',
+                  style: style, textAlign: TextAlign.center)),
           const SizedBox(width: 8),
           SizedBox(
               width: 56,
-              child: Text('km', style: style, textAlign: TextAlign.center)),
+              child:
+                  Text('km', style: style, textAlign: TextAlign.center)),
         ],
         const SizedBox(width: 8),
         SizedBox(
             width: 44,
-            child: Text('RPE', style: style, textAlign: TextAlign.center)),
+            child:
+                Text('RPE', style: style, textAlign: TextAlign.center)),
       ],
     );
   }
 }
-
-// ── Inline-editable set row ───────────────────────────────────────────────────
 
 class _SetRow extends ConsumerStatefulWidget {
   final WorkoutSet set;
   final bool isCardio;
   final String workoutId;
   const _SetRow(
-      {required this.set, required this.isCardio, required this.workoutId});
+      {required this.set,
+      required this.isCardio,
+      required this.workoutId});
 
   @override
   ConsumerState<_SetRow> createState() => _SetRowState();
 }
 
 class _SetRowState extends ConsumerState<_SetRow> {
-  late TextEditingController _c1; // kg or minutes
-  late TextEditingController _c2; // reps or km
+  late TextEditingController _c1;
+  late TextEditingController _c2;
   late TextEditingController _rpe;
 
   @override
@@ -762,12 +1785,11 @@ class _SetRowState extends ConsumerState<_SetRow> {
         children: [
           SizedBox(
             width: 32,
-            child: Text(
-              '${widget.set.setNumber}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontWeight: FontWeight.w600, color: cs.primary),
-            ),
+            child: Text('${widget.set.setNumber}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: cs.primary)),
           ),
           const SizedBox(width: 8),
           SizedBox(
@@ -786,8 +1808,7 @@ class _SetRowState extends ConsumerState<_SetRow> {
           const SizedBox(width: 8),
           SizedBox(
               width: 44,
-              child:
-                  _NumField(ctrl: _rpe, hint: '–', onDone: _save)),
+              child: _NumField(ctrl: _rpe, hint: '–', onDone: _save)),
           const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.close, size: 16),
@@ -837,10 +1858,12 @@ class _ExercisePickerSheet extends StatefulWidget {
   const _ExercisePickerSheet({required this.exercises});
 
   @override
-  State<_ExercisePickerSheet> createState() => _ExercisePickerSheetState();
+  State<_ExercisePickerSheet> createState() =>
+      _ExercisePickerSheetState();
 }
 
-class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
+class _ExercisePickerSheetState
+    extends State<_ExercisePickerSheet> {
   String _query = '';
   String? _cat;
 
@@ -901,8 +1924,8 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                       child: FilterChip(
                         label: Text(_catLabel(c)),
                         selected: _cat == c,
-                        onSelected: (_) =>
-                            setState(() => _cat = _cat == c ? null : c),
+                        onSelected: (_) => setState(
+                            () => _cat = _cat == c ? null : c),
                         visualDensity: VisualDensity.compact,
                       ),
                     )),
@@ -936,6 +1959,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                     '${_catLabel(e.category)} · ${_equipLabel(e.equipment)}',
                     style: const TextStyle(fontSize: 12),
                   ),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
                   onTap: () => Navigator.of(context).pop(e),
                 );
               },
@@ -1037,11 +2061,20 @@ class _ExerciseLibraryScreenState
             ),
             title: Text(e.name),
             subtitle: Text(
-              '${_catLabel(e.category)} · ${_equipLabel(e.equipment)}',
+              [
+                _catLabel(e.category),
+                _equipLabel(e.equipment),
+                if (e.difficulty != null) _diffLabel(e.difficulty),
+              ].join(' · '),
               style: const TextStyle(fontSize: 12),
             ),
-            trailing: e.isCustom
-                ? IconButton(
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.chevron_right, size: 18),
+                if (e.isCustom) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
                     icon: Icon(Icons.delete_outline,
                         color:
                             Theme.of(context).colorScheme.error,
@@ -1049,8 +2082,14 @@ class _ExerciseLibraryScreenState
                     onPressed: () => ref
                         .read(workoutOpsProvider.notifier)
                         .deleteExercise(e.id),
-                  )
-                : null,
+                  ),
+                ],
+              ],
+            ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => ExerciseDetailScreen(exercise: e)),
+            ),
           );
         },
       ),
@@ -1085,26 +2124,23 @@ class _ExerciseLibraryScreenState
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                // ignore: deprecated_member_use
-                value: cat,
+                initialValue: cat,
                 decoration:
                     const InputDecoration(labelText: 'Kategorie'),
                 items: _categories
                     .map((c) => DropdownMenuItem(
-                          value: c,
-                          child: Text(_catLabel(c)),
-                        ))
+                        value: c, child: Text(_catLabel(c))))
                     .toList(),
                 onChanged: (v) => setState(() => cat = v!),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
-                // ignore: deprecated_member_use
-                value: equip,
+                initialValue: equip,
                 decoration:
                     const InputDecoration(labelText: 'Equipment'),
                 items: const [
-                  DropdownMenuItem(value: null, child: Text('–')),
+                  DropdownMenuItem(
+                      value: null, child: Text('Kein Equipment')),
                   DropdownMenuItem(
                       value: 'barbell', child: Text('Langhantel')),
                   DropdownMenuItem(
@@ -1142,5 +2178,453 @@ class _ExerciseLibraryScreenState
           category: cat,
           equipment: equip,
         );
+  }
+}
+
+// ── Workout Plans Screen ──────────────────────────────────────────────────────
+
+class WorkoutPlansScreen extends ConsumerWidget {
+  const WorkoutPlansScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plansAsync = ref.watch(workoutPlansProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Trainingspläne')),
+      body: plansAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Fehler: $e')),
+        data: (plans) {
+          if (plans.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.calendar_month_outlined,
+                      size: 64,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.4)),
+                  const SizedBox(height: 16),
+                  const Text('Noch keine Trainingspläne'),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Erstelle einen Plan und plane deine\nWochen-Workouts im Voraus.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+            itemCount: plans.length,
+            itemBuilder: (context, i) =>
+                _PlanCard(plan: plans[i]),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _createPlan(context, ref),
+        icon: const Icon(Icons.add),
+        label: const Text('Neuer Plan'),
+      ),
+    );
+  }
+
+  Future<void> _createPlan(BuildContext context, WidgetRef ref) async {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Neuer Trainingsplan'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                  labelText: 'Name *',
+                  hintText: 'z.B. Anfänger Ganzkörper',
+                  border: OutlineInputBorder()),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Beschreibung (optional)',
+                  border: OutlineInputBorder()),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Abbrechen')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Erstellen')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final name = nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final id = await ref
+        .read(workoutOpsProvider.notifier)
+        .createPlan(
+            name: name,
+            description: descCtrl.text.trim().isEmpty
+                ? null
+                : descCtrl.text.trim());
+    if (context.mounted) {
+      final plan =
+          await ref.read(databaseProvider)!.workoutPlanById(id);
+      if (plan != null && context.mounted) {
+        Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => WorkoutPlanDetailScreen(plan: plan)));
+      }
+    }
+  }
+}
+
+class _PlanCard extends ConsumerWidget {
+  final WorkoutPlan plan;
+  const _PlanCard({required this.plan});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exercisesAsync = ref.watch(planExercisesProvider(plan.id));
+    final exercises = ref.watch(exercisesProvider).valueOrNull ?? [];
+    final exerciseMap = {for (final e in exercises) e.id: e};
+    final cs = Theme.of(context).colorScheme;
+
+    final byDay =
+        <int, List<WorkoutPlanExercise>>{};
+    for (final e in exercisesAsync.valueOrNull ?? []) {
+      byDay.putIfAbsent(e.dayOfWeek, () => []).add(e);
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            title: Text(plan.name,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: plan.description != null
+                ? Text(plan.description!,
+                    style: TextStyle(
+                        color: cs.onSurfaceVariant, fontSize: 12))
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  tooltip: 'Plan bearbeiten',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                        builder: (_) =>
+                            WorkoutPlanDetailScreen(plan: plan)),
+                  ),
+                ),
+                FilledButton.tonal(
+                  onPressed: () => _startFromPlan(context, ref),
+                  child: const Text('Starten'),
+                ),
+              ],
+            ),
+          ),
+          if (byDay.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Row(
+                children: List.generate(7, (d) {
+                  final dayExercises = byDay[d] ?? [];
+                  final hasTraining = dayExercises.isNotEmpty;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Tooltip(
+                      message: hasTraining
+                          ? '${_weekDaysFull[d]}: ${dayExercises.map((e) => exerciseMap[e.exerciseId]?.name ?? '?').take(3).join(', ')}'
+                          : _weekDaysFull[d],
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: hasTraining
+                              ? cs.primaryContainer
+                              : cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _weekDays[d],
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: hasTraining
+                                ? cs.onPrimaryContainer
+                                : cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startFromPlan(BuildContext context, WidgetRef ref) async {
+    final id = await ref
+        .read(workoutOpsProvider.notifier)
+        .startWorkoutFromPlan(plan);
+    if (context.mounted) {
+      Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => ActiveWorkoutScreen(workoutId: id)));
+    }
+  }
+}
+
+// ── Workout plan detail / editor ──────────────────────────────────────────────
+
+class WorkoutPlanDetailScreen extends ConsumerWidget {
+  final WorkoutPlan plan;
+  const WorkoutPlanDetailScreen({super.key, required this.plan});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exercisesAsync = ref.watch(planExercisesProvider(plan.id));
+    final allExercises =
+        ref.watch(exercisesProvider).valueOrNull ?? [];
+    final exerciseMap = {for (final e in allExercises) e.id: e};
+    final cs = Theme.of(context).colorScheme;
+
+    final byDay = <int, List<WorkoutPlanExercise>>{};
+    for (final e in exercisesAsync.valueOrNull ?? []) {
+      byDay.putIfAbsent(e.dayOfWeek, () => []).add(e);
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(plan.name),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: cs.error),
+            onPressed: () => _deletePlan(context, ref),
+          ),
+        ],
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        itemCount: 7,
+        itemBuilder: (context, day) {
+          final dayExercises = byDay[day] ?? [];
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        _weekDaysFull[day],
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(
+                                color: dayExercises.isNotEmpty
+                                    ? cs.primary
+                                    : cs.onSurfaceVariant),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () =>
+                            _addExerciseToDay(context, ref, day, allExercises),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Übung'),
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (dayExercises.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('Ruhetag',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 12)),
+                    )
+                  else
+                    ...dayExercises.map((pe) {
+                      final ex = exerciseMap[pe.exerciseId];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        leading: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: cs.secondaryContainer,
+                          child: Text(
+                            _catLabel(ex?.category ?? '').substring(0, 1),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSecondaryContainer),
+                          ),
+                        ),
+                        title: Text(ex?.name ?? pe.exerciseId,
+                            style:
+                                const TextStyle(fontSize: 13)),
+                        subtitle: Text(
+                          [
+                            if (pe.targetSets != null)
+                              '${pe.targetSets} Sätze',
+                            if (pe.targetReps != null)
+                              '${pe.targetReps} Wdh',
+                            if (pe.targetDurationSeconds != null)
+                              '${pe.targetDurationSeconds}s',
+                          ].join(' × '),
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => ref
+                              .read(workoutOpsProvider.notifier)
+                              .removePlanExercise(pe.id, plan.id),
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _addExerciseToDay(
+      BuildContext context,
+      WidgetRef ref,
+      int day,
+      List<Exercise> allExercises) async {
+    final chosen = await showModalBottomSheet<Exercise>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ExercisePickerSheet(exercises: allExercises),
+    );
+    if (chosen == null || !context.mounted) return;
+
+    // Quick target config
+    int? sets = 3;
+    int? reps = 10;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(chosen.name),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                const Text('Sätze: '),
+                const Spacer(),
+                IconButton(
+                    icon: const Icon(Icons.remove, size: 18),
+                    onPressed: () => setState(
+                        () => sets = ((sets ?? 3) - 1).clamp(1, 20))),
+                Text('${sets ?? 3}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                IconButton(
+                    icon: const Icon(Icons.add, size: 18),
+                    onPressed: () => setState(
+                        () => sets = ((sets ?? 3) + 1).clamp(1, 20))),
+              ]),
+              Row(children: [
+                const Text('Wdh: '),
+                const Spacer(),
+                IconButton(
+                    icon: const Icon(Icons.remove, size: 18),
+                    onPressed: () => setState(
+                        () => reps = ((reps ?? 10) - 1).clamp(1, 50))),
+                Text('${reps ?? 10}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                IconButton(
+                    icon: const Icon(Icons.add, size: 18),
+                    onPressed: () => setState(
+                        () => reps = ((reps ?? 10) + 1).clamp(1, 50))),
+              ]),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Abbrechen')),
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Hinzufügen')),
+          ],
+        ),
+      ),
+    );
+
+    await ref.read(workoutOpsProvider.notifier).addPlanExercise(
+          planId: plan.id,
+          exerciseId: chosen.id,
+          dayOfWeek: day,
+          targetSets: sets,
+          targetReps: reps,
+        );
+  }
+
+  Future<void> _deletePlan(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Plan löschen?'),
+            content: const Text(
+                'Der Plan und alle zugehörigen Übungs-Slots werden unwiderruflich gelöscht.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Abbrechen')),
+              FilledButton(
+                  style: FilledButton.styleFrom(
+                      backgroundColor:
+                          Theme.of(context).colorScheme.error),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Löschen')),
+            ],
+          ),
+        ) ??
+        false;
+    if (ok && context.mounted) {
+      await ref
+          .read(workoutOpsProvider.notifier)
+          .deletePlan(plan.id);
+      if (context.mounted) Navigator.of(context).pop();
+    }
   }
 }

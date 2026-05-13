@@ -25,10 +25,10 @@ void main() {
     await db.close();
   });
 
-  test('fresh database opens and exposes schemaVersion 34', () async {
+  test('fresh database opens and exposes schemaVersion 36', () async {
     // Triggers onCreate → createAll + seeds + _createIndexes
     await db.customSelect('SELECT 1').get();
-    expect(db.schemaVersion, 34);
+    expect(db.schemaVersion, 36);
   });
 
   test('every declared table is reachable', () async {
@@ -61,6 +61,8 @@ void main() {
     await db.select(db.exercises).get();
     await db.select(db.workouts).get();
     await db.select(db.workoutSets).get();
+    await db.select(db.workoutPlans).get();
+    await db.select(db.workoutPlanExercises).get();
     await db.select(db.customShoppingItems).get();
     await db.select(db.itemRelations).get();
     await db.select(db.itemTemplates).get();
