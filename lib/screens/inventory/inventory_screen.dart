@@ -14,11 +14,29 @@ import '../../providers/settings_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 import 'inventory_value_screen.dart';
 
-class InventoryScreen extends ConsumerWidget {
+class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
+}
+
+class _InventoryScreenState extends ConsumerState<InventoryScreen> {
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    ref.read(itemSearchQueryProvider.notifier).state = '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final itemsAsync = ref.watch(filteredItemsProvider);
     final query = ref.watch(itemSearchQueryProvider);
     final quickActions = ref.watch(settingsProvider).valueOrNull?.quickActions
@@ -59,15 +77,14 @@ class InventoryScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: SearchBar(
+                  controller: _searchCtrl,
                   hintText: 'Artikel suchen…',
                   leading: const Icon(Icons.search),
                   trailing: [
                     if (query.isNotEmpty)
                       IconButton(
                         icon: const Icon(Icons.close),
-                        onPressed: () => ref
-                            .read(itemSearchQueryProvider.notifier)
-                            .state = '',
+                        onPressed: _clearSearch,
                       ),
                     IconButton(
                       icon: const Icon(Icons.qr_code_scanner),

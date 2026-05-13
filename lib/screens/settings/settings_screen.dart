@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../services/backup_service.dart';
+import '../../services/data_export_service.dart';
 
 Future<void> _showQuickActionsConfig(BuildContext context, WidgetRef ref) async {
   final settings = ref.read(settingsProvider).valueOrNull;
@@ -173,6 +174,27 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _restoreBackup(context, ref, vaultPath),
           ),
+          const Divider(),
+          const ListTile(
+            leading: Icon(Icons.import_export_outlined),
+            title: Text('Daten-Export / Import'),
+            dense: true,
+            enabled: false,
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload_outlined),
+            title: const Text('Daten exportieren'),
+            subtitle: const Text('JSON ohne Fotos – vault-übergreifend nutzbar'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _exportData(context, ref),
+          ),
+          ListTile(
+            leading: const Icon(Icons.download_outlined),
+            title: const Text('Daten importieren'),
+            subtitle: const Text('JSON-Export einspielen (upsert)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _importData(context, ref),
+          ),
           ListTile(
             leading: const Icon(Icons.add_circle_outline),
             title: const Text('Schnellaktionen'),
@@ -311,6 +333,75 @@ Future<void> _restoreBackup(
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Wiederherstellung fehlgeschlagen: $e')),
+    );
+  }
+}
+
+Future<void> _exportData(BuildContext context, WidgetRef ref) async {
+  final db = ref.read(databaseProvider);
+  if (db == null) return;
+  try {
+    final tmpDir = await getTemporaryDirectory();
+    final file = await DataExportService.exportData(db, tmpDir.path);
+    if (!context.mounted) return;
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        subject: 'LifeOS Daten-Export',
+      ),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Export fehlgeschlagen: $e')),
+    );
+  }
+}
+
+Future<void> _importData(BuildContext context, WidgetRef ref) async {
+  final db = ref.read(databaseProvider);
+  if (db == null) return;
+
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['json'],
+  );
+  if (result == null || result.files.single.path == null) return;
+  if (!context.mounted) return;
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Daten importieren?'),
+      content: const Text(
+          'Vorhandene Datensätze werden überschrieben (gleiche IDs), '
+          'neue werden hinzugefügt. Dieser Vorgang kann nicht rückgängig gemacht werden.'),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen')),
+        FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Importieren')),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+
+  try {
+    final importResult = await DataExportService.importData(
+        db, result.files.single.path!);
+    ref.invalidate(databaseProvider);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+          '${importResult.totalRows} Datensätze importiert'
+          '${importResult.skippedRows > 0 ? ', ${importResult.skippedRows} übersprungen' : ''}.'),
+    ));
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Import fehlgeschlagen: $e')),
     );
   }
 }

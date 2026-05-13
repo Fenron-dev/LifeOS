@@ -23,6 +23,13 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
   static const double _splitBreakpoint = 720;
   bool _filterExpiring = false;
   bool _isGridView = false;
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,15 +105,19 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: SearchBar(
+                  controller: _searchCtrl,
                   hintText: 'Rezept suchen…',
                   leading: const Icon(Icons.search),
                   trailing: query.isNotEmpty
                       ? [
                           IconButton(
                             icon: const Icon(Icons.close),
-                            onPressed: () => ref
-                                .read(recipeSearchQueryProvider.notifier)
-                                .state = '',
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              ref
+                                  .read(recipeSearchQueryProvider.notifier)
+                                  .state = '';
+                            },
                           ),
                         ]
                       : null,

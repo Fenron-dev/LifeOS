@@ -81,26 +81,21 @@ class _MeScreenState extends ConsumerState<MeScreen>
   }
 
   void _onTabChanged() {
-    if (_controller.indexIsChanging) return;
-    final tab = _tabs[_controller.index];
-    if (tab.label == 'Fotos' && !_photosUnlocked) {
-      _requestPhotoAccess();
-    }
+    // No auto-action on tab change: show the locked view and let the user
+    // tap "Entsperren" explicitly. Auto-bouncing caused a navigation loop
+    // when biometrics were unavailable or failed silently.
   }
 
   Future<void> _requestPhotoAccess() async {
     final available = await AppLockService.isAvailable();
     if (!available) {
-      // No biometrics on this device — allow access
+      // No biometrics / PIN on this device — grant access directly.
       if (mounted) setState(() => _photosUnlocked = true);
       return;
     }
     final ok = await AppLockService.authenticate();
     if (mounted) setState(() => _photosUnlocked = ok);
-    if (!ok && mounted) {
-      // Bounce back to Tagebuch
-      _controller.animateTo(0);
-    }
+    // On failure: user stays on the locked view and can retry.
   }
 
   @override
