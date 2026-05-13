@@ -641,7 +641,6 @@ class _TaskDialogState extends ConsumerState<_TaskDialog> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return ListView(
-      shrinkWrap: true,
       padding: EdgeInsets.fromLTRB(
           16, 16, 16, MediaQuery.viewInsetsOf(context).bottom + 24),
       children: [

@@ -152,7 +152,7 @@ class _ItemDetailBody extends ConsumerWidget {
             statesAsync: statesAsync,
           ),
           const SizedBox(height: 12),
-          _EventsSection(itemId: item.id),
+          _EventsSection(item: item),
           const SizedBox(height: 12),
           _RelationsSection(item: item),
         ],
@@ -1266,12 +1266,12 @@ class _StateChip extends StatelessWidget {
 // ── Events section ──────────────────────────────────────────────────────────
 
 class _EventsSection extends ConsumerWidget {
-  final String itemId;
-  const _EventsSection({required this.itemId});
+  final Item item;
+  const _EventsSection({required this.item});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventsAsync = ref.watch(eventsForItemProvider(itemId));
+    final eventsAsync = ref.watch(eventsForItemProvider(item.id));
     final theme = Theme.of(context);
 
     return Column(
@@ -1288,7 +1288,10 @@ class _EventsSection extends ConsumerWidget {
                   style: TextStyle(color: Colors.grey));
             }
             return Column(
-              children: events.take(20).map((e) => _EventTile(event: e)).toList(),
+              children: events
+                  .take(20)
+                  .map((e) => _EventTile(event: e, item: item))
+                  .toList(),
             );
           },
         ),
@@ -1299,7 +1302,8 @@ class _EventsSection extends ConsumerWidget {
 
 class _EventTile extends ConsumerWidget {
   final ItemEvent event;
-  const _EventTile({required this.event});
+  final Item item;
+  const _EventTile({required this.event, required this.item});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1317,65 +1321,251 @@ class _EventTile extends ConsumerWidget {
       subtitle: event.quantity != null
           ? Text('${_formatQty(event.quantity!)} ${event.unit ?? ''}')
           : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            DateFormat('dd.MM.yy HH:mm').format(event.createdAt),
-            style: theme.textTheme.bodySmall,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-            tooltip: 'Ereignis löschen',
-            onPressed: () => _confirmDelete(context, ref),
-          ),
-        ],
+      trailing: Text(
+        DateFormat('dd.MM.yy').format(event.createdAt),
+        style: theme.textTheme.bodySmall,
+      ),
+      onTap: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => _EventDetailSheet(event: event, item: item),
       ),
     );
-  }
-
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ereignis löschen?'),
-        content: const Text(
-            'Diesen Verlaufseintrag wirklich entfernen? Der Bestand wird nicht angepasst.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Abbrechen')),
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Löschen',
-                  style: TextStyle(color: Colors.red))),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await ref.read(databaseProvider)?.deleteItemEvent(event.id);
-    }
   }
 
   (IconData, Color, String) _eventMeta(String type) => switch (type) {
-    'purchase' => (Icons.add_shopping_cart, Colors.green, 'Gekauft'),
-    'consumption' => (Icons.restaurant, Colors.orange, 'Verbraucht'),
-    'stocktake' => (Icons.inventory, Colors.blue, 'Inventur'),
-    'relocation' => (Icons.move_down, Colors.purple, 'Umgelagert'),
-    'state_change' => (Icons.ac_unit, Colors.cyan, 'Zustand geändert'),
-    'opened' => (Icons.open_in_new, Colors.brown, 'Geöffnet'),
-    _ => (Icons.event, Colors.grey, type),
+    'purchase'      => (Icons.add_shopping_cart, Colors.green, 'Gekauft'),
+    'consumption'   => (Icons.restaurant, Colors.orange, 'Verbraucht'),
+    'stocktake'     => (Icons.inventory, Colors.blue, 'Inventur'),
+    'relocation'    => (Icons.move_down, Colors.purple, 'Umgelagert'),
+    'state_change'  => (Icons.ac_unit, Colors.cyan, 'Zustand geändert'),
+    'opened'        => (Icons.open_in_new, Colors.brown, 'Geöffnet'),
+    _               => (Icons.event, Colors.grey, type),
   };
 
   String _formatQty(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toString();
 }
 
+// ── Event detail sheet ────────────────────────────────────────────────────────
+
+class _EventDetailSheet extends ConsumerWidget {
+  final ItemEvent event;
+  final Item item;
+  const _EventDetailSheet({required this.event, required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final (icon, color, label) = _meta(event.type);
+    final db = ref.read(databaseProvider);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          16, 20, 16, MediaQuery.viewInsetsOf(context).bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: color.withValues(alpha: 0.15),
+                child: Icon(icon, size: 20, color: color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: theme.textTheme.titleMedium),
+                    Text(
+                      DateFormat('dd.MM.yyyy HH:mm').format(event.createdAt),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          // Details
+          if (event.quantity != null)
+            _detailRow('Menge',
+                '${_fmt(event.quantity!)} ${event.unit ?? ''}', theme),
+          if (event.store != null)
+            _detailRow('Geschäft', event.store!, theme),
+          if (event.price != null)
+            _detailRow('Preis', '${event.price!.toStringAsFixed(2)} €', theme),
+          if (event.consumptionReason != null)
+            _detailRow('Grund', _reasonLabel(event.consumptionReason!), theme),
+          if (event.thumbRating != null)
+            _detailRow('Bewertung',
+                event.thumbRating == 'up' ? '👍 Positiv' : '👎 Negativ',
+                theme),
+          if (event.fromLocationId != null || event.toLocationId != null)
+            _detailRow('Umlagerung',
+                '${event.fromLocationId ?? '?'} → ${event.toLocationId ?? '?'}',
+                theme),
+          if (event.fromState != null || event.toState != null)
+            _detailRow('Zustand',
+                '${event.fromState ?? '?'} → ${event.toState ?? '?'}', theme),
+          if (event.notes != null)
+            _detailRow('Notiz', event.notes!, theme),
+          // Warenwert estimate for consumption
+          if (event.type == 'consumption' && event.quantity != null)
+            _WarenwertRow(item: item, qty: event.quantity!, unit: event.unit),
+          const SizedBox(height: 20),
+          // Action buttons
+          Row(
+            children: [
+              // Delete event
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Ereignis löschen?'),
+                      content: const Text(
+                          'Verlaufseintrag entfernen? Der Bestand wird nicht angepasst.'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('Abbrechen')),
+                        TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text('Löschen',
+                                style: TextStyle(color: Colors.red))),
+                      ],
+                    ),
+                  );
+                  if (ok == true && context.mounted) {
+                    await db?.deleteItemEvent(event.id);
+                    if (context.mounted) Navigator.of(context).pop();
+                  }
+                },
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Löschen'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: cs.error,
+                    side: BorderSide(color: cs.error)),
+              ),
+              // Rückbuchen (only for consumption)
+              if (event.type == 'consumption') ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (_) => AddStockSheet(
+                          item: item,
+                          prefillQty: event.quantity,
+                          prefillUnit: event.unit,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.undo, size: 18),
+                    label: const Text('Rückbuchen'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value, ThemeData theme) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            ),
+            Text(value, style: theme.textTheme.bodyMedium),
+          ],
+        ),
+      );
+
+  String _fmt(double q) =>
+      q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
+
+  String _reasonLabel(String r) => switch (r) {
+        'consumed'  => 'Konsumiert',
+        'expired'   => 'Abgelaufen',
+        'discarded' => 'Weggeworfen',
+        'gifted'    => 'Verschenkt',
+        _           => r,
+      };
+
+  (IconData, Color, String) _meta(String type) => switch (type) {
+        'purchase'     => (Icons.add_shopping_cart, Colors.green, 'Gekauft'),
+        'consumption'  => (Icons.restaurant, Colors.orange, 'Verbraucht'),
+        'stocktake'    => (Icons.inventory, Colors.blue, 'Inventur'),
+        'relocation'   => (Icons.move_down, Colors.purple, 'Umgelagert'),
+        'state_change' => (Icons.ac_unit, Colors.cyan, 'Zustand geändert'),
+        'opened'       => (Icons.open_in_new, Colors.brown, 'Geöffnet'),
+        _              => (Icons.event, Colors.grey, type),
+      };
+}
+
+class _WarenwertRow extends ConsumerWidget {
+  final Item item;
+  final double qty;
+  final String? unit;
+  const _WarenwertRow({required this.item, required this.qty, this.unit});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final avgPriceAsync = ref.watch(avgPriceForItemProvider(item.id));
+    final price = avgPriceAsync.valueOrNull;
+    if (price == null) return const SizedBox.shrink();
+    final value = price * qty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text('Warenwert (ca.)',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ),
+          Text(
+            '~${value.toStringAsFixed(2)} €',
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Add stock bottom sheet ──────────────────────────────────────────────────
 
 class AddStockSheet extends ConsumerStatefulWidget {
   final Item item;
-  const AddStockSheet({super.key, required this.item});
+  final double? prefillQty;
+  final String? prefillUnit;
+  const AddStockSheet({
+    super.key,
+    required this.item,
+    this.prefillQty,
+    this.prefillUnit,
+  });
 
   @override
   ConsumerState<AddStockSheet> createState() => _AddStockSheetState();
@@ -1383,7 +1573,7 @@ class AddStockSheet extends ConsumerStatefulWidget {
 
 class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _qtyCtrl = TextEditingController(text: '1');
+  late final TextEditingController _qtyCtrl;
   final _priceCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   late String _unit;
@@ -1399,8 +1589,18 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
   @override
   void initState() {
     super.initState();
-    // Pre-select item's stockUnit; fall back to 'Stück'
-    _unit = widget.item.stockUnit ?? 'Stück';
+    // Pre-fill quantity from prefill param or default to 1
+    final prefillQty = widget.prefillQty;
+    final qtyText = prefillQty != null
+        ? (prefillQty == prefillQty.truncateToDouble()
+            ? prefillQty.toInt().toString()
+            : prefillQty.toStringAsFixed(1))
+        : '1';
+    _qtyCtrl = TextEditingController(text: qtyText);
+    // Pre-select unit: prefill → item stockUnit → fallback
+    _unit = widget.prefillUnit ??
+        widget.item.stockUnit ??
+        'Stück';
     // Pre-select most recent location for this item
     _initLocation();
   }
@@ -1903,7 +2103,8 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
 
     return AlertDialog(
       title: const Text('Verbrauchen'),
-      content: Column(
+      content: SingleChildScrollView(
+       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1985,6 +2186,7 @@ class _ConsumeDialogState extends ConsumerState<ConsumeDialog> {
             onChanged: (v) => setState(() => _consumptionReason = v ?? _consumptionReason),
           ),
         ],
+       ),
       ),
       actions: [
         TextButton(

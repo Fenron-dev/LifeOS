@@ -12,6 +12,7 @@ import '../../providers/items_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../widgets/adaptive_shell.dart';
+import 'inventory_value_screen.dart';
 
 class InventoryScreen extends ConsumerWidget {
   const InventoryScreen({super.key});
@@ -37,6 +38,16 @@ class InventoryScreen extends ConsumerWidget {
             icon: const Icon(Icons.shopping_cart_outlined),
             tooltip: 'Einkaufsliste',
             onPressed: () => context.push('/aufgaben'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.euro_outlined),
+            tooltip: 'Lagerwert',
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              builder: (_) => const InventoryValueSheet(),
+            ),
           ),
           ...shellMenuActions(context),
         ],
@@ -76,6 +87,7 @@ class InventoryScreen extends ConsumerWidget {
       body: Column(
         children: [
           _TagFilterRow(),
+          _QuickFilterRow(),
           Expanded(
             child: itemsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -433,6 +445,92 @@ class _TagFilterRow extends ConsumerWidget {
             visualDensity: VisualDensity.compact,
           );
         },
+      ),
+    );
+  }
+}
+
+class _QuickFilterRow extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favOnly = ref.watch(itemFavoriteFilterProvider);
+    final minRating = ref.watch(itemMinRatingFilterProvider);
+    final trashedOnly = ref.watch(itemTrashedFilterProvider);
+
+    final hasAny = favOnly || minRating != null || trashedOnly;
+    if (!hasAny &&
+        !favOnly &&
+        minRating == null &&
+        !trashedOnly) {
+      // Show a single compact row only when some filter is active or hinted
+    }
+
+    return SizedBox(
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        children: [
+          FilterChip(
+            avatar: Icon(Icons.favorite,
+                size: 13,
+                color: favOnly ? Colors.red.shade400 : null),
+            label: const Text('Favoriten'),
+            selected: favOnly,
+            onSelected: (_) => ref
+                .read(itemFavoriteFilterProvider.notifier)
+                .state = !favOnly,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          FilterChip(
+            avatar: Icon(Icons.star,
+                size: 13,
+                color: minRating != null ? Colors.amber : null),
+            label: Text(minRating == null
+                ? 'Bewertet'
+                : '${'★' * minRating}+'),
+            selected: minRating != null,
+            onSelected: (_) {
+              if (minRating == null) {
+                ref.read(itemMinRatingFilterProvider.notifier).state = 3;
+              } else if (minRating < 5) {
+                ref.read(itemMinRatingFilterProvider.notifier).state =
+                    minRating + 1;
+              } else {
+                ref.read(itemMinRatingFilterProvider.notifier).state = null;
+              }
+            },
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          FilterChip(
+            avatar: Icon(Icons.thumb_down_outlined,
+                size: 13,
+                color: trashedOnly
+                    ? Theme.of(context).colorScheme.error
+                    : null),
+            label: const Text('Abgelehnt'),
+            selected: trashedOnly,
+            onSelected: (_) => ref
+                .read(itemTrashedFilterProvider.notifier)
+                .state = !trashedOnly,
+            visualDensity: VisualDensity.compact,
+          ),
+          if (hasAny) ...[
+            const SizedBox(width: 6),
+            ActionChip(
+              avatar: const Icon(Icons.close, size: 13),
+              label: const Text('Zurücksetzen'),
+              onPressed: () {
+                ref.read(itemFavoriteFilterProvider.notifier).state = false;
+                ref.read(itemMinRatingFilterProvider.notifier).state = null;
+                ref.read(itemTrashedFilterProvider.notifier).state = false;
+              },
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ],
       ),
     );
   }

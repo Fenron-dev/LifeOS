@@ -27,8 +27,17 @@ final itemCategoryFilterProvider = StateProvider<String?>((ref) => null);
 /// null = no tag filter; non-null = filter by tagId
 final itemTagFilterProvider = StateProvider<String?>((ref) => null);
 
+/// When true, only show items where isFavorite == true
+final itemFavoriteFilterProvider = StateProvider<bool>((ref) => false);
+
+/// null = no rating filter; 1–5 = only show items with starRating >= value
+final itemMinRatingFilterProvider = StateProvider<int?>((ref) => null);
+
+/// When true, only show items where isTrashed == true (disliked)
+final itemTrashedFilterProvider = StateProvider<bool>((ref) => false);
+
 // ---------------------------------------------------------------------------
-// Filtered items (search + category + tag filter)
+// Filtered items (search + category + tag + favorite + rating filter)
 // ---------------------------------------------------------------------------
 
 final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
@@ -37,6 +46,9 @@ final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
   final query = ref.watch(itemSearchQueryProvider).trim();
   final category = ref.watch(itemCategoryFilterProvider);
   final tagId = ref.watch(itemTagFilterProvider);
+  final favOnly = ref.watch(itemFavoriteFilterProvider);
+  final minRating = ref.watch(itemMinRatingFilterProvider);
+  final trashedOnly = ref.watch(itemTrashedFilterProvider);
 
   Stream<List<Item>> base;
   if (query.isEmpty && category == null) {
@@ -53,11 +65,23 @@ final filteredItemsProvider = StreamProvider<List<Item>>((ref) {
         items.where((i) => i.categoryId == category).toList());
   }
 
-  // Apply tag filter client-side using a combined stream
+  // Apply tag filter client-side
   if (tagId != null) {
-    return base.asyncExpand((items) =>
+    base = base.asyncExpand((items) =>
         db.watchItemIdsByTag(tagId).map((ids) =>
             items.where((i) => ids.contains(i.id)).toList()));
+  }
+
+  // Apply quick attribute filters
+  if (favOnly) {
+    base = base.map((items) => items.where((i) => i.isFavorite).toList());
+  }
+  if (minRating != null) {
+    base = base.map((items) =>
+        items.where((i) => (i.starRating ?? 0) >= minRating).toList());
+  }
+  if (trashedOnly) {
+    base = base.map((items) => items.where((i) => i.isTrashed).toList());
   }
 
   return base;
