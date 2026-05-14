@@ -95,6 +95,37 @@ class _InventoryDeductSheetState
     super.dispose();
   }
 
+  // ── Servings calculation for meal/recipe deduction ───────────────────────────
+
+  /// Computes how many servings of a meal/recipe were consumed.
+  ///
+  /// - Non-weight units (Portion, Stück, etc.): [quantityG] stores the count directly.
+  /// - Weight/volume units (g, ml, …): derive servings from the logged grams
+  ///   relative to the total ingredient weight per serving.
+  static double _computeServings({
+    required double quantityG,
+    required String displayUnit,
+    required List<({double qty, String unit})> ingredientQuantities,
+    int? recipeServings,
+  }) {
+    if (quantityG <= 0) return 1.0;
+    if (!isWeightVolUnit(displayUnit)) {
+      // Portion/Stück/etc.: quantityG is the consumed serving count.
+      return quantityG;
+    }
+    // Weight-based logging: compute total ingredient weight per recipe serving.
+    double totalGPerRecipe = 0;
+    for (final ing in ingredientQuantities) {
+      final g = convertWeightVol(ing.qty, ing.unit, 'g');
+      if (g != null) totalGPerRecipe += g;
+    }
+    if (totalGPerRecipe <= 0) return quantityG;
+    final servingSizeG = recipeServings != null && recipeServings > 0
+        ? totalGPerRecipe / recipeServings
+        : totalGPerRecipe;
+    return (quantityG / servingSizeG).clamp(0.01, 999.0);
+  }
+
   // ── Heuristic fallback (when no consumeUnit conversion applies) ─────────────
 
   static double _heuristicQty({
@@ -181,7 +212,13 @@ class _InventoryDeductSheetState
 
     if (log.source == 'meal' && log.itemId != null) {
       final ings = await db.ingredientsForMeal(log.itemId!);
-      final servings = log.quantityG > 0 ? log.quantityG : 1.0;
+      final servings = _computeServings(
+        quantityG: log.quantityG,
+        displayUnit: log.displayUnit,
+        ingredientQuantities: ings
+            .map((i) => (qty: i.quantity, unit: i.unit))
+            .toList(),
+      );
       for (final ing in ings) {
         if (ing.itemId == null) continue;
         final entries = await db.inventoryEntriesForItem(ing.itemId!);
@@ -197,7 +234,15 @@ class _InventoryDeductSheetState
       }
     } else if (log.source == 'recipe' && log.itemId != null) {
       final ings = await db.ingredientsForRecipe(log.itemId!);
-      final servings = log.quantityG > 0 ? log.quantityG : 1.0;
+      final recipe = await db.recipeById(log.itemId!);
+      final servings = _computeServings(
+        quantityG: log.quantityG,
+        displayUnit: log.displayUnit,
+        ingredientQuantities: ings
+            .map((i) => (qty: i.quantity, unit: i.unit))
+            .toList(),
+        recipeServings: recipe?.servings,
+      );
       for (final ing in ings) {
         if (ing.itemId == null) continue;
         final entries = await db.inventoryEntriesForItem(ing.itemId!);
@@ -347,7 +392,10 @@ class _InventoryDeductSheetState
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
-                  'Keine Lagerbestände für diesen Eintrag gefunden.',
+                  (widget.log.source == 'meal' ||
+                          widget.log.source == 'recipe')
+                      ? 'Keine verknüpften Lagerbestände. Verknüpfe die Zutaten in den Gericht-/Rezepteinstellungen mit Artikeln.'
+                      : 'Keine Lagerbestände für diesen Eintrag gefunden.',
                   style: TextStyle(color: cs.onSurfaceVariant),
                 ),
               )

@@ -36,7 +36,9 @@ class _StatsTabState extends ConsumerState<StatsTab> {
     final weightLogs = ref.watch(weightLogsProvider(365)).valueOrNull ?? [];
     final workouts = ref.watch(workoutsProvider).valueOrNull ?? [];
     final now = DateTime.now();
-    final cutoff = now.subtract(Duration(days: _period.days));
+    final today = DateTime(now.year, now.month, now.day);
+    final cutoffRaw = today.subtract(Duration(days: _period.days));
+    final cutoff = DateTime(cutoffRaw.year, cutoffRaw.month, cutoffRaw.day);
 
     final filteredWeight = weightLogs
         .where((l) => l.loggedAt.isAfter(cutoff))
@@ -379,8 +381,9 @@ class _KcalTrendCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
     final logsAsync = ref.watch(
-        nutritionLogsForRangeProvider((cutoff, now.add(const Duration(days: 1)))));
+        nutritionLogsForRangeProvider((cutoff, tomorrow)));
 
     return _StatCard(
       icon: Icons.local_fire_department_outlined,

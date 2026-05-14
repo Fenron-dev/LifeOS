@@ -279,6 +279,9 @@ class _TaskTileState extends ConsumerState<_TaskTile> {
                 ),
                 Expanded(
                   child: ListTile(
+                    onTap: hasSubtasks
+                        ? () => setState(() => _expanded = !_expanded)
+                        : null,
                     leading: Checkbox(
                       value: isDone,
                       onChanged: (_) => notifier.toggleDone(task),

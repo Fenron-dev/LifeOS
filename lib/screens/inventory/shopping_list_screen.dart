@@ -195,6 +195,26 @@ class ShoppingListScreen extends ConsumerWidget {
           body,
           Positioned(
             right: 16,
+            bottom: 80,
+            child: FloatingActionButton.small(
+              heroTag: 'shopping_mode_toggle',
+              onPressed: () =>
+                  ref.read(_shoppingModeProvider.notifier).state = !shoppingMode,
+              tooltip:
+                  shoppingMode ? 'Einkaufsmodus beenden' : 'Einkaufsmodus',
+              backgroundColor: shoppingMode
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+              foregroundColor: shoppingMode
+                  ? Theme.of(context).colorScheme.onPrimary
+                  : null,
+              child: Icon(shoppingMode
+                  ? Icons.shopping_cart
+                  : Icons.shopping_cart_outlined),
+            ),
+          ),
+          Positioned(
+            right: 16,
             bottom: 16,
             child: FloatingActionButton(
               heroTag: 'add_shopping',
@@ -761,9 +781,9 @@ class _NeedCard extends ConsumerWidget {
                     }
                   },
                   icon: const Icon(Icons.close, size: 16),
-                  label: const Text('Überspringen'),
+                  label: const Text('Skip'),
                   style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.outline,
+                    foregroundColor: Theme.of(context).colorScheme.error,
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
@@ -786,8 +806,7 @@ class _NeedCard extends ConsumerWidget {
     );
   }
 
-  String _fmt(double q) =>
-      q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
+  String _fmt(double q) => q.ceil().toString();
 
   Future<void> _showBuyFlow(
       BuildContext context, WidgetRef ref, ShoppingNeed need) async {
