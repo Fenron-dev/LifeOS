@@ -23,6 +23,10 @@ class DiaryEntrySheet extends ConsumerStatefulWidget {
   final DateTime? initialLoggedAt;
   final NutritionLog? editLog;
   final FoodSearchResult? initialProduct;
+  /// When true the inventory was already deducted externally (e.g. via the
+  /// quick-action Ausbuchen flow). Pre-unchecks the "Vom Bestand abbuchen"
+  /// toggle so the user doesn't accidentally double-deduct.
+  final bool deductAlreadyDone;
 
   const DiaryEntrySheet({
     super.key,
@@ -30,6 +34,7 @@ class DiaryEntrySheet extends ConsumerStatefulWidget {
     this.initialLoggedAt,
     this.editLog,
     this.initialProduct,
+    this.deductAlreadyDone = false,
   });
 
   @override
@@ -55,7 +60,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
   List<UnitConversion> _convs = [];
   List<InventoryEntry> _inventoryEntries = [];
   bool _hasInventory = false;
-  bool _doDeduct = true;
+  late bool _doDeduct;
   String _consumptionReason = 'consumed';
 
   bool get _isEditMode => widget.editLog != null;
@@ -89,6 +94,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
   @override
   void initState() {
     super.initState();
+    _doDeduct = !widget.deductAlreadyDone;
     _mealTypeId = widget.initialMealTypeId;
     _loggedAt = widget.initialLoggedAt ?? DateTime.now();
 

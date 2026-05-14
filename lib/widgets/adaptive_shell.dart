@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../db/database.dart';
+import '../health/widgets/diary_entry_sheet.dart';
+import '../health/widgets/food_search_sheet.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/inventory_provider.dart';
 import '../providers/items_provider.dart';
@@ -242,11 +244,66 @@ class _MobileShell extends ConsumerWidget {
       );
       return;
     }
-    showModalBottomSheet(
+    final result =
+        await showModalBottomSheet<({Item item, double logicalQty, String unit})?>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _QuickDeductSheet(item: item),
     );
+    if (result != null && context.mounted) {
+      _offerDiaryEntry(context, result.item, result.logicalQty, result.unit);
+    }
+  }
+
+  /// Shows a SnackBar offering to log the just-deducted item in the diary.
+  void _offerDiaryEntry(
+      BuildContext context, Item item, double logicalQty, String unit) {
+    final qtyLabel = logicalQty % 1 == 0
+        ? logicalQty.toStringAsFixed(0)
+        : logicalQty.toStringAsFixed(2);
+
+    double? servingSizeG;
+    if (isWeightVolUnit(unit)) {
+      servingSizeG = convertWeightVol(logicalQty, unit, 'g') ?? logicalQty;
+    } else if (item.servingSizeG != null) {
+      servingSizeG = logicalQty * item.servingSizeG!;
+    }
+
+    final product = FoodSearchResult(
+      productName: item.name,
+      brand: item.brand,
+      ean: item.ean,
+      itemId: item.id,
+      caloriesPer100g: item.caloriesPer100g,
+      proteinPer100g: item.proteinPer100g,
+      carbsPer100g: item.carbsPer100g,
+      fatPer100g: item.fatPer100g,
+      fiberPer100g: item.fiberPer100g,
+      servingSizeG: servingSizeG,
+      isRecipe: false,
+      nutritionRefUnit: item.nutritionRefUnit,
+      source: 'local',
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('${item.name}: $qtyLabel $unit ausgebucht'),
+      duration: const Duration(seconds: 8),
+      action: SnackBarAction(
+        label: 'Im Tagebuch eintragen',
+        onPressed: () {
+          if (!context.mounted) return;
+          showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            builder: (_) => DiaryEntrySheet(
+              initialProduct: product,
+              deductAlreadyDone: true,
+            ),
+          );
+        },
+      ),
+    ));
   }
 
   Future<void> _handleQuickDeduct(BuildContext context, WidgetRef ref) async {
@@ -311,12 +368,7 @@ class _MobileShell extends ConsumerWidget {
         );
 
     if (context.mounted) {
-      final qty = logicalQty % 1 == 0
-          ? logicalQty.toStringAsFixed(0)
-          : logicalQty.toStringAsFixed(2);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${item.name}: $qty ${sel.unit} ausgebucht')),
-      );
+      _offerDiaryEntry(context, item, logicalQty, sel.unit);
     }
   }
 }
@@ -823,7 +875,13 @@ class _QuickDeductSheetState extends ConsumerState<_QuickDeductSheet> {
             remainingQuantity: remaining,
             consumptionReason: _reason,
           );
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop((
+          item: widget.item,
+          logicalQty: _logicalQty,
+          unit: _selectedUnit?.unit ?? entry.unit,
+        ));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
