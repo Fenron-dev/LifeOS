@@ -50,6 +50,12 @@ class AppSettingsData {
   final ThemeMode themeMode;
   final Locale locale;
   final List<QuickAction> quickActions;
+  /// How many entries to show in the "Kürzlich gegessen" tab.
+  final int historyRecentCount;
+  /// How many entries to show in the "Häufig gegessen" tab.
+  final int historyFrequentCount;
+  /// How many cross-meal-type entries to show in the "Alle Mahlzeiten" section.
+  final int historyAllMealsCount;
 
   static const defaultQuickActions = [
     QuickAction.addInventory,
@@ -62,17 +68,26 @@ class AppSettingsData {
     this.themeMode = ThemeMode.system,
     this.locale = const Locale('de'),
     this.quickActions = AppSettingsData.defaultQuickActions,
+    this.historyRecentCount = 20,
+    this.historyFrequentCount = 20,
+    this.historyAllMealsCount = 10,
   });
 
   AppSettingsData copyWith({
     ThemeMode? themeMode,
     Locale? locale,
     List<QuickAction>? quickActions,
+    int? historyRecentCount,
+    int? historyFrequentCount,
+    int? historyAllMealsCount,
   }) =>
       AppSettingsData(
         themeMode: themeMode ?? this.themeMode,
         locale: locale ?? this.locale,
         quickActions: quickActions ?? this.quickActions,
+        historyRecentCount: historyRecentCount ?? this.historyRecentCount,
+        historyFrequentCount: historyFrequentCount ?? this.historyFrequentCount,
+        historyAllMealsCount: historyAllMealsCount ?? this.historyAllMealsCount,
       );
 }
 
@@ -100,6 +115,13 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
             .toList()
         : AppSettingsData.defaultQuickActions;
 
+    final historyRecentCount =
+        int.tryParse(await db.getSetting('history_recent_count') ?? '') ?? 20;
+    final historyFrequentCount =
+        int.tryParse(await db.getSetting('history_frequent_count') ?? '') ?? 20;
+    final historyAllMealsCount =
+        int.tryParse(await db.getSetting('history_all_meals_count') ?? '') ?? 10;
+
     return AppSettingsData(
       themeMode: switch (themeRaw) {
         'light' => ThemeMode.light,
@@ -108,6 +130,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
       },
       locale: Locale(localeRaw),
       quickActions: quickActions,
+      historyRecentCount: historyRecentCount,
+      historyFrequentCount: historyFrequentCount,
+      historyAllMealsCount: historyAllMealsCount,
     );
   }
 
@@ -139,5 +164,31 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
     state = AsyncData(
         state.valueOrNull?.copyWith(quickActions: actions) ??
             AppSettingsData(quickActions: actions));
+  }
+
+  Future<void> setHistoryRecentCount(int count) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('history_recent_count', '$count');
+    state = AsyncData(state.valueOrNull?.copyWith(historyRecentCount: count) ??
+        AppSettingsData(historyRecentCount: count));
+  }
+
+  Future<void> setHistoryFrequentCount(int count) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('history_frequent_count', '$count');
+    state = AsyncData(
+        state.valueOrNull?.copyWith(historyFrequentCount: count) ??
+            AppSettingsData(historyFrequentCount: count));
+  }
+
+  Future<void> setHistoryAllMealsCount(int count) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('history_all_meals_count', '$count');
+    state = AsyncData(
+        state.valueOrNull?.copyWith(historyAllMealsCount: count) ??
+            AppSettingsData(historyAllMealsCount: count));
   }
 }

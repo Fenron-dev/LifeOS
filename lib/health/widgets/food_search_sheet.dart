@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../db/database.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../screens/scanner/barcode_scanner_screen.dart';
 import '../../services/open_food_facts_service.dart';
@@ -59,11 +61,14 @@ class FoodSearchResult {
 /// OpenFoodFacts API in parallel. Also supports barcode scanning.
 /// Pops with a [FoodSearchResult] or `null` on cancel.
 ///
-/// [mealTypeId] is used to filter the "recently eaten" and "most frequent"
-/// history tabs so they only show foods logged for the same meal slot.
+/// [mealTypeId] filters the history tabs to the same meal slot.
+/// [onMultiAdd] is called when the user selects multiple history entries to
+/// add at once; the callback receives the list of selected [NutritionLog]s
+/// and is responsible for saving them and closing this sheet.
 class FoodSearchSheet extends ConsumerStatefulWidget {
   final String? mealTypeId;
-  const FoodSearchSheet({super.key, this.mealTypeId});
+  final Future<void> Function(List<NutritionLog>)? onMultiAdd;
+  const FoodSearchSheet({super.key, this.mealTypeId, this.onMultiAdd});
 
   @override
   ConsumerState<FoodSearchSheet> createState() => _FoodSearchSheetState();
@@ -85,6 +90,13 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
   bool _historyLoading = true;
   List<NutritionLog> _recentLogs = [];
   List<NutritionLog> _frequentLogs = [];
+  List<NutritionLog> _allMealsLogs = [];
+  bool _allMealsExpanded = false;
+
+  // Multi-select (history tabs)
+  final Set<String> _selectedIds = {};
+  // Quick lookup by log ID across all history lists
+  final Map<String, NutritionLog> _logsById = {};
 
   @override
   void initState() {
@@ -107,14 +119,30 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
       if (mounted) setState(() => _historyLoading = false);
       return;
     }
+    final settings = ref.read(settingsProvider).valueOrNull;
+    final recentLimit = settings?.historyRecentCount ?? 20;
+    final frequentLimit = settings?.historyFrequentCount ?? 20;
+    final allMealsLimit = settings?.historyAllMealsCount ?? 10;
+
     final results = await Future.wait([
-      db.recentlyLoggedFoods(mealTypeId: widget.mealTypeId),
-      db.mostFrequentlyLoggedFoods(mealTypeId: widget.mealTypeId),
+      db.recentlyLoggedFoods(mealTypeId: widget.mealTypeId, limit: recentLimit),
+      db.mostFrequentlyLoggedFoods(mealTypeId: widget.mealTypeId, limit: frequentLimit),
+      db.recentlyLoggedFoods(limit: allMealsLimit), // all meal types
     ]);
     if (mounted) {
+      final recent = results[0];
+      final frequent = results[1];
+      final allMeals = results[2];
+      // Build lookup map
+      final byId = <String, NutritionLog>{};
+      for (final l in [...recent, ...frequent, ...allMeals]) {
+        byId[l.id] = l;
+      }
       setState(() {
-        _recentLogs = results[0];
-        _frequentLogs = results[1];
+        _recentLogs = recent;
+        _frequentLogs = frequent;
+        _allMealsLogs = allMeals;
+        _logsById.addAll(byId);
         _historyLoading = false;
       });
     }
@@ -424,11 +452,24 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
                 controller: _tabCtrl,
                 children: [
                   _buildSearchTab(cs),
-                  _buildHistoryTab(_recentLogs, cs),
-                  _buildHistoryTab(_frequentLogs, cs),
+                  _buildHistoryTabWithAllMeals(_recentLogs, cs),
+                  _buildHistoryTabWithAllMeals(_frequentLogs, cs),
                 ],
               ),
             ),
+            // ── Multi-add button ──────────────────────────────────────────
+            if (_selectedIds.isNotEmpty && widget.onMultiAdd != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: Text('${_selectedIds.length} Einträge hinzufügen'),
+                  onPressed: _confirmMultiAdd,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -524,75 +565,225 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
     );
   }
 
-  Widget _buildHistoryTab(List<NutritionLog> logs, ColorScheme cs) {
+  Widget _buildHistoryTabWithAllMeals(List<NutritionLog> logs, ColorScheme cs) {
     if (_historyLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (logs.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.history, size: 48, color: cs.outline),
-              const SizedBox(height: 12),
-              Text(
-                'Noch keine Einträge vorhanden.',
-                style: TextStyle(color: cs.onSurfaceVariant),
+    // IDs already shown in the main list (to exclude from "Alle Mahlzeiten")
+    final shownIds = logs.map((l) => l.id).toSet();
+
+    return ListView(
+      children: [
+        if (logs.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.history, size: 48, color: cs.outline),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Noch keine Einträge vorhanden.',
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          )
+        else
+          ...logs.map((log) => _HistoryLogTile(
+                log: log,
+                cs: cs,
+                selected: _selectedIds.contains(log.id),
+                onToggleSelect: widget.onMultiAdd != null
+                    ? () => setState(() {
+                          if (_selectedIds.contains(log.id)) {
+                            _selectedIds.remove(log.id);
+                          } else {
+                            _selectedIds.add(log.id);
+                          }
+                        })
+                    : null,
+                onTap: () => _pickFromLog(log),
+              )),
+        // ── Alle Mahlzeiten (expandable) ────────────────────────────────
+        const SizedBox(height: 8),
+        _AllMealsSection(
+          logs: _allMealsLogs.where((l) => !shownIds.contains(l.id)).toList(),
+          cs: cs,
+          expanded: _allMealsExpanded,
+          onToggle: () =>
+              setState(() => _allMealsExpanded = !_allMealsExpanded),
+          selectedIds: _selectedIds,
+          canSelect: widget.onMultiAdd != null,
+          onToggleSelect: (id) => setState(() {
+            if (_selectedIds.contains(id)) {
+              _selectedIds.remove(id);
+            } else {
+              _selectedIds.add(id);
+            }
+          }),
+          onPickLog: _pickFromLog,
         ),
-      );
-    }
-    return ListView.builder(
-      itemCount: logs.length,
-      itemBuilder: (ctx, i) {
-        final log = logs[i];
-        final (bgColor, fgColor, icon) = switch (log.source) {
-          'recipe' => (
-              cs.tertiaryContainer,
-              cs.onTertiaryContainer,
-              Icons.menu_book_outlined
-            ),
-          'meal' => (
-              cs.tertiaryContainer,
-              cs.onTertiaryContainer,
-              Icons.dinner_dining
-            ),
-          'local' => (
-              cs.primaryContainer,
-              cs.onPrimaryContainer,
-              Icons.inventory_2_outlined
-            ),
-          _ => (
-              cs.secondaryContainer,
-              cs.onSecondaryContainer,
-              Icons.public
-            ),
-        };
-        final kcalStr = log.kcal != null
-            ? '${log.kcal!.toStringAsFixed(0)} kcal'
-            : null;
-        final subtitle = [log.brand, kcalStr]
-            .whereType<String>()
-            .join(' · ');
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: bgColor,
-            child: Icon(icon, size: 18, color: fgColor),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Future<void> _confirmMultiAdd() async {
+    final selected = _selectedIds
+        .map((id) => _logsById[id])
+        .whereType<NutritionLog>()
+        .toList();
+    if (selected.isEmpty) return;
+    await widget.onMultiAdd!(selected);
+  }
+}
+
+// ─── History log tile (with optional checkbox) ────────────────────────────────
+
+class _HistoryLogTile extends StatelessWidget {
+  final NutritionLog log;
+  final ColorScheme cs;
+  final bool selected;
+  final VoidCallback? onToggleSelect;
+  final VoidCallback onTap;
+
+  const _HistoryLogTile({
+    required this.log,
+    required this.cs,
+    required this.selected,
+    required this.onToggleSelect,
+    required this.onTap,
+  });
+
+  static (Color, Color, IconData) _colors(String source, ColorScheme cs) =>
+      switch (source) {
+        'recipe' => (cs.tertiaryContainer, cs.onTertiaryContainer,
+            Icons.menu_book_outlined),
+        'meal' => (
+            cs.tertiaryContainer,
+            cs.onTertiaryContainer,
+            Icons.dinner_dining
           ),
-          title: Text(log.productName),
-          subtitle: subtitle.isNotEmpty
-              ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant))
-              : null,
-          onTap: () => _pickFromLog(log),
-        );
-      },
+        'local' => (
+            cs.primaryContainer,
+            cs.onPrimaryContainer,
+            Icons.inventory_2_outlined
+          ),
+        _ => (cs.secondaryContainer, cs.onSecondaryContainer, Icons.public),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.decimalPattern('de_DE')..maximumFractionDigits = 1;
+    final (bgColor, fgColor, icon) = _colors(log.source, cs);
+
+    final portionStr = '${fmt.format(log.quantityG)} ${log.displayUnit}';
+    final kcalStr = log.kcal != null
+        ? '${log.kcal!.toStringAsFixed(0)} kcal'
+        : null;
+    final subtitle = [log.brand, portionStr, kcalStr]
+        .whereType<String>()
+        .join(' · ');
+
+    return ListTile(
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (onToggleSelect != null)
+            SizedBox(
+              width: 24,
+              child: Checkbox(
+                value: selected,
+                onChanged: (_) => onToggleSelect!(),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          CircleAvatar(
+            backgroundColor: selected ? cs.primary : bgColor,
+            child: Icon(icon, size: 18,
+                color: selected ? cs.onPrimary : fgColor),
+          ),
+        ],
+      ),
+      title: Text(log.productName),
+      subtitle: Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant)),
+      onTap: onToggleSelect != null ? () => onToggleSelect!() : onTap,
+      onLongPress: onToggleSelect != null ? onTap : null,
     );
   }
 }
+
+// ─── Alle Mahlzeiten expandable section ──────────────────────────────────────
+
+class _AllMealsSection extends StatelessWidget {
+  final List<NutritionLog> logs;
+  final ColorScheme cs;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Set<String> selectedIds;
+  final bool canSelect;
+  final void Function(String id) onToggleSelect;
+  final void Function(NutritionLog) onPickLog;
+
+  const _AllMealsSection({
+    required this.logs,
+    required this.cs,
+    required this.expanded,
+    required this.onToggle,
+    required this.selectedIds,
+    required this.canSelect,
+    required this.onToggleSelect,
+    required this.onPickLog,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (logs.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.restaurant_menu,
+                    size: 16, color: cs.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Alle Mahlzeiten (${logs.length})',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurfaceVariant),
+                  ),
+                ),
+                Icon(expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18, color: cs.onSurfaceVariant),
+              ],
+            ),
+          ),
+        ),
+        if (expanded)
+          ...logs.map((log) => _HistoryLogTile(
+                log: log,
+                cs: cs,
+                selected: selectedIds.contains(log.id),
+                onToggleSelect: canSelect ? () => onToggleSelect(log.id) : null,
+                onTap: () => onPickLog(log),
+              )),
+      ],
+    );
+  }
+}
+
+// ─── Search result tile ───────────────────────────────────────────────────────
 
 class _SearchItemTile extends StatelessWidget {
   final _SearchItem item;

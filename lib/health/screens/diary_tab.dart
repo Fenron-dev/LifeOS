@@ -617,7 +617,7 @@ class _MacroCell extends StatelessWidget {
 
 // ─── Meal section ─────────────────────────────────────────────────────────────
 
-class _MealSection extends ConsumerWidget {
+class _MealSection extends ConsumerStatefulWidget {
   final String? mealTypeId;
   final String label;
   final List<NutritionLog> logs;
@@ -630,42 +630,73 @@ class _MealSection extends ConsumerWidget {
     required this.day,
   });
 
+  @override
+  ConsumerState<_MealSection> createState() => _MealSectionState();
+}
+
+class _MealSectionState extends ConsumerState<_MealSection> {
+  bool _collapsed = false;
+
   double get _totalKcal =>
-      logs.fold(0, (sum, l) => sum + (l.kcal ?? 0));
+      widget.logs.fold(0, (sum, l) => sum + (l.kcal ?? 0));
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final fmt0 =
         NumberFormat.decimalPattern('de_DE')..maximumFractionDigits = 0;
+    final hasLogs = widget.logs.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Column(
         children: [
-          // Section header
-          ListTile(
-            dense: true,
-            title: Text(label,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (logs.isNotEmpty)
-                  Text('${fmt0.format(_totalKcal)} kcal',
-                      style: TextStyle(color: cs.onSurfaceVariant)),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  tooltip: 'Zu $label hinzufügen',
-                  onPressed: () => _openEntry(context, mealTypeId, day),
-                ),
-              ],
+          // Section header — tappable to collapse/expand
+          InkWell(
+            onTap: hasLogs ? () => setState(() => _collapsed = !_collapsed) : null,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(widget.label,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        if (hasLogs && _collapsed)
+                          Text(
+                            '${widget.logs.length} Einträge · ${fmt0.format(_totalKcal)} kcal',
+                            style: TextStyle(
+                                fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (hasLogs && !_collapsed)
+                    Text('${fmt0.format(_totalKcal)} kcal',
+                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  if (hasLogs)
+                    Icon(
+                      _collapsed ? Icons.expand_more : Icons.expand_less,
+                      size: 18,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'Zu ${widget.label} hinzufügen',
+                    onPressed: () =>
+                        _openEntry(context, widget.mealTypeId, widget.day),
+                  ),
+                ],
+              ),
             ),
           ),
-          if (logs.isNotEmpty) ...[
+          if (hasLogs && !_collapsed) ...[
             const Divider(height: 1),
-            ...logs.map((l) => _LogTile(log: l)),
+            ...widget.logs.map((l) => _LogTile(log: l)),
           ],
         ],
       ),

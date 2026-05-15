@@ -335,11 +335,47 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     });
   }
 
+  /// Adds multiple history-log entries directly to the diary and closes sheet.
+  Future<void> _addFromHistory(List<NutritionLog> logs) async {
+    final ops = ref.read(nutritionOpsProvider.notifier);
+    for (final log in logs) {
+      await ops.logFood(
+        loggedAt: _loggedAt,
+        productName: log.productName,
+        brand: log.brand,
+        mealTypeId: _mealTypeId,
+        itemId: log.itemId,
+        ean: log.ean,
+        quantityG: log.quantityG,
+        displayUnit: log.displayUnit,
+        kcal: log.kcal,
+        proteinG: log.proteinG,
+        carbsG: log.carbsG,
+        fatG: log.fatG,
+        fiberG: log.fiberG,
+        source: log.source,
+      );
+    }
+    if (mounted) {
+      Navigator.of(context).pop(true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(logs.length == 1
+              ? '„${logs.first.productName}" hinzugefügt.'
+              : '${logs.length} Einträge hinzugefügt.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _openSearch() async {
     final result = await showModalBottomSheet<FoodSearchResult?>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => FoodSearchSheet(mealTypeId: _mealTypeId),
+      builder: (_) => FoodSearchSheet(
+        mealTypeId: _mealTypeId,
+        onMultiAdd: _addFromHistory,
+      ),
     );
     if (result == null) return;
     setState(() {

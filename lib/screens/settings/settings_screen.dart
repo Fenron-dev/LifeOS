@@ -270,10 +270,88 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const Divider(),
+          const ListTile(
+            dense: true,
+            title: Text('Tagebuch – Verlauf',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          settingsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (settings) => Column(
+              children: [
+                _CountSettingTile(
+                  icon: Icons.history,
+                  title: 'Kürzlich gegessen',
+                  subtitle: 'Einträge im "Kürzlich"-Tab',
+                  value: settings.historyRecentCount,
+                  options: const [10, 20, 30, 50],
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .setHistoryRecentCount(v),
+                ),
+                _CountSettingTile(
+                  icon: Icons.trending_up,
+                  title: 'Häufig gegessen',
+                  subtitle: 'Einträge im "Häufig"-Tab',
+                  value: settings.historyFrequentCount,
+                  options: const [10, 20, 30, 50],
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .setHistoryFrequentCount(v),
+                ),
+                _CountSettingTile(
+                  icon: Icons.restaurant_menu,
+                  title: 'Alle Mahlzeiten',
+                  subtitle: 'Einträge in der "Alle Mahlzeiten"-Sektion',
+                  value: settings.historyAllMealsCount,
+                  options: const [5, 10, 20, 30],
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .setHistoryAllMealsCount(v),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+class _CountSettingTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final int value;
+  final List<int> options;
+  final ValueChanged<int> onChanged;
+
+  const _CountSettingTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: DropdownButton<int>(
+          value: options.contains(value) ? value : options.first,
+          underline: const SizedBox.shrink(),
+          items: options
+              .map((n) =>
+                  DropdownMenuItem(value: n, child: Text('$n Einträge')))
+              .toList(),
+          onChanged: (v) { if (v != null) onChanged(v); },
+        ),
+      );
 }
 
 Future<void> _createBackup(

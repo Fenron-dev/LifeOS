@@ -1202,8 +1202,9 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
             TextFormField(
               controller: _priceCtrl,
               decoration: const InputDecoration(
-                labelText: 'Preis (€)',
+                labelText: 'Preis/Einheit (€)',
                 prefixIcon: Icon(Icons.euro),
+                helperText: 'Preis pro Stück / Lagereinheit',
               ),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -1891,8 +1892,9 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
             TextFormField(
               controller: _priceCtrl,
               decoration: const InputDecoration(
-                labelText: 'Preis (€)',
+                labelText: 'Preis/Einheit (€)',
                 prefixIcon: Icon(Icons.euro),
+                helperText: 'Preis pro Stück / Lagereinheit',
               ),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
