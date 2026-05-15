@@ -112,6 +112,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   // Staple + purchase unit
   bool _isStaple = false;
   late final TextEditingController _purchaseUnitCtrl;
+  String _expiryType = 'bestBefore';
+  int? _shelfLifeDays;
   late final TextEditingController _purchaseQtyCtrl;
 
   // Group membership
@@ -170,6 +172,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _consumeUnit = i.consumeUnit;
       _showNutrition = _hasAnyNutrition(i);
       _isStaple = i.isStaple;
+      _expiryType = i.expiryType;
+      _shelfLifeDays = i.shelfLifeDays;
       if (i.minStockQuantity != null) {
         _hasMinStock = true;
         _minStockUnit = i.minStockUnit;
@@ -462,6 +466,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         isStaple: _isStaple,
         purchaseUnit: _purchaseUnitCtrl.text.trim().isEmpty ? null : _purchaseUnitCtrl.text.trim(),
         purchaseQty: double.tryParse(_purchaseQtyCtrl.text.trim().replaceAll(',', '.')),
+        expiryType: _expiryType,
+        shelfLifeDays: _shelfLifeDays,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -502,6 +508,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         isStaple: _isStaple,
         purchaseUnit: Value(_purchaseUnitCtrl.text.trim().isEmpty ? null : _purchaseUnitCtrl.text.trim()),
         purchaseQty: Value(double.tryParse(_purchaseQtyCtrl.text.trim().replaceAll(',', '.'))),
+        expiryType: _expiryType,
+        shelfLifeDays: Value(_shelfLifeDays),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -746,6 +754,48 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                 setState(() => _daysAfterOpening = n);
               },
             ),
+            const SizedBox(height: 12),
+            // Expiry type selector
+            InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Haltbarkeitsangabe',
+                prefixIcon: Icon(Icons.event_available_outlined),
+                helperText: 'Wie das Ablaufdatum beim Einlagern erfasst wird',
+              ),
+              child: DropdownButton<String>(
+                value: _expiryType,
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                items: const [
+                  DropdownMenuItem(
+                      value: 'bestBefore',
+                      child: Text('MHD (Mindesthaltbarkeitsdatum)')),
+                  DropdownMenuItem(
+                      value: 'useBy', child: Text('Verbrauchsdatum')),
+                  DropdownMenuItem(
+                      value: 'daysAfterPurchase',
+                      child: Text('Haltbar nach Kauf (Tage)')),
+                ],
+                onChanged: (v) =>
+                    setState(() => _expiryType = v ?? 'bestBefore'),
+              ),
+            ),
+            if (_expiryType == 'daysAfterPurchase') ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                key: ValueKey(_expiryType),
+                initialValue: _shelfLifeDays?.toString() ?? '',
+                decoration: const InputDecoration(
+                  labelText: 'Haltbarkeit nach Kauf (Tage)',
+                  helperText:
+                      'z.B. 5 für Obst – MHD wird beim Einlagern automatisch berechnet',
+                  prefixIcon: Icon(Icons.calendar_month_outlined),
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (v) =>
+                    setState(() => _shelfLifeDays = int.tryParse(v.trim())),
+              ),
+            ],
             const SizedBox(height: 12),
             // Stock unit dropdown
             Consumer(builder: (context, ref, _) {

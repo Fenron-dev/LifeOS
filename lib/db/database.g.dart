@@ -938,6 +938,29 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _expiryTypeMeta = const VerificationMeta(
+    'expiryType',
+  );
+  @override
+  late final GeneratedColumn<String> expiryType = GeneratedColumn<String>(
+    'expiry_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('bestBefore'),
+  );
+  static const VerificationMeta _shelfLifeDaysMeta = const VerificationMeta(
+    'shelfLifeDays',
+  );
+  @override
+  late final GeneratedColumn<int> shelfLifeDays = GeneratedColumn<int>(
+    'shelf_life_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1004,6 +1027,8 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     isStaple,
     purchaseUnit,
     purchaseQty,
+    expiryType,
+    shelfLifeDays,
     createdAt,
     updatedAt,
   ];
@@ -1331,6 +1356,21 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         ),
       );
     }
+    if (data.containsKey('expiry_type')) {
+      context.handle(
+        _expiryTypeMeta,
+        expiryType.isAcceptableOrUnknown(data['expiry_type']!, _expiryTypeMeta),
+      );
+    }
+    if (data.containsKey('shelf_life_days')) {
+      context.handle(
+        _shelfLifeDaysMeta,
+        shelfLifeDays.isAcceptableOrUnknown(
+          data['shelf_life_days']!,
+          _shelfLifeDaysMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1512,6 +1552,14 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.double,
         data['${effectivePrefix}purchase_qty'],
       ),
+      expiryType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expiry_type'],
+      )!,
+      shelfLifeDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}shelf_life_days'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1603,6 +1651,14 @@ class Item extends DataClass implements Insertable<Item> {
 
   /// How many stock units are contained in one purchase unit (e.g. 10 pieces per pack).
   final double? purchaseQty;
+
+  /// How expiry is tracked when booking stock:
+  /// 'bestBefore' = MHD (user picks date), 'useBy' = Verbrauchsdatum (user picks date),
+  /// 'daysAfterPurchase' = shelf life computed automatically from today + [shelfLifeDays].
+  final String expiryType;
+
+  /// Used when [expiryType] == 'daysAfterPurchase': shelf life in days after purchase.
+  final int? shelfLifeDays;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Item({
@@ -1646,6 +1702,8 @@ class Item extends DataClass implements Insertable<Item> {
     required this.isStaple,
     this.purchaseUnit,
     this.purchaseQty,
+    required this.expiryType,
+    this.shelfLifeDays,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1752,6 +1810,10 @@ class Item extends DataClass implements Insertable<Item> {
     if (!nullToAbsent || purchaseQty != null) {
       map['purchase_qty'] = Variable<double>(purchaseQty);
     }
+    map['expiry_type'] = Variable<String>(expiryType);
+    if (!nullToAbsent || shelfLifeDays != null) {
+      map['shelf_life_days'] = Variable<int>(shelfLifeDays);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1857,6 +1919,10 @@ class Item extends DataClass implements Insertable<Item> {
       purchaseQty: purchaseQty == null && nullToAbsent
           ? const Value.absent()
           : Value(purchaseQty),
+      expiryType: Value(expiryType),
+      shelfLifeDays: shelfLifeDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shelfLifeDays),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1914,6 +1980,8 @@ class Item extends DataClass implements Insertable<Item> {
       isStaple: serializer.fromJson<bool>(json['isStaple']),
       purchaseUnit: serializer.fromJson<String?>(json['purchaseUnit']),
       purchaseQty: serializer.fromJson<double?>(json['purchaseQty']),
+      expiryType: serializer.fromJson<String>(json['expiryType']),
+      shelfLifeDays: serializer.fromJson<int?>(json['shelfLifeDays']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1962,6 +2030,8 @@ class Item extends DataClass implements Insertable<Item> {
       'isStaple': serializer.toJson<bool>(isStaple),
       'purchaseUnit': serializer.toJson<String?>(purchaseUnit),
       'purchaseQty': serializer.toJson<double?>(purchaseQty),
+      'expiryType': serializer.toJson<String>(expiryType),
+      'shelfLifeDays': serializer.toJson<int?>(shelfLifeDays),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2008,6 +2078,8 @@ class Item extends DataClass implements Insertable<Item> {
     bool? isStaple,
     Value<String?> purchaseUnit = const Value.absent(),
     Value<double?> purchaseQty = const Value.absent(),
+    String? expiryType,
+    Value<int?> shelfLifeDays = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Item(
@@ -2073,6 +2145,10 @@ class Item extends DataClass implements Insertable<Item> {
     isStaple: isStaple ?? this.isStaple,
     purchaseUnit: purchaseUnit.present ? purchaseUnit.value : this.purchaseUnit,
     purchaseQty: purchaseQty.present ? purchaseQty.value : this.purchaseQty,
+    expiryType: expiryType ?? this.expiryType,
+    shelfLifeDays: shelfLifeDays.present
+        ? shelfLifeDays.value
+        : this.shelfLifeDays,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2180,6 +2256,12 @@ class Item extends DataClass implements Insertable<Item> {
       purchaseQty: data.purchaseQty.present
           ? data.purchaseQty.value
           : this.purchaseQty,
+      expiryType: data.expiryType.present
+          ? data.expiryType.value
+          : this.expiryType,
+      shelfLifeDays: data.shelfLifeDays.present
+          ? data.shelfLifeDays.value
+          : this.shelfLifeDays,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2228,6 +2310,8 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('isStaple: $isStaple, ')
           ..write('purchaseUnit: $purchaseUnit, ')
           ..write('purchaseQty: $purchaseQty, ')
+          ..write('expiryType: $expiryType, ')
+          ..write('shelfLifeDays: $shelfLifeDays, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2276,6 +2360,8 @@ class Item extends DataClass implements Insertable<Item> {
     isStaple,
     purchaseUnit,
     purchaseQty,
+    expiryType,
+    shelfLifeDays,
     createdAt,
     updatedAt,
   ]);
@@ -2323,6 +2409,8 @@ class Item extends DataClass implements Insertable<Item> {
           other.isStaple == this.isStaple &&
           other.purchaseUnit == this.purchaseUnit &&
           other.purchaseQty == this.purchaseQty &&
+          other.expiryType == this.expiryType &&
+          other.shelfLifeDays == this.shelfLifeDays &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2368,6 +2456,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<bool> isStaple;
   final Value<String?> purchaseUnit;
   final Value<double?> purchaseQty;
+  final Value<String> expiryType;
+  final Value<int?> shelfLifeDays;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2412,6 +2502,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.isStaple = const Value.absent(),
     this.purchaseUnit = const Value.absent(),
     this.purchaseQty = const Value.absent(),
+    this.expiryType = const Value.absent(),
+    this.shelfLifeDays = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2457,6 +2549,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.isStaple = const Value.absent(),
     this.purchaseUnit = const Value.absent(),
     this.purchaseQty = const Value.absent(),
+    this.expiryType = const Value.absent(),
+    this.shelfLifeDays = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2504,6 +2598,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<bool>? isStaple,
     Expression<String>? purchaseUnit,
     Expression<double>? purchaseQty,
+    Expression<String>? expiryType,
+    Expression<int>? shelfLifeDays,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2551,6 +2647,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (isStaple != null) 'is_staple': isStaple,
       if (purchaseUnit != null) 'purchase_unit': purchaseUnit,
       if (purchaseQty != null) 'purchase_qty': purchaseQty,
+      if (expiryType != null) 'expiry_type': expiryType,
+      if (shelfLifeDays != null) 'shelf_life_days': shelfLifeDays,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2598,6 +2696,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<bool>? isStaple,
     Value<String?>? purchaseUnit,
     Value<double?>? purchaseQty,
+    Value<String>? expiryType,
+    Value<int?>? shelfLifeDays,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -2643,6 +2743,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       isStaple: isStaple ?? this.isStaple,
       purchaseUnit: purchaseUnit ?? this.purchaseUnit,
       purchaseQty: purchaseQty ?? this.purchaseQty,
+      expiryType: expiryType ?? this.expiryType,
+      shelfLifeDays: shelfLifeDays ?? this.shelfLifeDays,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2774,6 +2876,12 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (purchaseQty.present) {
       map['purchase_qty'] = Variable<double>(purchaseQty.value);
     }
+    if (expiryType.present) {
+      map['expiry_type'] = Variable<String>(expiryType.value);
+    }
+    if (shelfLifeDays.present) {
+      map['shelf_life_days'] = Variable<int>(shelfLifeDays.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2829,6 +2937,8 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('isStaple: $isStaple, ')
           ..write('purchaseUnit: $purchaseUnit, ')
           ..write('purchaseQty: $purchaseQty, ')
+          ..write('expiryType: $expiryType, ')
+          ..write('shelfLifeDays: $shelfLifeDays, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -29066,6 +29176,8 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<bool> isStaple,
       Value<String?> purchaseUnit,
       Value<double?> purchaseQty,
+      Value<String> expiryType,
+      Value<int?> shelfLifeDays,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -29112,6 +29224,8 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<bool> isStaple,
       Value<String?> purchaseUnit,
       Value<double?> purchaseQty,
+      Value<String> expiryType,
+      Value<int?> shelfLifeDays,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -29686,6 +29800,16 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<double> get purchaseQty => $composableBuilder(
     column: $table.purchaseQty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get expiryType => $composableBuilder(
+    column: $table.expiryType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get shelfLifeDays => $composableBuilder(
+    column: $table.shelfLifeDays,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -30339,6 +30463,16 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get expiryType => $composableBuilder(
+    column: $table.expiryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get shelfLifeDays => $composableBuilder(
+    column: $table.shelfLifeDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -30592,6 +30726,16 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<double> get purchaseQty => $composableBuilder(
     column: $table.purchaseQty,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get expiryType => $composableBuilder(
+    column: $table.expiryType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get shelfLifeDays => $composableBuilder(
+    column: $table.shelfLifeDays,
     builder: (column) => column,
   );
 
@@ -31138,6 +31282,8 @@ class $$ItemsTableTableManager
                 Value<bool> isStaple = const Value.absent(),
                 Value<String?> purchaseUnit = const Value.absent(),
                 Value<double?> purchaseQty = const Value.absent(),
+                Value<String> expiryType = const Value.absent(),
+                Value<int?> shelfLifeDays = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -31182,6 +31328,8 @@ class $$ItemsTableTableManager
                 isStaple: isStaple,
                 purchaseUnit: purchaseUnit,
                 purchaseQty: purchaseQty,
+                expiryType: expiryType,
+                shelfLifeDays: shelfLifeDays,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -31228,6 +31376,8 @@ class $$ItemsTableTableManager
                 Value<bool> isStaple = const Value.absent(),
                 Value<String?> purchaseUnit = const Value.absent(),
                 Value<double?> purchaseQty = const Value.absent(),
+                Value<String> expiryType = const Value.absent(),
+                Value<int?> shelfLifeDays = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -31272,6 +31422,8 @@ class $$ItemsTableTableManager
                 isStaple: isStaple,
                 purchaseUnit: purchaseUnit,
                 purchaseQty: purchaseQty,
+                expiryType: expiryType,
+                shelfLifeDays: shelfLifeDays,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

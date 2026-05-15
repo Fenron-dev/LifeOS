@@ -166,6 +166,8 @@ class ItemsNotifier extends AsyncNotifier<void> {
     bool isStaple = false,
     String? purchaseUnit,
     double? purchaseQty,
+    String expiryType = 'bestBefore',
+    int? shelfLifeDays,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -205,6 +207,8 @@ class ItemsNotifier extends AsyncNotifier<void> {
       isStaple: Value(isStaple),
       purchaseUnit: Value(purchaseUnit),
       purchaseQty: Value(purchaseQty),
+      expiryType: Value(expiryType),
+      shelfLifeDays: Value(shelfLifeDays),
     ));
     return id;
   }
@@ -248,6 +252,8 @@ class ItemsNotifier extends AsyncNotifier<void> {
       isStaple: Value(item.isStaple),
       purchaseUnit: Value(item.purchaseUnit),
       purchaseQty: Value(item.purchaseQty),
+      expiryType: Value(item.expiryType),
+      shelfLifeDays: Value(item.shelfLifeDays),
       updatedAt: Value(DateTime.now()),
     ));
   }

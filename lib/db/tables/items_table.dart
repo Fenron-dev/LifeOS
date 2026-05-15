@@ -98,6 +98,15 @@ class Items extends Table {
   /// How many stock units are contained in one purchase unit (e.g. 10 pieces per pack).
   RealColumn get purchaseQty => real().nullable()();
 
+  /// How expiry is tracked when booking stock:
+  /// 'bestBefore' = MHD (user picks date), 'useBy' = Verbrauchsdatum (user picks date),
+  /// 'daysAfterPurchase' = shelf life computed automatically from today + [shelfLifeDays].
+  TextColumn get expiryType =>
+      text().withDefault(const Constant('bestBefore'))();
+
+  /// Used when [expiryType] == 'daysAfterPurchase': shelf life in days after purchase.
+  IntColumn get shelfLifeDays => integer().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

@@ -167,7 +167,7 @@ class _DayNavBar extends StatelessWidget {
 
 // ─── Main diary body ──────────────────────────────────────────────────────────
 
-class _DiaryBody extends ConsumerWidget {
+class _DiaryBody extends ConsumerStatefulWidget {
   final DateTime day;
   final List<NutritionLog> logs;
   final DailyNutritionTotals? totals;
@@ -195,23 +195,34 @@ class _DiaryBody extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DiaryBody> createState() => _DiaryBodyState();
+}
+
+class _DiaryBodyState extends ConsumerState<_DiaryBody> {
+  final Map<String, bool> _collapsedSections = {};
+
+  @override
+  Widget build(BuildContext context) {
     // Partition logs by meal type (null → "Sonstiges" slot)
     final byMealType = <String?, List<NutritionLog>>{};
-    for (final log in logs) {
+    for (final log in widget.logs) {
       byMealType.putIfAbsent(log.mealTypeId, () => []).add(log);
     }
 
     // Build sections in meal-type order, then one for unassigned
     final sections = <Widget>[];
 
-    for (final mt in mealTypes) {
+    for (final mt in widget.mealTypes) {
       final slotLogs = byMealType[mt.id] ?? [];
+      final key = mt.id;
       sections.add(_MealSection(
         mealTypeId: mt.id,
         label: mt.name,
         logs: slotLogs,
-        day: day,
+        day: widget.day,
+        collapsed: _collapsedSections[key] ?? false,
+        onToggleCollapsed: () => setState(
+            () => _collapsedSections[key] = !(_collapsedSections[key] ?? false)),
       ));
     }
 
@@ -222,7 +233,10 @@ class _DiaryBody extends ConsumerWidget {
         mealTypeId: null,
         label: 'Weitere',
         logs: unassigned,
-        day: day,
+        day: widget.day,
+        collapsed: _collapsedSections['unassigned'] ?? false,
+        onToggleCollapsed: () => setState(() => _collapsedSections['unassigned'] =
+            !(_collapsedSections['unassigned'] ?? false)),
       ));
     }
 
@@ -230,22 +244,22 @@ class _DiaryBody extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         _DailyTotalsCard(
-          totals: totals,
-          calorieGoal: calorieGoal,
-          proteinTarget: proteinTarget,
-          carbsTarget: carbsTarget,
-          fatTarget: fatTarget,
+          totals: widget.totals,
+          calorieGoal: widget.calorieGoal,
+          proteinTarget: widget.proteinTarget,
+          carbsTarget: widget.carbsTarget,
+          fatTarget: widget.fatTarget,
         ),
         const SizedBox(height: 12),
         _WaterWidget(
-          day: day,
-          total: waterTotal,
-          goal: waterGoal,
-          logs: waterLogs,
+          day: widget.day,
+          total: widget.waterTotal,
+          goal: widget.waterGoal,
+          logs: widget.waterLogs,
         ),
         const SizedBox(height: 16),
-        if (logs.isEmpty)
-          _EmptyDay(day: day)
+        if (widget.logs.isEmpty)
+          _EmptyDay(day: widget.day)
         else
           ...sections,
         const SizedBox(height: 8),
@@ -617,35 +631,31 @@ class _MacroCell extends StatelessWidget {
 
 // ─── Meal section ─────────────────────────────────────────────────────────────
 
-class _MealSection extends ConsumerStatefulWidget {
+class _MealSection extends ConsumerWidget {
   final String? mealTypeId;
   final String label;
   final List<NutritionLog> logs;
   final DateTime day;
+  final bool collapsed;
+  final VoidCallback? onToggleCollapsed;
 
   const _MealSection({
     required this.mealTypeId,
     required this.label,
     required this.logs,
     required this.day,
+    required this.collapsed,
+    this.onToggleCollapsed,
   });
 
-  @override
-  ConsumerState<_MealSection> createState() => _MealSectionState();
-}
-
-class _MealSectionState extends ConsumerState<_MealSection> {
-  bool _collapsed = false;
-
-  double get _totalKcal =>
-      widget.logs.fold(0, (sum, l) => sum + (l.kcal ?? 0));
+  double get _totalKcal => logs.fold(0, (sum, l) => sum + (l.kcal ?? 0));
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final fmt0 =
         NumberFormat.decimalPattern('de_DE')..maximumFractionDigits = 0;
-    final hasLogs = widget.logs.isNotEmpty;
+    final hasLogs = logs.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -653,7 +663,7 @@ class _MealSectionState extends ConsumerState<_MealSection> {
         children: [
           // Section header — tappable to collapse/expand
           InkWell(
-            onTap: hasLogs ? () => setState(() => _collapsed = !_collapsed) : null,
+            onTap: hasLogs ? onToggleCollapsed : null,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
@@ -664,39 +674,38 @@ class _MealSectionState extends ConsumerState<_MealSection> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(widget.label,
+                        Text(label,
                             style: const TextStyle(fontWeight: FontWeight.w600)),
-                        if (hasLogs && _collapsed)
+                        if (hasLogs && collapsed)
                           Text(
-                            '${widget.logs.length} Einträge · ${fmt0.format(_totalKcal)} kcal',
+                            '${logs.length} Einträge · ${fmt0.format(_totalKcal)} kcal',
                             style: TextStyle(
                                 fontSize: 12, color: cs.onSurfaceVariant),
                           ),
                       ],
                     ),
                   ),
-                  if (hasLogs && !_collapsed)
+                  if (hasLogs && !collapsed)
                     Text('${fmt0.format(_totalKcal)} kcal',
                         style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                   if (hasLogs)
                     Icon(
-                      _collapsed ? Icons.expand_more : Icons.expand_less,
+                      collapsed ? Icons.expand_more : Icons.expand_less,
                       size: 18,
                       color: cs.onSurfaceVariant,
                     ),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline),
-                    tooltip: 'Zu ${widget.label} hinzufügen',
-                    onPressed: () =>
-                        _openEntry(context, widget.mealTypeId, widget.day),
+                    tooltip: 'Zu $label hinzufügen',
+                    onPressed: () => _openEntry(context, mealTypeId, day),
                   ),
                 ],
               ),
             ),
           ),
-          if (hasLogs && !_collapsed) ...[
+          if (hasLogs && !collapsed) ...[
             const Divider(height: 1),
-            ...widget.logs.map((l) => _LogTile(log: l)),
+            ...logs.map((l) => _LogTile(log: l)),
           ],
         ],
       ),

@@ -1007,7 +1007,9 @@ class _StockEntryCard extends ConsumerWidget {
     if (days == 0) return 'Läuft heute ab';
     if (days == 1) return 'Läuft morgen ab';
     if (days <= 7) return 'Läuft in $days Tagen ab';
-    return 'MHD ${DateFormat('dd.MM.yy').format(date)}';
+    final prefix =
+        item.expiryType == 'useBy' ? 'Verbrauchsdatum' : 'MHD';
+    return '$prefix ${DateFormat('dd.MM.yy').format(date)}';
   }
 
   void _showEditDialog(BuildContext context, WidgetRef ref) {
@@ -1604,6 +1606,8 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
         'Stück';
     // Pre-select most recent location for this item
     _initLocation();
+    // Auto-calculate expiry for items with fixed shelf life
+    _initExpiryDate();
   }
 
   Future<void> _initLocation() async {
@@ -1618,6 +1622,14 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
     final entries = await db.watchInventoryForItem(widget.item.id).first;
     if (entries.isNotEmpty && mounted) {
       setState(() => _locationId = entries.first.locationId);
+    }
+  }
+
+  void _initExpiryDate() {
+    if (widget.item.expiryType == 'daysAfterPurchase' &&
+        widget.item.shelfLifeDays != null) {
+      _expiryDate =
+          DateTime.now().add(Duration(days: widget.item.shelfLifeDays!));
     }
   }
 
@@ -1865,29 +1877,45 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
               );
             }),
             const SizedBox(height: 12),
-            // Expiry date picker
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today),
-              title: Text(_expiryDate == null
-                  ? 'MHD (optional)'
-                  : 'MHD: ${DateFormat('dd.MM.yyyy').format(_expiryDate!)}'),
-              trailing: _expiryDate != null
-                  ? IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => setState(() => _expiryDate = null),
-                    )
-                  : null,
-              onTap: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now().add(const Duration(days: 7)),
-                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                  lastDate: DateTime.now().add(const Duration(days: 3650)),
-                );
-                if (d != null) setState(() => _expiryDate = d);
-              },
-            ),
+            // Expiry date — behaviour depends on item.expiryType
+            Builder(builder: (context) {
+              final isDaysAfterPurchase =
+                  widget.item.expiryType == 'daysAfterPurchase' &&
+                      widget.item.shelfLifeDays != null;
+              final label = widget.item.expiryType == 'useBy'
+                  ? 'Verbrauchsdatum'
+                  : 'MHD';
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today),
+                title: Text(_expiryDate == null
+                    ? '$label (optional)'
+                    : '$label: ${DateFormat('dd.MM.yyyy').format(_expiryDate!)}'),
+                subtitle: isDaysAfterPurchase
+                    ? Text(
+                        'Auto-berechnet (${widget.item.shelfLifeDays} Tage nach Kauf)',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      )
+                    : null,
+                trailing: _expiryDate != null
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => _expiryDate = null),
+                      )
+                    : null,
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _expiryDate ??
+                        DateTime.now().add(const Duration(days: 7)),
+                    firstDate:
+                        DateTime.now().subtract(const Duration(days: 30)),
+                    lastDate: DateTime.now().add(const Duration(days: 3650)),
+                  );
+                  if (d != null) setState(() => _expiryDate = d);
+                },
+              );
+            }),
             const SizedBox(height: 8),
             TextFormField(
               controller: _priceCtrl,

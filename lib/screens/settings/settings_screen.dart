@@ -1,7 +1,9 @@
+import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -377,18 +379,96 @@ Future<void> _restoreBackup(
     BuildContext context, WidgetRef ref, String? vaultPath) async {
   if (vaultPath == null) return;
 
+  // Step 1: Pick the backup file
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['zip'],
+  );
+  if (result == null || result.files.single.path == null) return;
+  if (!context.mounted) return;
+
+  final zipPath = result.files.single.path!;
+
+  // Step 2: Analyse the zip
+  int zipFileCount = 0;
+  bool hasDb = false;
+  String? backupDateStr;
+  try {
+    final input = InputFileStream(zipPath);
+    final archive = ZipDecoder().decodeBuffer(input);
+    for (final f in archive) {
+      if (f.isFile) {
+        zipFileCount++;
+        final name = p.basename(f.name);
+        if (name == 'lifeos.db') hasDb = true;
+      }
+    }
+    await input.close();
+    final fname = p.basename(zipPath);
+    final m = RegExp(r'(\d{4}-\d{2}-\d{2})').firstMatch(fname);
+    if (m != null) backupDateStr = m.group(1);
+  } catch (_) {}
+
+  if (!context.mounted) return;
+  if (!hasDb) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Ungültiges Backup: lifeos.db nicht gefunden.')),
+    );
+    return;
+  }
+
+  // Step 3: Count current DB contents for comparison
+  final db = ref.read(databaseProvider);
+  int currentItems = 0;
+  int currentEntries = 0;
+  if (db != null) {
+    try {
+      final r1 =
+          await db.customSelect('SELECT COUNT(*) AS c FROM items').getSingle();
+      currentItems = r1.read<int>('c');
+      final r2 = await db
+          .customSelect('SELECT COUNT(*) AS c FROM inventory_entries')
+          .getSingle();
+      currentEntries = r2.read<int>('c');
+    } catch (_) {}
+  }
+  if (!context.mounted) return;
+
+  // Step 4: Confirmation with stats
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Backup wiederherstellen?'),
-      content: const Text(
-          'Der aktuelle Vault wird durch das Backup überschrieben. Nicht gesicherte Daten gehen verloren.'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (backupDateStr != null)
+            Text('Backup vom $backupDateStr',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text('$zipFileCount Dateien im Backup'),
+          const SizedBox(height: 8),
+          const Divider(),
+          const SizedBox(height: 8),
+          Text('Dein aktueller Vault: $currentItems Artikel, '
+              '$currentEntries Buchungen'),
+          const SizedBox(height: 8),
+          const Text(
+            'Alle aktuellen Daten werden überschrieben. '
+            'Nicht gesicherte Änderungen gehen dauerhaft verloren.',
+            style: TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(false),
           child: const Text('Abbrechen'),
         ),
         FilledButton(
+          style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error),
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('Wiederherstellen'),
         ),
@@ -397,19 +477,11 @@ Future<void> _restoreBackup(
   );
   if (confirmed != true || !context.mounted) return;
 
-  final result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['zip'],
-  );
-  if (result == null || result.files.single.path == null) return;
-  if (!context.mounted) return;
-
+  // Step 5: Restore
   try {
-    // Close DB before overwriting
     await ref.read(databaseProvider)?.close();
-    await BackupService.restoreBackup(result.files.single.path!, vaultPath);
+    await BackupService.restoreBackup(zipPath, vaultPath);
     if (!context.mounted) return;
-    // Reload vault
     ref.invalidate(databaseProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Backup erfolgreich eingespielt')),
