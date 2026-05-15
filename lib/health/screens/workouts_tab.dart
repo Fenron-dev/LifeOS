@@ -405,13 +405,22 @@ class ExerciseDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch for live rating/favorite updates
+    final exList = ref.watch(exercisesProvider).valueOrNull ?? [];
+    final exercise = exList
+            .where((e) => e.id == this.exercise.id)
+            .firstOrNull ??
+        this.exercise;
+
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final muscles = _parseJson(exercise.muscleGroups);
     final secondary = _parseJson(exercise.muscleGroupsSecondary);
-    final steps = exercise.instructions?.split('\n')
-        .where((l) => l.trim().isNotEmpty)
-        .toList() ?? [];
+    final steps = exercise.instructions
+            ?.split('\n')
+            .where((l) => l.trim().isNotEmpty)
+            .toList() ??
+        [];
     final volumeAsync = ref.watch(exerciseVolumeHistoryProvider(exercise.id));
     final bestAsync = ref.watch(bestSetForExerciseProvider(exercise.id));
 
@@ -419,6 +428,21 @@ class ExerciseDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(exercise.name),
         actions: [
+          IconButton(
+            icon: Icon(exercise.isFavorite
+                ? Icons.favorite
+                : Icons.favorite_border),
+            color: exercise.isFavorite ? Colors.red : null,
+            tooltip: exercise.isFavorite
+                ? 'Aus Favoriten entfernen'
+                : 'Zu Favoriten hinzufügen',
+            onPressed: () => ref
+                .read(workoutOpsProvider.notifier)
+                .updateExercise(ExercisesCompanion(
+                  id: drift.Value(exercise.id),
+                  isFavorite: drift.Value(!exercise.isFavorite),
+                )),
+          ),
           if (exercise.isCustom)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
@@ -429,6 +453,35 @@ class ExerciseDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
+          // ── Short description ────────────────────────────────────────────
+          if (exercise.shortDescription != null &&
+              exercise.shortDescription!.isNotEmpty) ...[
+            Text(
+              exercise.shortDescription!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // ── Ratings ──────────────────────────────────────────────────────
+          _RatingRow(
+            thumbRating: exercise.thumbRating,
+            starRating: exercise.starRating,
+            onThumb: (v) => ref
+                .read(workoutOpsProvider.notifier)
+                .updateExercise(ExercisesCompanion(
+                  id: drift.Value(exercise.id),
+                  thumbRating: drift.Value(v),
+                )),
+            onStar: (v) => ref
+                .read(workoutOpsProvider.notifier)
+                .updateExercise(ExercisesCompanion(
+                  id: drift.Value(exercise.id),
+                  starRating: drift.Value(v),
+                )),
+          ),
+          const SizedBox(height: 8),
           // ── Info chips ──────────────────────────────────────────────────
           Wrap(
             spacing: 8,
@@ -678,6 +731,65 @@ class ExerciseDetailScreen extends ConsumerWidget {
   }
 }
 
+// ── Rating row (thumb + stars) ────────────────────────────────────────────────
+
+class _RatingRow extends StatelessWidget {
+  final int? thumbRating;
+  final int? starRating;
+  final void Function(int?) onThumb;
+  final void Function(int?) onStar;
+  const _RatingRow({
+    required this.thumbRating,
+    required this.starRating,
+    required this.onThumb,
+    required this.onStar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        IconButton(
+          icon: Icon(Icons.thumb_up,
+              color: thumbRating == 1 ? cs.primary : cs.outlineVariant),
+          iconSize: 20,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: 'Empfehlung',
+          onPressed: () => onThumb(thumbRating == 1 ? null : 1),
+        ),
+        IconButton(
+          icon: Icon(Icons.thumb_down,
+              color: thumbRating == -1 ? cs.error : cs.outlineVariant),
+          iconSize: 20,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: 'Nicht empfohlen',
+          onPressed: () => onThumb(thumbRating == -1 ? null : -1),
+        ),
+        const SizedBox(width: 12),
+        ...List.generate(5, (i) {
+          final star = i + 1;
+          return IconButton(
+            icon: Icon(
+              star <= (starRating ?? 0) ? Icons.star : Icons.star_border,
+              color: star <= (starRating ?? 0)
+                  ? Colors.amber.shade600
+                  : cs.outlineVariant,
+            ),
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: '$star Stern${star > 1 ? 'e' : ''}',
+            onPressed: () => onStar(starRating == star ? null : star),
+          );
+        }),
+      ],
+    );
+  }
+}
+
 class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -836,6 +948,7 @@ class _ExerciseEditSheet extends ConsumerStatefulWidget {
 
 class _ExerciseEditSheetState extends ConsumerState<_ExerciseEditSheet> {
   late final TextEditingController _nameCtrl;
+  late final TextEditingController _shortDescCtrl;
   late final TextEditingController _instructionsCtrl;
   late final TextEditingController _tipsCtrl;
   late final TextEditingController _videoCtrl;
@@ -850,6 +963,8 @@ class _ExerciseEditSheetState extends ConsumerState<_ExerciseEditSheet> {
     super.initState();
     final e = widget.exercise;
     _nameCtrl = TextEditingController(text: e.name);
+    _shortDescCtrl =
+        TextEditingController(text: e.shortDescription ?? '');
     _instructionsCtrl = TextEditingController(text: e.instructions ?? '');
     _tipsCtrl = TextEditingController(text: e.tips ?? '');
     _videoCtrl = TextEditingController(text: e.videoUrl ?? '');
@@ -863,6 +978,7 @@ class _ExerciseEditSheetState extends ConsumerState<_ExerciseEditSheet> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _shortDescCtrl.dispose();
     _instructionsCtrl.dispose();
     _tipsCtrl.dispose();
     _videoCtrl.dispose();
@@ -881,6 +997,10 @@ class _ExerciseEditSheetState extends ConsumerState<_ExerciseEditSheet> {
               category: drift.Value(_cat),
               equipment: drift.Value(_equip),
               difficulty: drift.Value(_diff),
+              shortDescription: drift.Value(
+                  _shortDescCtrl.text.trim().isEmpty
+                      ? null
+                      : _shortDescCtrl.text.trim()),
               instructions: drift.Value(
                   _instructionsCtrl.text.trim().isEmpty
                       ? null
@@ -918,6 +1038,17 @@ class _ExerciseEditSheetState extends ConsumerState<_ExerciseEditSheet> {
               controller: _nameCtrl,
               decoration: const InputDecoration(
                   labelText: 'Name *', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _shortDescCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Kurzbeschreibung',
+                border: OutlineInputBorder(),
+                hintText: 'z.B. „Grundübung für Brust und Trizeps"',
+              ),
+              maxLines: 1,
+              maxLength: 100,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -1036,18 +1167,34 @@ class ActiveWorkoutScreen extends ConsumerStatefulWidget {
 
 class _ActiveWorkoutScreenState
     extends ConsumerState<ActiveWorkoutScreen> {
-  final _stopwatch = Stopwatch()..start();
 
   @override
   Widget build(BuildContext context) {
+    final workoutAsync =
+        ref.watch(watchWorkoutByIdProvider(widget.workoutId));
+    final workout = workoutAsync.valueOrNull;
+    final timerStartedAt = workout?.timerStartedAt;
+
     final setsAsync = ref.watch(workoutSetsProvider(widget.workoutId));
     final exercises = ref.watch(exercisesProvider).valueOrNull ?? [];
     final exerciseMap = {for (final e in exercises) e.id: e};
     final cs = Theme.of(context).colorScheme;
 
+    // Plan exercises for today (if workout is linked to a plan)
+    final planId = workout?.planId;
+    final allPlanExercises = planId != null
+        ? (ref.watch(planExercisesProvider(planId)).valueOrNull ?? [])
+        : <WorkoutPlanExercise>[];
+    final today = DateTime.now().weekday - 1; // 0=Mon … 6=Sun
+    final todayPlanExercises = allPlanExercises
+        .where((e) => e.dayOfWeek == null || e.dayOfWeek == today)
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
-        title: _WorkoutTimer(stopwatch: _stopwatch),
+        title: timerStartedAt != null
+            ? _WorkoutTimer(startedAt: timerStartedAt)
+            : const Text('Bereit'),
         leading: IconButton(
           icon: const Icon(Icons.minimize),
           tooltip: 'Minimieren',
@@ -1076,6 +1223,56 @@ class _ActiveWorkoutScreenState
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   children: [
+                    if (todayPlanExercises.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+                        child: Text('Heutige Übungen',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(color: cs.primary)),
+                      ),
+                      ...todayPlanExercises.map((pe) {
+                        final ex = exerciseMap[pe.exerciseId];
+                        final targetDesc = [
+                          if (pe.targetSets != null)
+                            '${pe.targetSets} Sätze',
+                          if (pe.targetReps != null)
+                            '× ${pe.targetReps} Wdh',
+                          if (pe.targetDurationSeconds != null)
+                            '${pe.targetDurationSeconds}s',
+                        ].join(' ');
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          color: cs.secondaryContainer
+                              .withValues(alpha: 0.4),
+                          child: ListTile(
+                            dense: true,
+                            title: Text(ex?.name ?? pe.exerciseId,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600)),
+                            subtitle: targetDesc.isNotEmpty
+                                ? Text(targetDesc,
+                                    style: TextStyle(
+                                        color: cs.onSurfaceVariant,
+                                        fontSize: 12))
+                                : null,
+                            trailing: OutlinedButton.icon(
+                              onPressed: () => _addExerciseById(
+                                  context, pe.exerciseId),
+                              icon: const Icon(Icons.add, size: 14),
+                              label: const Text('Satz'),
+                              style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      const Divider(height: 16),
+                    ],
                     ...groups.entries.map((entry) {
                       final ex = exerciseMap[entry.key];
                       return _ActiveExerciseCard(
@@ -1085,15 +1282,14 @@ class _ActiveWorkoutScreenState
                         workoutId: widget.workoutId,
                       );
                     }),
-                    if (groups.isEmpty)
+                    if (groups.isEmpty && todayPlanExercises.isEmpty)
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.all(32),
                           child: Text(
                             'Füge eine Übung hinzu,\num dein Training zu beginnen.',
                             textAlign: TextAlign.center,
-                            style:
-                                TextStyle(color: cs.onSurfaceVariant),
+                            style: TextStyle(color: cs.onSurfaceVariant),
                           ),
                         ),
                       ),
@@ -1102,13 +1298,25 @@ class _ActiveWorkoutScreenState
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _addExercise(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Übung hinzufügen'),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (timerStartedAt == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.play_arrow),
+                          label: const Text('Training starten'),
+                          onPressed: _startTimer,
+                        ),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () => _addExercise(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Übung hinzufügen'),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1116,6 +1324,23 @@ class _ActiveWorkoutScreenState
         },
       ),
     );
+  }
+
+  Future<void> _startTimer() async {
+    final db = ref.read(databaseProvider)!;
+    await db.setWorkoutTimerStart(widget.workoutId, DateTime.now());
+  }
+
+  Future<void> _addExerciseById(
+      BuildContext context, String exerciseId) async {
+    final currentSets =
+        ref.read(workoutSetsProvider(widget.workoutId)).valueOrNull ?? [];
+    if (currentSets.any((s) => s.exerciseId == exerciseId)) return;
+    await ref.read(workoutOpsProvider.notifier).addSet(
+          workoutId: widget.workoutId,
+          exerciseId: exerciseId,
+          setNumber: 1,
+        );
   }
 
   Future<void> _addExercise(BuildContext context) async {
@@ -1164,8 +1389,8 @@ class _ActiveWorkoutScreenState
 }
 
 class _WorkoutTimer extends StatefulWidget {
-  final Stopwatch stopwatch;
-  const _WorkoutTimer({required this.stopwatch});
+  final DateTime startedAt;
+  const _WorkoutTimer({required this.startedAt});
 
   @override
   State<_WorkoutTimer> createState() => _WorkoutTimerState();
@@ -1185,7 +1410,7 @@ class _WorkoutTimerState extends State<_WorkoutTimer> {
     return StreamBuilder<int>(
       stream: _ticks,
       builder: (context, _) {
-        final elapsed = widget.stopwatch.elapsed;
+        final elapsed = DateTime.now().difference(widget.startedAt);
         final h = elapsed.inHours;
         final m =
             elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -1985,6 +2210,9 @@ class _ExerciseLibraryScreenState
     extends ConsumerState<ExerciseLibraryScreen> {
   String _query = '';
   String? _cat;
+  bool _favOnly = false;
+  bool _thumbUpOnly = false;
+  int? _minStar;
 
   @override
   Widget build(BuildContext context) {
@@ -1993,14 +2221,17 @@ class _ExerciseLibraryScreenState
         .where((e) =>
             (_cat == null || e.category == _cat) &&
             (_query.isEmpty ||
-                e.name.toLowerCase().contains(_query.toLowerCase())))
+                e.name.toLowerCase().contains(_query.toLowerCase())) &&
+            (!_favOnly || e.isFavorite) &&
+            (!_thumbUpOnly || e.thumbRating == 1) &&
+            (_minStar == null || (e.starRating ?? 0) >= _minStar!))
         .toList();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Übungsbibliothek'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(96),
+          preferredSize: const Size.fromHeight(136),
           child: Column(
             children: [
               Padding(
@@ -2034,6 +2265,45 @@ class _ExerciseLibraryScreenState
                             visualDensity: VisualDensity.compact,
                           ),
                         )),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    FilterChip(
+                      label: const Text('❤️ Favoriten'),
+                      selected: _favOnly,
+                      onSelected: (v) => setState(() => _favOnly = v),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 6),
+                    FilterChip(
+                      label: const Text('👍 Empfohlen'),
+                      selected: _thumbUpOnly,
+                      onSelected: (v) =>
+                          setState(() => _thumbUpOnly = v),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 6),
+                    FilterChip(
+                      label: const Text('★ 4+'),
+                      selected: _minStar == 4,
+                      onSelected: (v) =>
+                          setState(() => _minStar = v ? 4 : null),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 6),
+                    FilterChip(
+                      label: const Text('★ 3+'),
+                      selected: _minStar == 3,
+                      onSelected: (v) =>
+                          setState(() => _minStar = v ? 3 : null),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ],
                 ),
               ),
@@ -2305,10 +2575,11 @@ class _PlanCard extends ConsumerWidget {
     final exerciseMap = {for (final e in exercises) e.id: e};
     final cs = Theme.of(context).colorScheme;
 
-    final byDay =
-        <int, List<WorkoutPlanExercise>>{};
+    final byDay = <int, List<WorkoutPlanExercise>>{};
     for (final e in exercisesAsync.valueOrNull ?? []) {
-      byDay.putIfAbsent(e.dayOfWeek, () => []).add(e);
+      if (e.dayOfWeek != null) {
+        byDay.putIfAbsent(e.dayOfWeek!, () => []).add(e);
+      }
     }
 
     return Card(
@@ -2406,15 +2677,26 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch plan reactively for live rating/favorite updates
+    final plans = ref.watch(workoutPlansProvider).valueOrNull ?? [];
+    final plan = plans
+            .where((p) => p.id == this.plan.id)
+            .firstOrNull ??
+        this.plan;
+
     final exercisesAsync = ref.watch(planExercisesProvider(plan.id));
-    final allExercises =
-        ref.watch(exercisesProvider).valueOrNull ?? [];
+    final allExercises = ref.watch(exercisesProvider).valueOrNull ?? [];
     final exerciseMap = {for (final e in allExercises) e.id: e};
     final cs = Theme.of(context).colorScheme;
 
     final byDay = <int, List<WorkoutPlanExercise>>{};
+    final templateExercises = <WorkoutPlanExercise>[];
     for (final e in exercisesAsync.valueOrNull ?? []) {
-      byDay.putIfAbsent(e.dayOfWeek, () => []).add(e);
+      if (e.dayOfWeek == null) {
+        templateExercises.add(e);
+      } else {
+        byDay.putIfAbsent(e.dayOfWeek!, () => []).add(e);
+      }
     }
 
     return Scaffold(
@@ -2422,17 +2704,103 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
         title: Text(plan.name),
         actions: [
           IconButton(
+            icon: Icon(plan.isFavorite
+                ? Icons.favorite
+                : Icons.favorite_border),
+            color: plan.isFavorite ? Colors.red : null,
+            tooltip: plan.isFavorite
+                ? 'Aus Favoriten entfernen'
+                : 'Zu Favoriten hinzufügen',
+            onPressed: () => ref
+                .read(workoutOpsProvider.notifier)
+                .updatePlan(WorkoutPlansCompanion(
+                  id: drift.Value(plan.id),
+                  isFavorite: drift.Value(!plan.isFavorite),
+                )),
+          ),
+          IconButton(
             icon: Icon(Icons.delete_outline, color: cs.error),
-            onPressed: () => _deletePlan(context, ref),
+            onPressed: () => _deletePlan(context, ref, plan),
           ),
         ],
       ),
-      body: ListView.builder(
+      body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-        itemCount: 7,
-        itemBuilder: (context, day) {
-          final dayExercises = byDay[day] ?? [];
-          return Card(
+        children: [
+          // ── Ratings ───────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _RatingRow(
+              thumbRating: plan.thumbRating,
+              starRating: plan.starRating,
+              onThumb: (v) => ref
+                  .read(workoutOpsProvider.notifier)
+                  .updatePlan(WorkoutPlansCompanion(
+                    id: drift.Value(plan.id),
+                    thumbRating: drift.Value(v),
+                  )),
+              onStar: (v) => ref
+                  .read(workoutOpsProvider.notifier)
+                  .updatePlan(WorkoutPlansCompanion(
+                    id: drift.Value(plan.id),
+                    starRating: drift.Value(v),
+                  )),
+            ),
+          ),
+          // ── Day cards ─────────────────────────────────────────────────
+          ...List.generate(7, (day) {
+            final dayExercises = byDay[day] ?? [];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          _weekDaysFull[day],
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(
+                                  color: dayExercises.isNotEmpty
+                                      ? cs.primary
+                                      : cs.onSurfaceVariant),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => _addExerciseToDay(
+                              context, ref, day, allExercises, plan),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Übung'),
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (dayExercises.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('Ruhetag',
+                            style: TextStyle(
+                                color: cs.onSurfaceVariant,
+                                fontSize: 12)),
+                      )
+                    else
+                      ...dayExercises.map((pe) => _buildPlanExerciseTile(
+                          context, ref, pe, exerciseMap, cs, plan)),
+                  ],
+                ),
+              ),
+            );
+          }),
+          // ── Template / always ─────────────────────────────────────────
+          Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -2441,20 +2809,15 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        _weekDaysFull[day],
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall
-                            ?.copyWith(
-                                color: dayExercises.isNotEmpty
-                                    ? cs.primary
-                                    : cs.onSurfaceVariant),
-                      ),
+                      Text('Immer / Template',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(color: cs.onSurfaceVariant)),
                       const Spacer(),
                       TextButton.icon(
-                        onPressed: () =>
-                            _addExerciseToDay(context, ref, day, allExercises),
+                        onPressed: () => _addExerciseToDay(
+                            context, ref, null, allExercises, plan),
                         icon: const Icon(Icons.add, size: 16),
                         label: const Text('Übung'),
                         style: TextButton.styleFrom(
@@ -2465,61 +2828,62 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  if (dayExercises.isEmpty)
+                  if (templateExercises.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text('Ruhetag',
+                      child: Text('Keine Template-Übungen',
                           style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontSize: 12)),
+                              color: cs.onSurfaceVariant, fontSize: 12)),
                     )
                   else
-                    ...dayExercises.map((pe) {
-                      final ex = exerciseMap[pe.exerciseId];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        leading: CircleAvatar(
-                          radius: 14,
-                          backgroundColor: cs.secondaryContainer,
-                          child: Text(
-                            _catLabel(ex?.category ?? '').substring(0, 1),
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: cs.onSecondaryContainer),
-                          ),
-                        ),
-                        title: Text(ex?.name ?? pe.exerciseId,
-                            style:
-                                const TextStyle(fontSize: 13)),
-                        subtitle: Text(
-                          [
-                            if (pe.targetSets != null)
-                              '${pe.targetSets} Sätze',
-                            if (pe.targetReps != null)
-                              '${pe.targetReps} Wdh',
-                            if (pe.targetDurationSeconds != null)
-                              '${pe.targetDurationSeconds}s',
-                          ].join(' × '),
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: cs.onSurfaceVariant),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close, size: 16),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => ref
-                              .read(workoutOpsProvider.notifier)
-                              .removePlanExercise(pe.id, plan.id),
-                        ),
-                      );
-                    }),
+                    ...templateExercises.map((pe) =>
+                        _buildPlanExerciseTile(
+                            context, ref, pe, exerciseMap, cs, plan)),
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanExerciseTile(
+      BuildContext context,
+      WidgetRef ref,
+      WorkoutPlanExercise pe,
+      Map<String, Exercise> exerciseMap,
+      ColorScheme cs,
+      WorkoutPlan plan) {
+    final ex = exerciseMap[pe.exerciseId];
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: CircleAvatar(
+        radius: 14,
+        backgroundColor: cs.secondaryContainer,
+        child: Text(
+          _catLabel(ex?.category ?? '').substring(0, 1),
+          style: TextStyle(fontSize: 11, color: cs.onSecondaryContainer),
+        ),
+      ),
+      title: Text(ex?.name ?? pe.exerciseId,
+          style: const TextStyle(fontSize: 13)),
+      subtitle: Text(
+        [
+          if (pe.targetSets != null) '${pe.targetSets} Sätze',
+          if (pe.targetReps != null) '${pe.targetReps} Wdh',
+          if (pe.targetDurationSeconds != null) '${pe.targetDurationSeconds}s',
+        ].join(' × '),
+        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.close, size: 16),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        onPressed: () => ref
+            .read(workoutOpsProvider.notifier)
+            .removePlanExercise(pe.id, plan.id),
       ),
     );
   }
@@ -2527,8 +2891,9 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
   Future<void> _addExerciseToDay(
       BuildContext context,
       WidgetRef ref,
-      int day,
-      List<Exercise> allExercises) async {
+      int? day,
+      List<Exercise> allExercises,
+      WorkoutPlan plan) async {
     final chosen = await showModalBottomSheet<Exercise>(
       context: context,
       isScrollControlled: true,
@@ -2537,7 +2902,6 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
     );
     if (chosen == null || !context.mounted) return;
 
-    // Quick target config
     int? sets = 3;
     int? reps = 10;
     await showDialog<void>(
@@ -2599,7 +2963,8 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
         );
   }
 
-  Future<void> _deletePlan(BuildContext context, WidgetRef ref) async {
+  Future<void> _deletePlan(
+      BuildContext context, WidgetRef ref, WorkoutPlan plan) async {
     final ok = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -2621,9 +2986,7 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
         ) ??
         false;
     if (ok && context.mounted) {
-      await ref
-          .read(workoutOpsProvider.notifier)
-          .deletePlan(plan.id);
+      await ref.read(workoutOpsProvider.notifier).deletePlan(plan.id);
       if (context.mounted) Navigator.of(context).pop();
     }
   }

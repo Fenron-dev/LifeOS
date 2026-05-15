@@ -3,14 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../db/database.dart';
+import '../../health/providers/nutrition_provider.dart';
 import '../../health/providers/profile_provider.dart';
 import '../../health/providers/water_provider.dart';
+import '../../health/providers/workouts_provider.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/meal_plan_provider.dart';
 import '../../providers/tasks_provider.dart';
+import '../../providers/vault_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 import '../aufgaben/aufgaben_screen.dart';
+
+final missingStaplesProvider = StreamProvider<List<Item>>((ref) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchMissingStapleItems();
+});
 
 class StartScreen extends ConsumerWidget {
   const StartScreen({super.key});
@@ -25,15 +35,192 @@ class StartScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: const [
+          _StapleWarningCard(),
           _ExpiryCard(),
           SizedBox(height: 12),
           _MealPlanCard(),
           SizedBox(height: 12),
           _WaterCard(),
           SizedBox(height: 12),
+          _TodayHealthCard(),
+          SizedBox(height: 12),
           _RemindersCard(),
           SizedBox(height: 12),
           _QuickAccessCard(),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Card 0: Fehlende Grundnahrungsmittel ─────────────────────────────────────
+
+class _StapleWarningCard extends ConsumerWidget {
+  const _StapleWarningCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final missing = ref.watch(missingStaplesProvider).valueOrNull ?? [];
+    if (missing.isEmpty) return const SizedBox.shrink();
+
+    final cs = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        color: cs.errorContainer,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => context.push('/haushalt/shopping'),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: cs.onErrorContainer, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${missing.length} Grundnahrungsmittel fehlen',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: cs.onErrorContainer,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        missing.map((i) => i.name).take(4).join(', ') +
+                            (missing.length > 4 ? ' …' : ''),
+                        style: TextStyle(
+                            fontSize: 12, color: cs.onErrorContainer),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right,
+                    color: cs.onErrorContainer, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Card between water and reminders: Gesundheit heute ────────────────────────
+
+class _TodayHealthCard extends ConsumerWidget {
+  const _TodayHealthCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+
+    final logsAsync =
+        ref.watch(nutritionLogsForRangeProvider((today, tomorrow)));
+    final kcal = logsAsync.valueOrNull?.fold<double>(
+            0, (sum, l) => sum + (l.kcal ?? 0)) ??
+        0;
+
+    final allWorkouts = ref.watch(workoutsProvider).valueOrNull ?? [];
+    final todayWorkouts = allWorkouts.where((w) {
+      final d = w.startedAt;
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).length;
+
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.monitor_heart_outlined,
+                    color: cs.primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Gesundheit heute',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => context.go('/ich'),
+                    child: _HealthStatTile(
+                      icon: Icons.local_fire_department_outlined,
+                      label: 'kcal heute',
+                      value: kcal.toStringAsFixed(0),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => context.go('/ich'),
+                    child: _HealthStatTile(
+                      icon: Icons.fitness_center_outlined,
+                      label: 'Workouts',
+                      value: '$todayWorkouts',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HealthStatTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _HealthStatTile(
+      {required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: cs.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 11, color: cs.onSurfaceVariant)),
+              ],
+            ),
+          ),
         ],
       ),
     );

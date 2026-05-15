@@ -31,6 +31,13 @@ final workoutsProvider = StreamProvider<List<Workout>>((ref) {
   return db.watchAllWorkouts();
 });
 
+final watchWorkoutByIdProvider =
+    StreamProvider.family<Workout?, String>((ref, id) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchWorkoutById(id);
+});
+
 // ── Sets for one workout ──────────────────────────────────────────────────────
 
 final workoutSetsProvider =
@@ -108,7 +115,7 @@ class WorkoutOpsNotifier extends AsyncNotifier<void> {
               ref.read(databaseProvider)!.workouts,
             )..where((w) => w.id.equals(id)))
         .getSingleOrNull();
-    final started = workout?.startedAt ?? now;
+    final started = workout?.timerStartedAt ?? workout?.startedAt ?? now;
     final minutes = now.difference(started).inMinutes;
     await _db.updateWorkout(WorkoutsCompanion(
       id: Value(id),
@@ -236,7 +243,7 @@ class WorkoutOpsNotifier extends AsyncNotifier<void> {
   Future<String> addPlanExercise({
     required String planId,
     required String exerciseId,
-    required int dayOfWeek,
+    int? dayOfWeek,
     int? targetSets,
     int? targetReps,
     int? targetDurationSeconds,
@@ -249,7 +256,7 @@ class WorkoutOpsNotifier extends AsyncNotifier<void> {
       id: id,
       planId: planId,
       exerciseId: exerciseId,
-      dayOfWeek: dayOfWeek,
+      dayOfWeek: Value(dayOfWeek),
       targetSets: Value(targetSets),
       targetReps: Value(targetReps),
       targetDurationSeconds: Value(targetDurationSeconds),

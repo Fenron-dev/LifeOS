@@ -27,6 +27,12 @@ class Exercises extends Table {
   TextColumn get tips => text().nullable()();
   BoolColumn get isCustom =>
       boolean().withDefault(const Constant(false))();
+  /// One-liner description shown below the title in the detail view
+  TextColumn get shortDescription => text().nullable()();
+  BoolColumn get isFavorite =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get starRating => integer().nullable()(); // 1–5
+  IntColumn get thumbRating => integer().nullable()(); // -1 | 0 | 1
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 
@@ -44,6 +50,8 @@ class Workouts extends Table {
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();
   IntColumn get durationMinutes => integer().nullable()();
+  /// Null = timer not yet started; set when user taps "Training starten"
+  DateTimeColumn get timerStartedAt => dateTime().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
@@ -81,6 +89,10 @@ class WorkoutPlans extends Table {
   TextColumn get description => text().nullable()();
   BoolColumn get isActive =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get isFavorite =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get starRating => integer().nullable()(); // 1–5
+  IntColumn get thumbRating => integer().nullable()(); // -1 | 0 | 1
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 
@@ -95,8 +107,8 @@ class WorkoutPlanExercises extends Table {
       .references(WorkoutPlans, #id, onDelete: KeyAction.cascade)();
   TextColumn get exerciseId => text()
       .references(Exercises, #id, onDelete: KeyAction.restrict)();
-  /// 0 = Monday … 6 = Sunday
-  IntColumn get dayOfWeek => integer()();
+  /// 0 = Monday … 6 = Sunday; null = template (no specific day, always shown)
+  IntColumn get dayOfWeek => integer().nullable()();
   IntColumn get targetSets => integer().nullable()();
   IntColumn get targetReps => integer().nullable()();
   IntColumn get targetDurationSeconds => integer().nullable()();

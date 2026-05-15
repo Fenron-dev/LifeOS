@@ -21819,6 +21819,54 @@ class $ExercisesTable extends Exercises
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _shortDescriptionMeta = const VerificationMeta(
+    'shortDescription',
+  );
+  @override
+  late final GeneratedColumn<String> shortDescription = GeneratedColumn<String>(
+    'short_description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _starRatingMeta = const VerificationMeta(
+    'starRating',
+  );
+  @override
+  late final GeneratedColumn<int> starRating = GeneratedColumn<int>(
+    'star_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _thumbRatingMeta = const VerificationMeta(
+    'thumbRating',
+  );
+  @override
+  late final GeneratedColumn<int> thumbRating = GeneratedColumn<int>(
+    'thumb_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -21846,6 +21894,10 @@ class $ExercisesTable extends Exercises
     caloriesPerMinute,
     tips,
     isCustom,
+    shortDescription,
+    isFavorite,
+    starRating,
+    thumbRating,
     createdAt,
   ];
   @override
@@ -21953,6 +22005,36 @@ class $ExercisesTable extends Exercises
         isCustom.isAcceptableOrUnknown(data['is_custom']!, _isCustomMeta),
       );
     }
+    if (data.containsKey('short_description')) {
+      context.handle(
+        _shortDescriptionMeta,
+        shortDescription.isAcceptableOrUnknown(
+          data['short_description']!,
+          _shortDescriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
+      );
+    }
+    if (data.containsKey('star_rating')) {
+      context.handle(
+        _starRatingMeta,
+        starRating.isAcceptableOrUnknown(data['star_rating']!, _starRatingMeta),
+      );
+    }
+    if (data.containsKey('thumb_rating')) {
+      context.handle(
+        _thumbRatingMeta,
+        thumbRating.isAcceptableOrUnknown(
+          data['thumb_rating']!,
+          _thumbRatingMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -22020,6 +22102,22 @@ class $ExercisesTable extends Exercises
         DriftSqlType.bool,
         data['${effectivePrefix}is_custom'],
       )!,
+      shortDescription: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}short_description'],
+      ),
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
+      starRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}star_rating'],
+      ),
+      thumbRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}thumb_rating'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -22065,6 +22163,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// Tips for safe/correct execution
   final String? tips;
   final bool isCustom;
+
+  /// One-liner description shown below the title in the detail view
+  final String? shortDescription;
+  final bool isFavorite;
+  final int? starRating;
+  final int? thumbRating;
   final DateTime createdAt;
   const Exercise({
     required this.id,
@@ -22080,6 +22184,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     this.caloriesPerMinute,
     this.tips,
     required this.isCustom,
+    this.shortDescription,
+    required this.isFavorite,
+    this.starRating,
+    this.thumbRating,
     required this.createdAt,
   });
   @override
@@ -22116,6 +22224,16 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       map['tips'] = Variable<String>(tips);
     }
     map['is_custom'] = Variable<bool>(isCustom);
+    if (!nullToAbsent || shortDescription != null) {
+      map['short_description'] = Variable<String>(shortDescription);
+    }
+    map['is_favorite'] = Variable<bool>(isFavorite);
+    if (!nullToAbsent || starRating != null) {
+      map['star_rating'] = Variable<int>(starRating);
+    }
+    if (!nullToAbsent || thumbRating != null) {
+      map['thumb_rating'] = Variable<int>(thumbRating);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -22151,6 +22269,16 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : Value(caloriesPerMinute),
       tips: tips == null && nullToAbsent ? const Value.absent() : Value(tips),
       isCustom: Value(isCustom),
+      shortDescription: shortDescription == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shortDescription),
+      isFavorite: Value(isFavorite),
+      starRating: starRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(starRating),
+      thumbRating: thumbRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbRating),
       createdAt: Value(createdAt),
     );
   }
@@ -22178,6 +22306,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       ),
       tips: serializer.fromJson<String?>(json['tips']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
+      shortDescription: serializer.fromJson<String?>(json['shortDescription']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
+      starRating: serializer.fromJson<int?>(json['starRating']),
+      thumbRating: serializer.fromJson<int?>(json['thumbRating']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -22200,6 +22332,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'caloriesPerMinute': serializer.toJson<double?>(caloriesPerMinute),
       'tips': serializer.toJson<String?>(tips),
       'isCustom': serializer.toJson<bool>(isCustom),
+      'shortDescription': serializer.toJson<String?>(shortDescription),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
+      'starRating': serializer.toJson<int?>(starRating),
+      'thumbRating': serializer.toJson<int?>(thumbRating),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -22218,6 +22354,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     Value<double?> caloriesPerMinute = const Value.absent(),
     Value<String?> tips = const Value.absent(),
     bool? isCustom,
+    Value<String?> shortDescription = const Value.absent(),
+    bool? isFavorite,
+    Value<int?> starRating = const Value.absent(),
+    Value<int?> thumbRating = const Value.absent(),
     DateTime? createdAt,
   }) => Exercise(
     id: id ?? this.id,
@@ -22237,6 +22377,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
         : this.caloriesPerMinute,
     tips: tips.present ? tips.value : this.tips,
     isCustom: isCustom ?? this.isCustom,
+    shortDescription: shortDescription.present
+        ? shortDescription.value
+        : this.shortDescription,
+    isFavorite: isFavorite ?? this.isFavorite,
+    starRating: starRating.present ? starRating.value : this.starRating,
+    thumbRating: thumbRating.present ? thumbRating.value : this.thumbRating,
     createdAt: createdAt ?? this.createdAt,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
@@ -22264,6 +22410,18 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : this.caloriesPerMinute,
       tips: data.tips.present ? data.tips.value : this.tips,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
+      shortDescription: data.shortDescription.present
+          ? data.shortDescription.value
+          : this.shortDescription,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
+      starRating: data.starRating.present
+          ? data.starRating.value
+          : this.starRating,
+      thumbRating: data.thumbRating.present
+          ? data.thumbRating.value
+          : this.thumbRating,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -22284,6 +22442,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('caloriesPerMinute: $caloriesPerMinute, ')
           ..write('tips: $tips, ')
           ..write('isCustom: $isCustom, ')
+          ..write('shortDescription: $shortDescription, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('starRating: $starRating, ')
+          ..write('thumbRating: $thumbRating, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -22304,6 +22466,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     caloriesPerMinute,
     tips,
     isCustom,
+    shortDescription,
+    isFavorite,
+    starRating,
+    thumbRating,
     createdAt,
   );
   @override
@@ -22323,6 +22489,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.caloriesPerMinute == this.caloriesPerMinute &&
           other.tips == this.tips &&
           other.isCustom == this.isCustom &&
+          other.shortDescription == this.shortDescription &&
+          other.isFavorite == this.isFavorite &&
+          other.starRating == this.starRating &&
+          other.thumbRating == this.thumbRating &&
           other.createdAt == this.createdAt);
 }
 
@@ -22340,6 +22510,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<double?> caloriesPerMinute;
   final Value<String?> tips;
   final Value<bool> isCustom;
+  final Value<String?> shortDescription;
+  final Value<bool> isFavorite;
+  final Value<int?> starRating;
+  final Value<int?> thumbRating;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const ExercisesCompanion({
@@ -22356,6 +22530,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.caloriesPerMinute = const Value.absent(),
     this.tips = const Value.absent(),
     this.isCustom = const Value.absent(),
+    this.shortDescription = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.thumbRating = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -22373,6 +22551,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.caloriesPerMinute = const Value.absent(),
     this.tips = const Value.absent(),
     this.isCustom = const Value.absent(),
+    this.shortDescription = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.thumbRating = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -22392,6 +22574,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<double>? caloriesPerMinute,
     Expression<String>? tips,
     Expression<bool>? isCustom,
+    Expression<String>? shortDescription,
+    Expression<bool>? isFavorite,
+    Expression<int>? starRating,
+    Expression<int>? thumbRating,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -22410,6 +22596,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (caloriesPerMinute != null) 'calories_per_minute': caloriesPerMinute,
       if (tips != null) 'tips': tips,
       if (isCustom != null) 'is_custom': isCustom,
+      if (shortDescription != null) 'short_description': shortDescription,
+      if (isFavorite != null) 'is_favorite': isFavorite,
+      if (starRating != null) 'star_rating': starRating,
+      if (thumbRating != null) 'thumb_rating': thumbRating,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -22429,6 +22619,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<double?>? caloriesPerMinute,
     Value<String?>? tips,
     Value<bool>? isCustom,
+    Value<String?>? shortDescription,
+    Value<bool>? isFavorite,
+    Value<int?>? starRating,
+    Value<int?>? thumbRating,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -22447,6 +22641,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       caloriesPerMinute: caloriesPerMinute ?? this.caloriesPerMinute,
       tips: tips ?? this.tips,
       isCustom: isCustom ?? this.isCustom,
+      shortDescription: shortDescription ?? this.shortDescription,
+      isFavorite: isFavorite ?? this.isFavorite,
+      starRating: starRating ?? this.starRating,
+      thumbRating: thumbRating ?? this.thumbRating,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -22496,6 +22694,18 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (isCustom.present) {
       map['is_custom'] = Variable<bool>(isCustom.value);
     }
+    if (shortDescription.present) {
+      map['short_description'] = Variable<String>(shortDescription.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
+    if (starRating.present) {
+      map['star_rating'] = Variable<int>(starRating.value);
+    }
+    if (thumbRating.present) {
+      map['thumb_rating'] = Variable<int>(thumbRating.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -22521,6 +22731,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('caloriesPerMinute: $caloriesPerMinute, ')
           ..write('tips: $tips, ')
           ..write('isCustom: $isCustom, ')
+          ..write('shortDescription: $shortDescription, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('starRating: $starRating, ')
+          ..write('thumbRating: $thumbRating, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -22578,6 +22792,43 @@ class $WorkoutPlansTable extends WorkoutPlans
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _starRatingMeta = const VerificationMeta(
+    'starRating',
+  );
+  @override
+  late final GeneratedColumn<int> starRating = GeneratedColumn<int>(
+    'star_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _thumbRatingMeta = const VerificationMeta(
+    'thumbRating',
+  );
+  @override
+  late final GeneratedColumn<int> thumbRating = GeneratedColumn<int>(
+    'thumb_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -22596,6 +22847,9 @@ class $WorkoutPlansTable extends WorkoutPlans
     name,
     description,
     isActive,
+    isFavorite,
+    starRating,
+    thumbRating,
     createdAt,
   ];
   @override
@@ -22638,6 +22892,27 @@ class $WorkoutPlansTable extends WorkoutPlans
         isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
       );
     }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
+      );
+    }
+    if (data.containsKey('star_rating')) {
+      context.handle(
+        _starRatingMeta,
+        starRating.isAcceptableOrUnknown(data['star_rating']!, _starRatingMeta),
+      );
+    }
+    if (data.containsKey('thumb_rating')) {
+      context.handle(
+        _thumbRatingMeta,
+        thumbRating.isAcceptableOrUnknown(
+          data['thumb_rating']!,
+          _thumbRatingMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -22669,6 +22944,18 @@ class $WorkoutPlansTable extends WorkoutPlans
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
       )!,
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
+      starRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}star_rating'],
+      ),
+      thumbRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}thumb_rating'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -22687,12 +22974,18 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
   final String name;
   final String? description;
   final bool isActive;
+  final bool isFavorite;
+  final int? starRating;
+  final int? thumbRating;
   final DateTime createdAt;
   const WorkoutPlan({
     required this.id,
     required this.name,
     this.description,
     required this.isActive,
+    required this.isFavorite,
+    this.starRating,
+    this.thumbRating,
     required this.createdAt,
   });
   @override
@@ -22704,6 +22997,13 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
       map['description'] = Variable<String>(description);
     }
     map['is_active'] = Variable<bool>(isActive);
+    map['is_favorite'] = Variable<bool>(isFavorite);
+    if (!nullToAbsent || starRating != null) {
+      map['star_rating'] = Variable<int>(starRating);
+    }
+    if (!nullToAbsent || thumbRating != null) {
+      map['thumb_rating'] = Variable<int>(thumbRating);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -22716,6 +23016,13 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
           ? const Value.absent()
           : Value(description),
       isActive: Value(isActive),
+      isFavorite: Value(isFavorite),
+      starRating: starRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(starRating),
+      thumbRating: thumbRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbRating),
       createdAt: Value(createdAt),
     );
   }
@@ -22730,6 +23037,9 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
       name: serializer.fromJson<String>(json['name']),
       description: serializer.fromJson<String?>(json['description']),
       isActive: serializer.fromJson<bool>(json['isActive']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
+      starRating: serializer.fromJson<int?>(json['starRating']),
+      thumbRating: serializer.fromJson<int?>(json['thumbRating']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -22741,6 +23051,9 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
       'name': serializer.toJson<String>(name),
       'description': serializer.toJson<String?>(description),
       'isActive': serializer.toJson<bool>(isActive),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
+      'starRating': serializer.toJson<int?>(starRating),
+      'thumbRating': serializer.toJson<int?>(thumbRating),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -22750,12 +23063,18 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
     String? name,
     Value<String?> description = const Value.absent(),
     bool? isActive,
+    bool? isFavorite,
+    Value<int?> starRating = const Value.absent(),
+    Value<int?> thumbRating = const Value.absent(),
     DateTime? createdAt,
   }) => WorkoutPlan(
     id: id ?? this.id,
     name: name ?? this.name,
     description: description.present ? description.value : this.description,
     isActive: isActive ?? this.isActive,
+    isFavorite: isFavorite ?? this.isFavorite,
+    starRating: starRating.present ? starRating.value : this.starRating,
+    thumbRating: thumbRating.present ? thumbRating.value : this.thumbRating,
     createdAt: createdAt ?? this.createdAt,
   );
   WorkoutPlan copyWithCompanion(WorkoutPlansCompanion data) {
@@ -22766,6 +23085,15 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
           ? data.description.value
           : this.description,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
+      starRating: data.starRating.present
+          ? data.starRating.value
+          : this.starRating,
+      thumbRating: data.thumbRating.present
+          ? data.thumbRating.value
+          : this.thumbRating,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -22777,13 +23105,25 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
           ..write('name: $name, ')
           ..write('description: $description, ')
           ..write('isActive: $isActive, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('starRating: $starRating, ')
+          ..write('thumbRating: $thumbRating, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, description, isActive, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    description,
+    isActive,
+    isFavorite,
+    starRating,
+    thumbRating,
+    createdAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -22792,6 +23132,9 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
           other.name == this.name &&
           other.description == this.description &&
           other.isActive == this.isActive &&
+          other.isFavorite == this.isFavorite &&
+          other.starRating == this.starRating &&
+          other.thumbRating == this.thumbRating &&
           other.createdAt == this.createdAt);
 }
 
@@ -22800,6 +23143,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
   final Value<String> name;
   final Value<String?> description;
   final Value<bool> isActive;
+  final Value<bool> isFavorite;
+  final Value<int?> starRating;
+  final Value<int?> thumbRating;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const WorkoutPlansCompanion({
@@ -22807,6 +23153,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     this.name = const Value.absent(),
     this.description = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.thumbRating = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -22815,6 +23164,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     required String name,
     this.description = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.isFavorite = const Value.absent(),
+    this.starRating = const Value.absent(),
+    this.thumbRating = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -22824,6 +23176,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     Expression<String>? name,
     Expression<String>? description,
     Expression<bool>? isActive,
+    Expression<bool>? isFavorite,
+    Expression<int>? starRating,
+    Expression<int>? thumbRating,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -22832,6 +23187,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
       if (name != null) 'name': name,
       if (description != null) 'description': description,
       if (isActive != null) 'is_active': isActive,
+      if (isFavorite != null) 'is_favorite': isFavorite,
+      if (starRating != null) 'star_rating': starRating,
+      if (thumbRating != null) 'thumb_rating': thumbRating,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -22842,6 +23200,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     Value<String>? name,
     Value<String?>? description,
     Value<bool>? isActive,
+    Value<bool>? isFavorite,
+    Value<int?>? starRating,
+    Value<int?>? thumbRating,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -22850,6 +23211,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
       name: name ?? this.name,
       description: description ?? this.description,
       isActive: isActive ?? this.isActive,
+      isFavorite: isFavorite ?? this.isFavorite,
+      starRating: starRating ?? this.starRating,
+      thumbRating: thumbRating ?? this.thumbRating,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -22870,6 +23234,15 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
+    if (starRating.present) {
+      map['star_rating'] = Variable<int>(starRating.value);
+    }
+    if (thumbRating.present) {
+      map['thumb_rating'] = Variable<int>(thumbRating.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -22886,6 +23259,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
           ..write('name: $name, ')
           ..write('description: $description, ')
           ..write('isActive: $isActive, ')
+          ..write('isFavorite: $isFavorite, ')
+          ..write('starRating: $starRating, ')
+          ..write('thumbRating: $thumbRating, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -22961,6 +23337,18 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _timerStartedAtMeta = const VerificationMeta(
+    'timerStartedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timerStartedAt =
+      GeneratedColumn<DateTime>(
+        'timer_started_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -22990,6 +23378,7 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
     startedAt,
     endedAt,
     durationMinutes,
+    timerStartedAt,
     notes,
     createdAt,
   ];
@@ -23045,6 +23434,15 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
         ),
       );
     }
+    if (data.containsKey('timer_started_at')) {
+      context.handle(
+        _timerStartedAtMeta,
+        timerStartedAt.isAcceptableOrUnknown(
+          data['timer_started_at']!,
+          _timerStartedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
@@ -23090,6 +23488,10 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
         DriftSqlType.int,
         data['${effectivePrefix}duration_minutes'],
       ),
+      timerStartedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timer_started_at'],
+      ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -23118,6 +23520,9 @@ class Workout extends DataClass implements Insertable<Workout> {
   final DateTime startedAt;
   final DateTime? endedAt;
   final int? durationMinutes;
+
+  /// Null = timer not yet started; set when user taps "Training starten"
+  final DateTime? timerStartedAt;
   final String? notes;
   final DateTime createdAt;
   const Workout({
@@ -23127,6 +23532,7 @@ class Workout extends DataClass implements Insertable<Workout> {
     required this.startedAt,
     this.endedAt,
     this.durationMinutes,
+    this.timerStartedAt,
     this.notes,
     required this.createdAt,
   });
@@ -23146,6 +23552,9 @@ class Workout extends DataClass implements Insertable<Workout> {
     }
     if (!nullToAbsent || durationMinutes != null) {
       map['duration_minutes'] = Variable<int>(durationMinutes);
+    }
+    if (!nullToAbsent || timerStartedAt != null) {
+      map['timer_started_at'] = Variable<DateTime>(timerStartedAt);
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -23168,6 +23577,9 @@ class Workout extends DataClass implements Insertable<Workout> {
       durationMinutes: durationMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(durationMinutes),
+      timerStartedAt: timerStartedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(timerStartedAt),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -23187,6 +23599,7 @@ class Workout extends DataClass implements Insertable<Workout> {
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
       endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
       durationMinutes: serializer.fromJson<int?>(json['durationMinutes']),
+      timerStartedAt: serializer.fromJson<DateTime?>(json['timerStartedAt']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -23201,6 +23614,7 @@ class Workout extends DataClass implements Insertable<Workout> {
       'startedAt': serializer.toJson<DateTime>(startedAt),
       'endedAt': serializer.toJson<DateTime?>(endedAt),
       'durationMinutes': serializer.toJson<int?>(durationMinutes),
+      'timerStartedAt': serializer.toJson<DateTime?>(timerStartedAt),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -23213,6 +23627,7 @@ class Workout extends DataClass implements Insertable<Workout> {
     DateTime? startedAt,
     Value<DateTime?> endedAt = const Value.absent(),
     Value<int?> durationMinutes = const Value.absent(),
+    Value<DateTime?> timerStartedAt = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
   }) => Workout(
@@ -23224,6 +23639,9 @@ class Workout extends DataClass implements Insertable<Workout> {
     durationMinutes: durationMinutes.present
         ? durationMinutes.value
         : this.durationMinutes,
+    timerStartedAt: timerStartedAt.present
+        ? timerStartedAt.value
+        : this.timerStartedAt,
     notes: notes.present ? notes.value : this.notes,
     createdAt: createdAt ?? this.createdAt,
   );
@@ -23237,6 +23655,9 @@ class Workout extends DataClass implements Insertable<Workout> {
       durationMinutes: data.durationMinutes.present
           ? data.durationMinutes.value
           : this.durationMinutes,
+      timerStartedAt: data.timerStartedAt.present
+          ? data.timerStartedAt.value
+          : this.timerStartedAt,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -23251,6 +23672,7 @@ class Workout extends DataClass implements Insertable<Workout> {
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('durationMinutes: $durationMinutes, ')
+          ..write('timerStartedAt: $timerStartedAt, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -23265,6 +23687,7 @@ class Workout extends DataClass implements Insertable<Workout> {
     startedAt,
     endedAt,
     durationMinutes,
+    timerStartedAt,
     notes,
     createdAt,
   );
@@ -23278,6 +23701,7 @@ class Workout extends DataClass implements Insertable<Workout> {
           other.startedAt == this.startedAt &&
           other.endedAt == this.endedAt &&
           other.durationMinutes == this.durationMinutes &&
+          other.timerStartedAt == this.timerStartedAt &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt);
 }
@@ -23289,6 +23713,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
   final Value<DateTime> startedAt;
   final Value<DateTime?> endedAt;
   final Value<int?> durationMinutes;
+  final Value<DateTime?> timerStartedAt;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
@@ -23299,6 +23724,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     this.startedAt = const Value.absent(),
     this.endedAt = const Value.absent(),
     this.durationMinutes = const Value.absent(),
+    this.timerStartedAt = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -23310,6 +23736,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     required DateTime startedAt,
     this.endedAt = const Value.absent(),
     this.durationMinutes = const Value.absent(),
+    this.timerStartedAt = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -23322,6 +23749,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     Expression<DateTime>? startedAt,
     Expression<DateTime>? endedAt,
     Expression<int>? durationMinutes,
+    Expression<DateTime>? timerStartedAt,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
@@ -23333,6 +23761,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
       if (startedAt != null) 'started_at': startedAt,
       if (endedAt != null) 'ended_at': endedAt,
       if (durationMinutes != null) 'duration_minutes': durationMinutes,
+      if (timerStartedAt != null) 'timer_started_at': timerStartedAt,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
@@ -23346,6 +23775,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     Value<DateTime>? startedAt,
     Value<DateTime?>? endedAt,
     Value<int?>? durationMinutes,
+    Value<DateTime?>? timerStartedAt,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
@@ -23357,6 +23787,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       durationMinutes: durationMinutes ?? this.durationMinutes,
+      timerStartedAt: timerStartedAt ?? this.timerStartedAt,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
@@ -23384,6 +23815,9 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     if (durationMinutes.present) {
       map['duration_minutes'] = Variable<int>(durationMinutes.value);
     }
+    if (timerStartedAt.present) {
+      map['timer_started_at'] = Variable<DateTime>(timerStartedAt.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -23405,6 +23839,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('durationMinutes: $durationMinutes, ')
+          ..write('timerStartedAt: $timerStartedAt, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
@@ -24088,9 +24523,9 @@ class $WorkoutPlanExercisesTable extends WorkoutPlanExercises
   late final GeneratedColumn<int> dayOfWeek = GeneratedColumn<int>(
     'day_of_week',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _targetSetsMeta = const VerificationMeta(
     'targetSets',
@@ -24210,8 +24645,6 @@ class $WorkoutPlanExercisesTable extends WorkoutPlanExercises
         _dayOfWeekMeta,
         dayOfWeek.isAcceptableOrUnknown(data['day_of_week']!, _dayOfWeekMeta),
       );
-    } else if (isInserting) {
-      context.missing(_dayOfWeekMeta);
     }
     if (data.containsKey('target_sets')) {
       context.handle(
@@ -24282,7 +24715,7 @@ class $WorkoutPlanExercisesTable extends WorkoutPlanExercises
       dayOfWeek: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}day_of_week'],
-      )!,
+      ),
       targetSets: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}target_sets'],
@@ -24322,8 +24755,8 @@ class WorkoutPlanExercise extends DataClass
   final String planId;
   final String exerciseId;
 
-  /// 0 = Monday … 6 = Sunday
-  final int dayOfWeek;
+  /// 0 = Monday … 6 = Sunday; null = template (no specific day, always shown)
+  final int? dayOfWeek;
   final int? targetSets;
   final int? targetReps;
   final int? targetDurationSeconds;
@@ -24338,7 +24771,7 @@ class WorkoutPlanExercise extends DataClass
     required this.id,
     required this.planId,
     required this.exerciseId,
-    required this.dayOfWeek,
+    this.dayOfWeek,
     this.targetSets,
     this.targetReps,
     this.targetDurationSeconds,
@@ -24352,7 +24785,9 @@ class WorkoutPlanExercise extends DataClass
     map['id'] = Variable<String>(id);
     map['plan_id'] = Variable<String>(planId);
     map['exercise_id'] = Variable<String>(exerciseId);
-    map['day_of_week'] = Variable<int>(dayOfWeek);
+    if (!nullToAbsent || dayOfWeek != null) {
+      map['day_of_week'] = Variable<int>(dayOfWeek);
+    }
     if (!nullToAbsent || targetSets != null) {
       map['target_sets'] = Variable<int>(targetSets);
     }
@@ -24375,7 +24810,9 @@ class WorkoutPlanExercise extends DataClass
       id: Value(id),
       planId: Value(planId),
       exerciseId: Value(exerciseId),
-      dayOfWeek: Value(dayOfWeek),
+      dayOfWeek: dayOfWeek == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dayOfWeek),
       targetSets: targetSets == null && nullToAbsent
           ? const Value.absent()
           : Value(targetSets),
@@ -24402,7 +24839,7 @@ class WorkoutPlanExercise extends DataClass
       id: serializer.fromJson<String>(json['id']),
       planId: serializer.fromJson<String>(json['planId']),
       exerciseId: serializer.fromJson<String>(json['exerciseId']),
-      dayOfWeek: serializer.fromJson<int>(json['dayOfWeek']),
+      dayOfWeek: serializer.fromJson<int?>(json['dayOfWeek']),
       targetSets: serializer.fromJson<int?>(json['targetSets']),
       targetReps: serializer.fromJson<int?>(json['targetReps']),
       targetDurationSeconds: serializer.fromJson<int?>(
@@ -24420,7 +24857,7 @@ class WorkoutPlanExercise extends DataClass
       'id': serializer.toJson<String>(id),
       'planId': serializer.toJson<String>(planId),
       'exerciseId': serializer.toJson<String>(exerciseId),
-      'dayOfWeek': serializer.toJson<int>(dayOfWeek),
+      'dayOfWeek': serializer.toJson<int?>(dayOfWeek),
       'targetSets': serializer.toJson<int?>(targetSets),
       'targetReps': serializer.toJson<int?>(targetReps),
       'targetDurationSeconds': serializer.toJson<int?>(targetDurationSeconds),
@@ -24434,7 +24871,7 @@ class WorkoutPlanExercise extends DataClass
     String? id,
     String? planId,
     String? exerciseId,
-    int? dayOfWeek,
+    Value<int?> dayOfWeek = const Value.absent(),
     Value<int?> targetSets = const Value.absent(),
     Value<int?> targetReps = const Value.absent(),
     Value<int?> targetDurationSeconds = const Value.absent(),
@@ -24445,7 +24882,7 @@ class WorkoutPlanExercise extends DataClass
     id: id ?? this.id,
     planId: planId ?? this.planId,
     exerciseId: exerciseId ?? this.exerciseId,
-    dayOfWeek: dayOfWeek ?? this.dayOfWeek,
+    dayOfWeek: dayOfWeek.present ? dayOfWeek.value : this.dayOfWeek,
     targetSets: targetSets.present ? targetSets.value : this.targetSets,
     targetReps: targetReps.present ? targetReps.value : this.targetReps,
     targetDurationSeconds: targetDurationSeconds.present
@@ -24533,7 +24970,7 @@ class WorkoutPlanExercisesCompanion
   final Value<String> id;
   final Value<String> planId;
   final Value<String> exerciseId;
-  final Value<int> dayOfWeek;
+  final Value<int?> dayOfWeek;
   final Value<int?> targetSets;
   final Value<int?> targetReps;
   final Value<int?> targetDurationSeconds;
@@ -24558,7 +24995,7 @@ class WorkoutPlanExercisesCompanion
     required String id,
     required String planId,
     required String exerciseId,
-    required int dayOfWeek,
+    this.dayOfWeek = const Value.absent(),
     this.targetSets = const Value.absent(),
     this.targetReps = const Value.absent(),
     this.targetDurationSeconds = const Value.absent(),
@@ -24568,8 +25005,7 @@ class WorkoutPlanExercisesCompanion
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        planId = Value(planId),
-       exerciseId = Value(exerciseId),
-       dayOfWeek = Value(dayOfWeek);
+       exerciseId = Value(exerciseId);
   static Insertable<WorkoutPlanExercise> custom({
     Expression<String>? id,
     Expression<String>? planId,
@@ -24603,7 +25039,7 @@ class WorkoutPlanExercisesCompanion
     Value<String>? id,
     Value<String>? planId,
     Value<String>? exerciseId,
-    Value<int>? dayOfWeek,
+    Value<int?>? dayOfWeek,
     Value<int?>? targetSets,
     Value<int?>? targetReps,
     Value<int?>? targetDurationSeconds,
@@ -46248,6 +46684,10 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<double?> caloriesPerMinute,
       Value<String?> tips,
       Value<bool> isCustom,
+      Value<String?> shortDescription,
+      Value<bool> isFavorite,
+      Value<int?> starRating,
+      Value<int?> thumbRating,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -46266,6 +46706,10 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<double?> caloriesPerMinute,
       Value<String?> tips,
       Value<bool> isCustom,
+      Value<String?> shortDescription,
+      Value<bool> isFavorite,
+      Value<int?> starRating,
+      Value<int?> thumbRating,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -46392,6 +46836,26 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<bool> get isCustom => $composableBuilder(
     column: $table.isCustom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get shortDescription => $composableBuilder(
+    column: $table.shortDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -46525,6 +46989,26 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get shortDescription => $composableBuilder(
+    column: $table.shortDescription,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -46588,6 +47072,26 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<bool> get isCustom =>
       $composableBuilder(column: $table.isCustom, builder: (column) => column);
+
+  GeneratedColumn<String> get shortDescription => $composableBuilder(
+    column: $table.shortDescription,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -46688,6 +47192,10 @@ class $$ExercisesTableTableManager
                 Value<double?> caloriesPerMinute = const Value.absent(),
                 Value<String?> tips = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
+                Value<String?> shortDescription = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<int?> thumbRating = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion(
@@ -46704,6 +47212,10 @@ class $$ExercisesTableTableManager
                 caloriesPerMinute: caloriesPerMinute,
                 tips: tips,
                 isCustom: isCustom,
+                shortDescription: shortDescription,
+                isFavorite: isFavorite,
+                starRating: starRating,
+                thumbRating: thumbRating,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -46722,6 +47234,10 @@ class $$ExercisesTableTableManager
                 Value<double?> caloriesPerMinute = const Value.absent(),
                 Value<String?> tips = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
+                Value<String?> shortDescription = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<int?> thumbRating = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion.insert(
@@ -46738,6 +47254,10 @@ class $$ExercisesTableTableManager
                 caloriesPerMinute: caloriesPerMinute,
                 tips: tips,
                 isCustom: isCustom,
+                shortDescription: shortDescription,
+                isFavorite: isFavorite,
+                starRating: starRating,
+                thumbRating: thumbRating,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -46833,6 +47353,9 @@ typedef $$WorkoutPlansTableCreateCompanionBuilder =
       required String name,
       Value<String?> description,
       Value<bool> isActive,
+      Value<bool> isFavorite,
+      Value<int?> starRating,
+      Value<int?> thumbRating,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -46842,6 +47365,9 @@ typedef $$WorkoutPlansTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String?> description,
       Value<bool> isActive,
+      Value<bool> isFavorite,
+      Value<int?> starRating,
+      Value<int?> thumbRating,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -46924,6 +47450,21 @@ class $$WorkoutPlansTableFilterComposer
 
   ColumnFilters<bool> get isActive => $composableBuilder(
     column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -47012,6 +47553,21 @@ class $$WorkoutPlansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -47040,6 +47596,21 @@ class $$WorkoutPlansTableAnnotationComposer
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get starRating => $composableBuilder(
+    column: $table.starRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get thumbRating => $composableBuilder(
+    column: $table.thumbRating,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -47131,6 +47702,9 @@ class $$WorkoutPlansTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<int?> thumbRating = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkoutPlansCompanion(
@@ -47138,6 +47712,9 @@ class $$WorkoutPlansTableTableManager
                 name: name,
                 description: description,
                 isActive: isActive,
+                isFavorite: isFavorite,
+                starRating: starRating,
+                thumbRating: thumbRating,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -47147,6 +47724,9 @@ class $$WorkoutPlansTableTableManager
                 required String name,
                 Value<String?> description = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
+                Value<int?> starRating = const Value.absent(),
+                Value<int?> thumbRating = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkoutPlansCompanion.insert(
@@ -47154,6 +47734,9 @@ class $$WorkoutPlansTableTableManager
                 name: name,
                 description: description,
                 isActive: isActive,
+                isFavorite: isFavorite,
+                starRating: starRating,
+                thumbRating: thumbRating,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -47248,6 +47831,7 @@ typedef $$WorkoutsTableCreateCompanionBuilder =
       required DateTime startedAt,
       Value<DateTime?> endedAt,
       Value<int?> durationMinutes,
+      Value<DateTime?> timerStartedAt,
       Value<String?> notes,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -47260,6 +47844,7 @@ typedef $$WorkoutsTableUpdateCompanionBuilder =
       Value<DateTime> startedAt,
       Value<DateTime?> endedAt,
       Value<int?> durationMinutes,
+      Value<DateTime?> timerStartedAt,
       Value<String?> notes,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -47338,6 +47923,11 @@ class $$WorkoutsTableFilterComposer
 
   ColumnFilters<int> get durationMinutes => $composableBuilder(
     column: $table.durationMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timerStartedAt => $composableBuilder(
+    column: $table.timerStartedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -47434,6 +48024,11 @@ class $$WorkoutsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get timerStartedAt => $composableBuilder(
+    column: $table.timerStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -47491,6 +48086,11 @@ class $$WorkoutsTableAnnotationComposer
 
   GeneratedColumn<int> get durationMinutes => $composableBuilder(
     column: $table.durationMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get timerStartedAt => $composableBuilder(
+    column: $table.timerStartedAt,
     builder: (column) => column,
   );
 
@@ -47583,6 +48183,7 @@ class $$WorkoutsTableTableManager
                 Value<DateTime> startedAt = const Value.absent(),
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<int?> durationMinutes = const Value.absent(),
+                Value<DateTime?> timerStartedAt = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -47593,6 +48194,7 @@ class $$WorkoutsTableTableManager
                 startedAt: startedAt,
                 endedAt: endedAt,
                 durationMinutes: durationMinutes,
+                timerStartedAt: timerStartedAt,
                 notes: notes,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -47605,6 +48207,7 @@ class $$WorkoutsTableTableManager
                 required DateTime startedAt,
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<int?> durationMinutes = const Value.absent(),
+                Value<DateTime?> timerStartedAt = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -47615,6 +48218,7 @@ class $$WorkoutsTableTableManager
                 startedAt: startedAt,
                 endedAt: endedAt,
                 durationMinutes: durationMinutes,
+                timerStartedAt: timerStartedAt,
                 notes: notes,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -48216,7 +48820,7 @@ typedef $$WorkoutPlanExercisesTableCreateCompanionBuilder =
       required String id,
       required String planId,
       required String exerciseId,
-      required int dayOfWeek,
+      Value<int?> dayOfWeek,
       Value<int?> targetSets,
       Value<int?> targetReps,
       Value<int?> targetDurationSeconds,
@@ -48230,7 +48834,7 @@ typedef $$WorkoutPlanExercisesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> planId,
       Value<String> exerciseId,
-      Value<int> dayOfWeek,
+      Value<int?> dayOfWeek,
       Value<int?> targetSets,
       Value<int?> targetReps,
       Value<int?> targetDurationSeconds,
@@ -48619,7 +49223,7 @@ class $$WorkoutPlanExercisesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> planId = const Value.absent(),
                 Value<String> exerciseId = const Value.absent(),
-                Value<int> dayOfWeek = const Value.absent(),
+                Value<int?> dayOfWeek = const Value.absent(),
                 Value<int?> targetSets = const Value.absent(),
                 Value<int?> targetReps = const Value.absent(),
                 Value<int?> targetDurationSeconds = const Value.absent(),
@@ -48645,7 +49249,7 @@ class $$WorkoutPlanExercisesTableTableManager
                 required String id,
                 required String planId,
                 required String exerciseId,
-                required int dayOfWeek,
+                Value<int?> dayOfWeek = const Value.absent(),
                 Value<int?> targetSets = const Value.absent(),
                 Value<int?> targetReps = const Value.absent(),
                 Value<int?> targetDurationSeconds = const Value.absent(),

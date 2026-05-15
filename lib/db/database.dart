@@ -112,7 +112,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -370,6 +370,23 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(items, items.isStaple);
             await m.addColumn(items, items.purchaseUnit);
             await m.addColumn(items, items.purchaseQty);
+          }
+          if (from < 38) {
+            // Sprint E — fitness ratings, wiki, timer, template plans.
+            await m.addColumn(exercises, exercises.shortDescription);
+            await m.addColumn(exercises, exercises.isFavorite);
+            await m.addColumn(exercises, exercises.starRating);
+            await m.addColumn(exercises, exercises.thumbRating);
+            await m.addColumn(workoutPlans, workoutPlans.isFavorite);
+            await m.addColumn(workoutPlans, workoutPlans.starRating);
+            await m.addColumn(workoutPlans, workoutPlans.thumbRating);
+            await m.addColumn(workouts, workouts.timerStartedAt);
+            // dayOfWeek becomes nullable: recreate table
+            await customStatement('PRAGMA foreign_keys = OFF');
+            await transaction(() async {
+              await m.alterTable(TableMigration(workoutPlanExercises));
+            });
+            await customStatement('PRAGMA foreign_keys = ON');
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.
@@ -2103,6 +2120,48 @@ extension FitnessDao on AppDatabase {
             ..where((e) =>
                 e.planId.equals(planId) & e.dayOfWeek.equals(dayOfWeek)))
           .go();
+
+  Stream<Workout?> watchWorkoutById(String id) =>
+      (select(workouts)..where((w) => w.id.equals(id))).watchSingleOrNull();
+
+  Future<void> setWorkoutTimerStart(String workoutId, DateTime at) =>
+      (update(workouts)..where((w) => w.id.equals(workoutId)))
+          .write(WorkoutsCompanion(timerStartedAt: Value(at)));
+
+  /// Plan exercises for a specific day PLUS template exercises (dayOfWeek IS NULL).
+  Future<List<WorkoutPlanExercise>> planExercisesForDay(
+      String planId, int dayOfWeek) =>
+      (select(workoutPlanExercises)
+            ..where((e) =>
+                e.planId.equals(planId) &
+                (e.dayOfWeek.equals(dayOfWeek) | e.dayOfWeek.isNull()))
+            ..orderBy([
+              (e) => OrderingTerm.asc(e.sortOrder),
+            ]))
+          .get();
+
+  /// Items with isStaple = true that have no inventory stock.
+  Stream<List<Item>> watchMissingStapleItems() {
+    final stapleStream = (select(items)
+          ..where((i) => i.isStaple.equals(true) & i.isTrashed.equals(false))
+          ..orderBy([(i) => OrderingTerm.asc(i.name)]))
+        .watch();
+
+    return stapleStream.asyncExpand((staples) {
+      if (staples.isEmpty) return Stream.value([]);
+      final ids = staples.map((i) => i.id).toList();
+      return (select(inventoryEntries)
+              ..where((e) => e.itemId.isIn(ids)))
+          .watch()
+          .map((entries) {
+        final stockById = <String, double>{};
+        for (final e in entries) {
+          stockById[e.itemId] = (stockById[e.itemId] ?? 0) + e.quantity;
+        }
+        return staples.where((i) => (stockById[i.id] ?? 0) <= 0).toList();
+      });
+    });
+  }
 
   // ── Exercise statistics ─────────────────────────────────────────────────
 
