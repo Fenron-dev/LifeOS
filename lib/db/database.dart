@@ -112,7 +112,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 36;
+  int get schemaVersion => 37;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -364,6 +364,12 @@ class AppDatabase extends _$AppDatabase {
           if (from < 36) {
             // Configurable workout frequency goal.
             await m.addColumn(userProfile, userProfile.workoutsPerWeekGoal);
+          }
+          if (from < 37) {
+            // Sprint E — isStaple flag + purchaseUnit/purchaseQty for pack-size shopping.
+            await m.addColumn(items, items.isStaple);
+            await m.addColumn(items, items.purchaseUnit);
+            await m.addColumn(items, items.purchaseQty);
           }
           if (from < 19) {
             // Phase 6.9 — ratings, consumption reasons, diary thumbs.

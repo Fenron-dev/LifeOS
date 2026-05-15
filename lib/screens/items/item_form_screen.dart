@@ -109,6 +109,11 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   String? _minStockUnit;
   String? _preferredShopId;
 
+  // Staple + purchase unit
+  bool _isStaple = false;
+  late final TextEditingController _purchaseUnitCtrl;
+  late final TextEditingController _purchaseQtyCtrl;
+
   // Group membership
   Set<String> _selectedGroupIds = {};
   Set<String> _originalGroupIds = {};
@@ -144,6 +149,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         text: i?.minStockQuantity != null ? _fmtCtrl(i!.minStockQuantity) : '');
     _taraWeightGCtrl = TextEditingController(
         text: i?.taraWeightG != null ? _fmtCtrl(i!.taraWeightG) : '');
+    _purchaseUnitCtrl = TextEditingController(text: i?.purchaseUnit ?? '');
+    _purchaseQtyCtrl = TextEditingController(
+        text: i?.purchaseQty != null ? _fmtCtrl(i!.purchaseQty) : '');
 
     if (i != null) {
       _productType = i.productType;
@@ -161,6 +169,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _nutritionRefUnit = i.nutritionRefUnit;
       _consumeUnit = i.consumeUnit;
       _showNutrition = _hasAnyNutrition(i);
+      _isStaple = i.isStaple;
       if (i.minStockQuantity != null) {
         _hasMinStock = true;
         _minStockUnit = i.minStockUnit;
@@ -226,6 +235,8 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     _consumeQtyCtrl.dispose();
     _minStockQtyCtrl.dispose();
     _taraWeightGCtrl.dispose();
+    _purchaseUnitCtrl.dispose();
+    _purchaseQtyCtrl.dispose();
     super.dispose();
   }
 
@@ -448,6 +459,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         taraWeightG: _taraEnabled
             ? double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))
             : null,
+        isStaple: _isStaple,
+        purchaseUnit: _purchaseUnitCtrl.text.trim().isEmpty ? null : _purchaseUnitCtrl.text.trim(),
+        purchaseQty: double.tryParse(_purchaseQtyCtrl.text.trim().replaceAll(',', '.')),
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -485,6 +499,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         taraWeightG: Value(_taraEnabled
             ? double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))
             : null),
+        isStaple: _isStaple,
+        purchaseUnit: Value(_purchaseUnitCtrl.text.trim().isEmpty ? null : _purchaseUnitCtrl.text.trim()),
+        purchaseQty: Value(double.tryParse(_purchaseQtyCtrl.text.trim().replaceAll(',', '.'))),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -860,6 +877,55 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
               }),
               const SizedBox(height: 4),
             ],
+            const SizedBox(height: 12),
+            // Staple + purchase unit
+            SwitchListTile(
+              value: _isStaple,
+              onChanged: (v) => setState(() => _isStaple = v),
+              title: const Text('Grundnahrungsmittel'),
+              subtitle: const Text('Warnung im Dashboard wenn leer'),
+              contentPadding: EdgeInsets.zero,
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: _purchaseUnitCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Kaufeinheit',
+                      helperText: 'z. B. „Packung", „Karton"',
+                      prefixIcon: Icon(Icons.shopping_bag_outlined),
+                    ),
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _purchaseQtyCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Stück/Einheit',
+                      helperText: 'z. B. 10',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                'Einkaufsliste zeigt Packungsanzahl statt Einzelmenge',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             // Default location picker
             Consumer(builder: (context, ref, _) {

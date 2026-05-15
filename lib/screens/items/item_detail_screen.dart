@@ -1666,7 +1666,7 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
         thawedAt: _thawedAt,
         containerId: _containerId,
       );
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop(true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

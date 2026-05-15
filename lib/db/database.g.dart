@@ -901,6 +901,43 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isStapleMeta = const VerificationMeta(
+    'isStaple',
+  );
+  @override
+  late final GeneratedColumn<bool> isStaple = GeneratedColumn<bool>(
+    'is_staple',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_staple" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _purchaseUnitMeta = const VerificationMeta(
+    'purchaseUnit',
+  );
+  @override
+  late final GeneratedColumn<String> purchaseUnit = GeneratedColumn<String>(
+    'purchase_unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _purchaseQtyMeta = const VerificationMeta(
+    'purchaseQty',
+  );
+  @override
+  late final GeneratedColumn<double> purchaseQty = GeneratedColumn<double>(
+    'purchase_qty',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -964,6 +1001,9 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
     starRating,
     isFavorite,
     isTrashed,
+    isStaple,
+    purchaseUnit,
+    purchaseQty,
     createdAt,
     updatedAt,
   ];
@@ -1267,6 +1307,30 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         isTrashed.isAcceptableOrUnknown(data['is_trashed']!, _isTrashedMeta),
       );
     }
+    if (data.containsKey('is_staple')) {
+      context.handle(
+        _isStapleMeta,
+        isStaple.isAcceptableOrUnknown(data['is_staple']!, _isStapleMeta),
+      );
+    }
+    if (data.containsKey('purchase_unit')) {
+      context.handle(
+        _purchaseUnitMeta,
+        purchaseUnit.isAcceptableOrUnknown(
+          data['purchase_unit']!,
+          _purchaseUnitMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purchase_qty')) {
+      context.handle(
+        _purchaseQtyMeta,
+        purchaseQty.isAcceptableOrUnknown(
+          data['purchase_qty']!,
+          _purchaseQtyMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1436,6 +1500,18 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, Item> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_trashed'],
       )!,
+      isStaple: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_staple'],
+      )!,
+      purchaseUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}purchase_unit'],
+      ),
+      purchaseQty: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}purchase_qty'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1518,6 +1594,15 @@ class Item extends DataClass implements Insertable<Item> {
   final int? starRating;
   final bool isFavorite;
   final bool isTrashed;
+
+  /// When true, this item should always be in stock (triggers dashboard warning when empty).
+  final bool isStaple;
+
+  /// Unit in which this item is typically purchased (e.g. "Packung", "Karton").
+  final String? purchaseUnit;
+
+  /// How many stock units are contained in one purchase unit (e.g. 10 pieces per pack).
+  final double? purchaseQty;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Item({
@@ -1558,6 +1643,9 @@ class Item extends DataClass implements Insertable<Item> {
     this.starRating,
     required this.isFavorite,
     required this.isTrashed,
+    required this.isStaple,
+    this.purchaseUnit,
+    this.purchaseQty,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1657,6 +1745,13 @@ class Item extends DataClass implements Insertable<Item> {
     }
     map['is_favorite'] = Variable<bool>(isFavorite);
     map['is_trashed'] = Variable<bool>(isTrashed);
+    map['is_staple'] = Variable<bool>(isStaple);
+    if (!nullToAbsent || purchaseUnit != null) {
+      map['purchase_unit'] = Variable<String>(purchaseUnit);
+    }
+    if (!nullToAbsent || purchaseQty != null) {
+      map['purchase_qty'] = Variable<double>(purchaseQty);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1755,6 +1850,13 @@ class Item extends DataClass implements Insertable<Item> {
           : Value(starRating),
       isFavorite: Value(isFavorite),
       isTrashed: Value(isTrashed),
+      isStaple: Value(isStaple),
+      purchaseUnit: purchaseUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseUnit),
+      purchaseQty: purchaseQty == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseQty),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1809,6 +1911,9 @@ class Item extends DataClass implements Insertable<Item> {
       starRating: serializer.fromJson<int?>(json['starRating']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       isTrashed: serializer.fromJson<bool>(json['isTrashed']),
+      isStaple: serializer.fromJson<bool>(json['isStaple']),
+      purchaseUnit: serializer.fromJson<String?>(json['purchaseUnit']),
+      purchaseQty: serializer.fromJson<double?>(json['purchaseQty']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1854,6 +1959,9 @@ class Item extends DataClass implements Insertable<Item> {
       'starRating': serializer.toJson<int?>(starRating),
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'isTrashed': serializer.toJson<bool>(isTrashed),
+      'isStaple': serializer.toJson<bool>(isStaple),
+      'purchaseUnit': serializer.toJson<String?>(purchaseUnit),
+      'purchaseQty': serializer.toJson<double?>(purchaseQty),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -1897,6 +2005,9 @@ class Item extends DataClass implements Insertable<Item> {
     Value<int?> starRating = const Value.absent(),
     bool? isFavorite,
     bool? isTrashed,
+    bool? isStaple,
+    Value<String?> purchaseUnit = const Value.absent(),
+    Value<double?> purchaseQty = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Item(
@@ -1959,6 +2070,9 @@ class Item extends DataClass implements Insertable<Item> {
     starRating: starRating.present ? starRating.value : this.starRating,
     isFavorite: isFavorite ?? this.isFavorite,
     isTrashed: isTrashed ?? this.isTrashed,
+    isStaple: isStaple ?? this.isStaple,
+    purchaseUnit: purchaseUnit.present ? purchaseUnit.value : this.purchaseUnit,
+    purchaseQty: purchaseQty.present ? purchaseQty.value : this.purchaseQty,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2059,6 +2173,13 @@ class Item extends DataClass implements Insertable<Item> {
           ? data.isFavorite.value
           : this.isFavorite,
       isTrashed: data.isTrashed.present ? data.isTrashed.value : this.isTrashed,
+      isStaple: data.isStaple.present ? data.isStaple.value : this.isStaple,
+      purchaseUnit: data.purchaseUnit.present
+          ? data.purchaseUnit.value
+          : this.purchaseUnit,
+      purchaseQty: data.purchaseQty.present
+          ? data.purchaseQty.value
+          : this.purchaseQty,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2104,6 +2225,9 @@ class Item extends DataClass implements Insertable<Item> {
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
+          ..write('isStaple: $isStaple, ')
+          ..write('purchaseUnit: $purchaseUnit, ')
+          ..write('purchaseQty: $purchaseQty, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2149,6 +2273,9 @@ class Item extends DataClass implements Insertable<Item> {
     starRating,
     isFavorite,
     isTrashed,
+    isStaple,
+    purchaseUnit,
+    purchaseQty,
     createdAt,
     updatedAt,
   ]);
@@ -2193,6 +2320,9 @@ class Item extends DataClass implements Insertable<Item> {
           other.starRating == this.starRating &&
           other.isFavorite == this.isFavorite &&
           other.isTrashed == this.isTrashed &&
+          other.isStaple == this.isStaple &&
+          other.purchaseUnit == this.purchaseUnit &&
+          other.purchaseQty == this.purchaseQty &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2235,6 +2365,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
   final Value<int?> starRating;
   final Value<bool> isFavorite;
   final Value<bool> isTrashed;
+  final Value<bool> isStaple;
+  final Value<String?> purchaseUnit;
+  final Value<double?> purchaseQty;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2276,6 +2409,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
+    this.isStaple = const Value.absent(),
+    this.purchaseUnit = const Value.absent(),
+    this.purchaseQty = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2318,6 +2454,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     this.starRating = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.isTrashed = const Value.absent(),
+    this.isStaple = const Value.absent(),
+    this.purchaseUnit = const Value.absent(),
+    this.purchaseQty = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2362,6 +2501,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Expression<int>? starRating,
     Expression<bool>? isFavorite,
     Expression<bool>? isTrashed,
+    Expression<bool>? isStaple,
+    Expression<String>? purchaseUnit,
+    Expression<double>? purchaseQty,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2406,6 +2548,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       if (starRating != null) 'star_rating': starRating,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (isTrashed != null) 'is_trashed': isTrashed,
+      if (isStaple != null) 'is_staple': isStaple,
+      if (purchaseUnit != null) 'purchase_unit': purchaseUnit,
+      if (purchaseQty != null) 'purchase_qty': purchaseQty,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2450,6 +2595,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     Value<int?>? starRating,
     Value<bool>? isFavorite,
     Value<bool>? isTrashed,
+    Value<bool>? isStaple,
+    Value<String?>? purchaseUnit,
+    Value<double?>? purchaseQty,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -2492,6 +2640,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
       starRating: starRating ?? this.starRating,
       isFavorite: isFavorite ?? this.isFavorite,
       isTrashed: isTrashed ?? this.isTrashed,
+      isStaple: isStaple ?? this.isStaple,
+      purchaseUnit: purchaseUnit ?? this.purchaseUnit,
+      purchaseQty: purchaseQty ?? this.purchaseQty,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2614,6 +2765,15 @@ class ItemsCompanion extends UpdateCompanion<Item> {
     if (isTrashed.present) {
       map['is_trashed'] = Variable<bool>(isTrashed.value);
     }
+    if (isStaple.present) {
+      map['is_staple'] = Variable<bool>(isStaple.value);
+    }
+    if (purchaseUnit.present) {
+      map['purchase_unit'] = Variable<String>(purchaseUnit.value);
+    }
+    if (purchaseQty.present) {
+      map['purchase_qty'] = Variable<double>(purchaseQty.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2666,6 +2826,9 @@ class ItemsCompanion extends UpdateCompanion<Item> {
           ..write('starRating: $starRating, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('isTrashed: $isTrashed, ')
+          ..write('isStaple: $isStaple, ')
+          ..write('purchaseUnit: $purchaseUnit, ')
+          ..write('purchaseQty: $purchaseQty, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -28464,6 +28627,9 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
+      Value<bool> isStaple,
+      Value<String?> purchaseUnit,
+      Value<double?> purchaseQty,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -28507,6 +28673,9 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<int?> starRating,
       Value<bool> isFavorite,
       Value<bool> isTrashed,
+      Value<bool> isStaple,
+      Value<String?> purchaseUnit,
+      Value<double?> purchaseQty,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -29066,6 +29235,21 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<bool> get isTrashed => $composableBuilder(
     column: $table.isTrashed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isStaple => $composableBuilder(
+    column: $table.isStaple,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get purchaseUnit => $composableBuilder(
+    column: $table.purchaseUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get purchaseQty => $composableBuilder(
+    column: $table.purchaseQty,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -29704,6 +29888,21 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isStaple => $composableBuilder(
+    column: $table.isStaple,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get purchaseUnit => $composableBuilder(
+    column: $table.purchaseUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get purchaseQty => $composableBuilder(
+    column: $table.purchaseQty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -29946,6 +30145,19 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<bool> get isTrashed =>
       $composableBuilder(column: $table.isTrashed, builder: (column) => column);
+
+  GeneratedColumn<bool> get isStaple =>
+      $composableBuilder(column: $table.isStaple, builder: (column) => column);
+
+  GeneratedColumn<String> get purchaseUnit => $composableBuilder(
+    column: $table.purchaseUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get purchaseQty => $composableBuilder(
+    column: $table.purchaseQty,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -30487,6 +30699,9 @@ class $$ItemsTableTableManager
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
+                Value<bool> isStaple = const Value.absent(),
+                Value<String?> purchaseUnit = const Value.absent(),
+                Value<double?> purchaseQty = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -30528,6 +30743,9 @@ class $$ItemsTableTableManager
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
+                isStaple: isStaple,
+                purchaseUnit: purchaseUnit,
+                purchaseQty: purchaseQty,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -30571,6 +30789,9 @@ class $$ItemsTableTableManager
                 Value<int?> starRating = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isTrashed = const Value.absent(),
+                Value<bool> isStaple = const Value.absent(),
+                Value<String?> purchaseUnit = const Value.absent(),
+                Value<double?> purchaseQty = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -30612,6 +30833,9 @@ class $$ItemsTableTableManager
                 starRating: starRating,
                 isFavorite: isFavorite,
                 isTrashed: isTrashed,
+                isStaple: isStaple,
+                purchaseUnit: purchaseUnit,
+                purchaseQty: purchaseQty,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

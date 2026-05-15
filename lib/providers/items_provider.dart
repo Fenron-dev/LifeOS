@@ -163,6 +163,9 @@ class ItemsNotifier extends AsyncNotifier<void> {
     String? templateId,
     String? openedLocationId,
     double? taraWeightG,
+    bool isStaple = false,
+    String? purchaseUnit,
+    double? purchaseQty,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -199,6 +202,9 @@ class ItemsNotifier extends AsyncNotifier<void> {
       templateId: Value(templateId),
       openedLocationId: Value(openedLocationId),
       taraWeightG: Value(taraWeightG),
+      isStaple: Value(isStaple),
+      purchaseUnit: Value(purchaseUnit),
+      purchaseQty: Value(purchaseQty),
     ));
     return id;
   }
@@ -239,6 +245,9 @@ class ItemsNotifier extends AsyncNotifier<void> {
       templateId: Value(item.templateId),
       openedLocationId: Value(item.openedLocationId),
       taraWeightG: Value(item.taraWeightG),
+      isStaple: Value(item.isStaple),
+      purchaseUnit: Value(item.purchaseUnit),
+      purchaseQty: Value(item.purchaseQty),
       updatedAt: Value(DateTime.now()),
     ));
   }

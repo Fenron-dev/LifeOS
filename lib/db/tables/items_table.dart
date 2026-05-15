@@ -89,6 +89,15 @@ class Items extends Table {
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
   BoolColumn get isTrashed => boolean().withDefault(const Constant(false))();
 
+  /// When true, this item should always be in stock (triggers dashboard warning when empty).
+  BoolColumn get isStaple => boolean().withDefault(const Constant(false))();
+
+  /// Unit in which this item is typically purchased (e.g. "Packung", "Karton").
+  TextColumn get purchaseUnit => text().nullable()();
+
+  /// How many stock units are contained in one purchase unit (e.g. 10 pieces per pack).
+  RealColumn get purchaseQty => real().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

@@ -36,6 +36,12 @@ class ShoppingListScreen extends ConsumerWidget {
       ),
       if (!shoppingMode)
         IconButton(
+          icon: const Icon(Icons.qr_code_scanner),
+          tooltip: 'Scan zum Hinzufügen',
+          onPressed: () => _scanToAdd(context, ref),
+        ),
+      if (!shoppingMode)
+        IconButton(
           icon: const Icon(Icons.add),
           tooltip: 'Eintrag hinzufügen',
           onPressed: () => _showAddDialog(context, ref),
@@ -193,6 +199,17 @@ class ShoppingListScreen extends ConsumerWidget {
       return Stack(
         children: [
           body,
+          if (!shoppingMode)
+            Positioned(
+              right: 16,
+              bottom: 136,
+              child: FloatingActionButton.small(
+                heroTag: 'scan_shopping',
+                onPressed: () => _scanToAdd(context, ref),
+                tooltip: 'Scan zum Hinzufügen',
+                child: const Icon(Icons.qr_code_scanner),
+              ),
+            ),
           Positioned(
             right: 16,
             bottom: 80,
@@ -246,6 +263,38 @@ class ShoppingListScreen extends ConsumerWidget {
         preselectedShopId: preselectedShopId,
       ),
     );
+  }
+
+  Future<void> _scanToAdd(BuildContext context, WidgetRef ref) async {
+    final ean = await context.push<String>('/scan');
+    if (ean == null || !context.mounted) return;
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    final item = await db.itemByEan(ean);
+    if (!context.mounted) return;
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Artikel nicht gefunden'),
+          action: SnackBarAction(
+            label: 'Anlegen',
+            onPressed: () => context.push('/haushalt/item/new', extra: ean),
+          ),
+        ),
+      );
+      return;
+    }
+    await db.insertCustomShoppingItem(CustomShoppingItemsCompanion.insert(
+      id: const Uuid().v4(),
+      name: item.name,
+      itemId: Value(item.id),
+      shopId: Value(item.preferredShopId),
+    ));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.name} zur Einkaufsliste hinzugefügt')),
+      );
+    }
   }
 }
 
@@ -393,7 +442,7 @@ class _CustomItemTile extends ConsumerWidget {
               )
             : null,
         trailing: PopupMenuButton<String>(
-          onSelected: (v) {
+          onSelected: (v) async {
             if (v == 'edit') {
               showModalBottomSheet<void>(
                 context: context,
@@ -403,6 +452,21 @@ class _CustomItemTile extends ConsumerWidget {
               );
             } else if (v == 'delete') {
               db?.deleteCustomShoppingItem(item.id);
+            } else if (v == 'link') {
+              final allItems = ref.read(allItemsProvider).valueOrNull ?? [];
+              if (allItems.isEmpty || !context.mounted) return;
+              final picked = await showModalBottomSheet<Item>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (ctx) => _ItemSearchSheet(items: allItems),
+              );
+              if (picked != null && context.mounted) {
+                await db?.updateCustomShoppingItem(CustomShoppingItemsCompanion(
+                  id: Value(item.id),
+                  itemId: Value(picked.id),
+                ));
+              }
             }
           },
           itemBuilder: (_) => [
@@ -412,6 +476,14 @@ class _CustomItemTile extends ConsumerWidget {
                 Icon(Icons.edit_outlined),
                 SizedBox(width: 8),
                 Text('Bearbeiten'),
+              ]),
+            ),
+            const PopupMenuItem(
+              value: 'link',
+              child: Row(children: [
+                Icon(Icons.link),
+                SizedBox(width: 8),
+                Text('Mit Artikel verknüpfen'),
               ]),
             ),
             const PopupMenuItem(
@@ -594,15 +666,20 @@ class _LinkedItemCard extends ConsumerWidget {
                       ),
                     ),
                     const Spacer(),
-                    // Buy button → opens AddStockSheet
+                    // Buy button → opens AddStockSheet, auto-removes on success
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          useSafeArea: true,
-                          builder: (_) => AddStockSheet(item: item),
-                        ),
+                        onPressed: () async {
+                          final booked = await showModalBottomSheet<bool>(
+                            context: context,
+                            isScrollControlled: true,
+                            useSafeArea: true,
+                            builder: (_) => AddStockSheet(item: item),
+                          );
+                          if (booked == true && context.mounted) {
+                            await db?.deleteCustomShoppingItem(customItem.id);
+                          }
+                        },
                         icon: const Icon(Icons.add_shopping_cart, size: 18),
                         label: Text(
                           neededQty > 0
@@ -788,15 +865,36 @@ class _NeedCard extends ConsumerWidget {
                   ),
                 ),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showBuyFlow(context, ref, need),
-                    icon: const Icon(Icons.add_shopping_cart, size: 18),
-                    label: Text(
-                      '+${_fmt(need.neededQty)} $unit einkaufen',
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
+                  child: Builder(builder: (context) {
+                    final pUnit = need.item?.purchaseUnit;
+                    final pQty = need.item?.purchaseQty;
+                    final packCount = (pUnit != null && pQty != null && pQty > 0)
+                        ? (need.neededQty / pQty).ceil()
+                        : null;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _showBuyFlow(context, ref, need),
+                          icon: const Icon(Icons.add_shopping_cart, size: 18),
+                          label: Text(
+                            packCount != null
+                                ? '+$packCount $pUnit einkaufen'
+                                : '+${_fmt(need.neededQty)} $unit einkaufen',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        if (packCount != null)
+                          Text(
+                            '= ${_fmt(need.neededQty)} $unit',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline),
+                            textAlign: TextAlign.center,
+                          ),
+                      ],
+                    );
+                  }),
                 ),
               ],
             ),
