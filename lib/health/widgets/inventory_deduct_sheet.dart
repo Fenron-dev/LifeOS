@@ -185,6 +185,7 @@ class _InventoryDeductSheetState
         consumeQty: item?.consumeQty,
         consumeUnit: item?.consumeUnit,
         fallbackQty: fallback,
+        diaryMode: true,
       );
 
       // Pre-select the option matching item.consumeUnit (if it exists)

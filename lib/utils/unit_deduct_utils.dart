@@ -123,25 +123,38 @@ double? unitToGrams(String unit, List<UnitConversion> conversions) {
 
 /// Builds the list of selectable deduction unit options.
 /// Always includes the raw [inventoryUnit] (factor = 1).
+///
+/// When [diaryMode] is true (inventory deduction from a diary entry),
+/// each option's [defaultQty] is derived from [fallbackQty] via
+/// `fallbackQty / factor` — so the pre-filled quantity reflects the actual
+/// logged amount (e.g. 3 Portions, not 1).
+///
+/// When [diaryMode] is false (quick-consume flows), the old behaviour is
+/// preserved: [consumeUnit]/[consumeQty] supply the default for the logical
+/// unit, and [fallbackQty] is used for the raw inventory unit.
 List<UnitDeductOption> buildDeductUnitOptions({
   required String inventoryUnit,
   required List<UnitConversion> conversions,
   double? consumeQty,
   String? consumeUnit,
   required double fallbackQty,
+  bool diaryMode = false,
 }) {
   final invLo = inventoryUnit.toLowerCase().trim();
   final options = <UnitDeductOption>[];
   final seen = <String>{invLo};
 
-  double defQtyFor(String u) {
+  double defQtyFor(String u, double factor) {
+    if (diaryMode) {
+      return factor > 0 ? (fallbackQty / factor).clamp(0.01, 999.0) : fallbackQty;
+    }
     if (consumeUnit?.toLowerCase().trim() == u.toLowerCase().trim()) {
       return consumeQty ?? 1.0;
     }
     return u.toLowerCase().trim() == invLo ? fallbackQty : 1.0;
   }
 
-  options.add(UnitDeductOption(inventoryUnit, 1.0, defQtyFor(inventoryUnit)));
+  options.add(UnitDeductOption(inventoryUnit, 1.0, defQtyFor(inventoryUnit, 1.0)));
 
   for (final conv in conversions) {
     final fromLo = conv.fromUnit.toLowerCase().trim();
@@ -155,8 +168,7 @@ List<UnitDeductOption> buildDeductUnitOptions({
         allConversions: conversions,
       );
       if (f != null) {
-        options.add(
-            UnitDeductOption(conv.fromUnit, f, defQtyFor(conv.fromUnit)));
+        options.add(UnitDeductOption(conv.fromUnit, f, defQtyFor(conv.fromUnit, f)));
         seen.add(fromLo);
       }
     }
@@ -169,8 +181,7 @@ List<UnitDeductOption> buildDeductUnitOptions({
         allConversions: conversions,
       );
       if (f != null) {
-        options
-            .add(UnitDeductOption(conv.toUnit, f, defQtyFor(conv.toUnit)));
+        options.add(UnitDeductOption(conv.toUnit, f, defQtyFor(conv.toUnit, f)));
         seen.add(toLo);
       }
     }

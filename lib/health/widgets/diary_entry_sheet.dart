@@ -339,7 +339,7 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
     final result = await showModalBottomSheet<FoodSearchResult?>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const FoodSearchSheet(),
+      builder: (_) => FoodSearchSheet(mealTypeId: _mealTypeId),
     );
     if (result == null) return;
     setState(() {

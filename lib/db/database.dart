@@ -1430,6 +1430,55 @@ class AppDatabase extends _$AppDatabase {
   Future<NutritionLog?> getNutritionLogById(String id) =>
       (select(nutritionLogs)..where((l) => l.id.equals(id))).getSingleOrNull();
 
+  /// Most recent distinct food entries (one per food, newest first).
+  /// Optionally filtered by [mealTypeId].
+  Future<List<NutritionLog>> recentlyLoggedFoods({
+    String? mealTypeId,
+    int limit = 20,
+  }) async {
+    final all = await (select(nutritionLogs)
+          ..where((l) => mealTypeId != null
+              ? l.mealTypeId.equals(mealTypeId)
+              : const Constant(true))
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)])
+          ..limit(500))
+        .get();
+    final seen = <String>{};
+    final result = <NutritionLog>[];
+    for (final log in all) {
+      final key = log.itemId ?? '${log.productName}|${log.source}';
+      if (seen.add(key)) {
+        result.add(log);
+        if (result.length >= limit) break;
+      }
+    }
+    return result;
+  }
+
+  /// Most frequently logged distinct foods (highest count first).
+  /// Optionally filtered by [mealTypeId].
+  Future<List<NutritionLog>> mostFrequentlyLoggedFoods({
+    String? mealTypeId,
+    int limit = 20,
+  }) async {
+    final all = await (select(nutritionLogs)
+          ..where((l) => mealTypeId != null
+              ? l.mealTypeId.equals(mealTypeId)
+              : const Constant(true))
+          ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]))
+        .get();
+    final counts = <String, int>{};
+    final examples = <String, NutritionLog>{};
+    for (final log in all) {
+      final key = log.itemId ?? '${log.productName}|${log.source}';
+      counts[key] = (counts[key] ?? 0) + 1;
+      examples.putIfAbsent(key, () => log);
+    }
+    final keys = counts.keys.toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+    return keys.take(limit).map((k) => examples[k]!).toList();
+  }
+
   // ── Water logs ────────────────────────────────────────────────────────────
 
   Stream<List<WaterLog>> watchWaterLogsForDay(DateTime day) {

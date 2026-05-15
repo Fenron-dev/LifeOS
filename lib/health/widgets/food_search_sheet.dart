@@ -58,14 +58,20 @@ class FoodSearchResult {
 /// Bottom sheet for searching food. Searches local items, recipes and the
 /// OpenFoodFacts API in parallel. Also supports barcode scanning.
 /// Pops with a [FoodSearchResult] or `null` on cancel.
+///
+/// [mealTypeId] is used to filter the "recently eaten" and "most frequent"
+/// history tabs so they only show foods logged for the same meal slot.
 class FoodSearchSheet extends ConsumerStatefulWidget {
-  const FoodSearchSheet({super.key});
+  final String? mealTypeId;
+  const FoodSearchSheet({super.key, this.mealTypeId});
 
   @override
   ConsumerState<FoodSearchSheet> createState() => _FoodSearchSheetState();
 }
 
-class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
+class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabCtrl;
   final _controller = TextEditingController();
   Timer? _debounce;
 
@@ -75,11 +81,43 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   // null = all sources; 'local' | 'recipe' | 'off' = filtered
   String? _sourceFilter;
 
+  // History tabs
+  bool _historyLoading = true;
+  List<NutritionLog> _recentLogs = [];
+  List<NutritionLog> _frequentLogs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 3, vsync: this);
+    _loadHistory();
+  }
+
   @override
   void dispose() {
+    _tabCtrl.dispose();
     _debounce?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadHistory() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) {
+      if (mounted) setState(() => _historyLoading = false);
+      return;
+    }
+    final results = await Future.wait([
+      db.recentlyLoggedFoods(mealTypeId: widget.mealTypeId),
+      db.mostFrequentlyLoggedFoods(mealTypeId: widget.mealTypeId),
+    ]);
+    if (mounted) {
+      setState(() {
+        _recentLogs = results[0];
+        _frequentLogs = results[1];
+        _historyLoading = false;
+      });
+    }
   }
 
   void _onChanged(String query) {
@@ -111,8 +149,6 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
           .map(_SearchItem.fromOff)
           .toList();
 
-      // Local names that already exist — OFF results with the same name are
-      // suppressed so the user always sees the locally-corrected data first.
       final localNames =
           localItems.map((i) => i.name.toLowerCase().trim()).toSet();
       final localEans =
@@ -122,7 +158,6 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
       final merged = <_SearchItem>[];
       for (final item
           in [...localItems, ...recipeItems, ...mealItems, ...offProducts]) {
-        // Suppress OFF results shadowed by a local item (same EAN or name)
         if (item.source == 'off') {
           if (item.ean != null && localEans.contains(item.ean)) continue;
           if (localNames.contains(item.name.toLowerCase().trim())) continue;
@@ -233,6 +268,60 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     ));
   }
 
+  /// Picks a food from a history log entry, loading full item data when
+  /// available for accurate per-100g nutritional values.
+  Future<void> _pickFromLog(NutritionLog log) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    if (log.itemId != null) {
+      switch (log.source) {
+        case 'local':
+          final item = await db.itemById(log.itemId!);
+          if (item != null) { _pick(_SearchItem.fromItem(item)); return; }
+        case 'recipe':
+          final recipe = await db.recipeById(log.itemId!);
+          if (recipe != null) {
+            final nutrition = await db.computeRecipeNutrition(log.itemId!);
+            _pick(_SearchItem.fromRecipe(recipe, nutrition));
+            return;
+          }
+        case 'meal':
+          final meals = await db.watchAllMeals().first;
+          final meal = meals.where((m) => m.id == log.itemId).firstOrNull;
+          if (meal != null) {
+            final nutrition = await db.computeMealNutrition(log.itemId!);
+            _pick(_SearchItem.fromMeal(meal, nutrition));
+            return;
+          }
+      }
+    }
+
+    // Fallback: reconstruct from log data
+    double? cal100;
+    if (log.quantityG > 0 && log.kcal != null) {
+      cal100 = log.kcal! * 100 / log.quantityG;
+    }
+    _pick(_SearchItem(
+      name: log.productName,
+      brand: log.brand,
+      itemId: log.itemId,
+      caloriesPer100g: cal100,
+      proteinPer100g: (log.proteinG != null && log.quantityG > 0)
+          ? log.proteinG! * 100 / log.quantityG
+          : null,
+      carbsPer100g: (log.carbsG != null && log.quantityG > 0)
+          ? log.carbsG! * 100 / log.quantityG
+          : null,
+      fatPer100g: (log.fatG != null && log.quantityG > 0)
+          ? log.fatG! * 100 / log.quantityG
+          : null,
+      servingSizeG: log.quantityG > 0 ? log.quantityG : null,
+      servingUnit: log.displayUnit,
+      source: log.source,
+    ));
+  }
+
   List<_SearchItem> get _filteredResults {
     if (_sourceFilter == null) return _results;
     return _results.where((r) => r.source == _sourceFilter).toList();
@@ -245,7 +334,6 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.of(context).viewInsets.bottom;
     final cs = Theme.of(context).colorScheme;
-    final filtered = _filteredResults;
 
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -264,10 +352,10 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: Row(
                 children: [
-                  Text('Lebensmittel suchen',
+                  Text('Lebensmittel',
                       style: Theme.of(context).textTheme.titleLarge),
                   const Spacer(),
                   TextButton(
@@ -277,152 +365,284 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _controller,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Name oder EAN …',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_loading)
-                        const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 20, height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.qr_code_scanner),
-                        tooltip: 'Barcode scannen',
-                        onPressed: _scanBarcode,
-                      ),
-                    ],
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: _onChanged,
-                onSubmitted: _search,
-                textInputAction: TextInputAction.search,
-              ),
+            // ── Tab bar ───────────────────────────────────────────────────
+            TabBar(
+              controller: _tabCtrl,
+              tabs: const [
+                Tab(text: 'Suche'),
+                Tab(text: 'Kürzlich'),
+                Tab(text: 'Häufig'),
+              ],
             ),
-            const SizedBox(height: 8),
+            // ── Search field (Suche tab only) ─────────────────────────────
+            AnimatedBuilder(
+              animation: _tabCtrl,
+              builder: (_, child) => _tabCtrl.index == 0
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: TextField(
+                        controller: _controller,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Name oder EAN …',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_loading)
+                                const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 20, height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.qr_code_scanner),
+                                tooltip: 'Barcode scannen',
+                                onPressed: _scanBarcode,
+                              ),
+                            ],
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                        onChanged: _onChanged,
+                        onSubmitted: _search,
+                        textInputAction: TextInputAction.search,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Text(_error!, style: TextStyle(color: cs.error)),
               ),
-            // ── Source filter chips ───────────────────────────────────────
-            if (_results.isNotEmpty)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _FilterChip(
-                        label: 'Alle (${_results.length})',
-                        selected: _sourceFilter == null,
-                        onSelected: () => setState(() => _sourceFilter = null),
-                        cs: cs,
-                      ),
-                      const SizedBox(width: 6),
-                      if (_countBySource('local') > 0) ...[
-                        _FilterChip(
-                          label: 'Lokal (${_countBySource('local')})',
-                          selected: _sourceFilter == 'local',
-                          onSelected: () =>
-                              setState(() => _sourceFilter = 'local'),
-                          cs: cs,
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      if (_countBySource('recipe') > 0) ...[
-                        _FilterChip(
-                          label: 'Rezepte (${_countBySource('recipe')})',
-                          selected: _sourceFilter == 'recipe',
-                          onSelected: () =>
-                              setState(() => _sourceFilter = 'recipe'),
-                          cs: cs,
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      if (_countBySource('meal') > 0) ...[
-                        _FilterChip(
-                          label: 'Gerichte (${_countBySource('meal')})',
-                          selected: _sourceFilter == 'meal',
-                          onSelected: () =>
-                              setState(() => _sourceFilter = 'meal'),
-                          cs: cs,
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      if (_countBySource('off') > 0)
-                        _FilterChip(
-                          label: 'Online (${_countBySource('off')})',
-                          selected: _sourceFilter == 'off',
-                          onSelected: () =>
-                              setState(() => _sourceFilter = 'off'),
-                          cs: cs,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
             Expanded(
-              child: filtered.isEmpty && !_loading
-                  ? _EmptyHint(
-                      hasQuery: _controller.text.trim().isNotEmpty,
-                      onManual: _pickManual,
-                    )
-                  : ListView.builder(
-                      itemCount: filtered.length + 1,
-                      itemBuilder: (ctx, i) {
-                        if (i == filtered.length) {
-                          return ListTile(
-                            leading: const Icon(Icons.edit_outlined),
-                            title: const Text('Manuell eingeben'),
-                            onTap: _pickManual,
-                          );
-                        }
-                        final item = filtered[i];
-                        final (bgColor, fgColor, icon) = switch (item.source) {
-                          'recipe' => (cs.tertiaryContainer, cs.onTertiaryContainer, Icons.menu_book_outlined),
-                          'meal'   => (cs.tertiaryContainer, cs.onTertiaryContainer, Icons.dinner_dining),
-                          'local'  => (cs.primaryContainer,  cs.onPrimaryContainer,  Icons.inventory_2_outlined),
-                          _        => (cs.secondaryContainer, cs.onSecondaryContainer, Icons.public),
-                        };
-                        final refUnit = item.nutritionRefUnit ?? 'g';
-                        final subtitle = [
-                          if (item.brand != null) item.brand!,
-                          if (item.caloriesPer100g != null)
-                            '${item.caloriesPer100g!.toStringAsFixed(0)} kcal/100$refUnit'
-                          else if (item.recipeKcalTotal != null)
-                            '${item.recipeKcalTotal!.toStringAsFixed(0)} kcal gesamt',
-                        ].join(' · ');
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: bgColor,
-                            child: Icon(icon, size: 18, color: fgColor),
-                          ),
-                          title: Text(item.name),
-                          subtitle: subtitle.isNotEmpty
-                              ? Text(subtitle,
-                                  style: TextStyle(color: cs.onSurfaceVariant))
-                              : null,
-                          onTap: () => _pick(item),
-                        );
-                      },
-                    ),
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _buildSearchTab(cs),
+                  _buildHistoryTab(_recentLogs, cs),
+                  _buildHistoryTab(_frequentLogs, cs),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSearchTab(ColorScheme cs) {
+    final filtered = _filteredResults;
+
+    if (_results.isEmpty && !_loading) {
+      return _EmptyHint(
+        hasQuery: _controller.text.trim().isNotEmpty,
+        onManual: _pickManual,
+      );
+    }
+
+    return Column(
+      children: [
+        // ── Source filter chips ──────────────────────────────────────────
+        if (_results.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterChip(
+                    label: 'Alle (${_results.length})',
+                    selected: _sourceFilter == null,
+                    onSelected: () => setState(() => _sourceFilter = null),
+                    cs: cs,
+                  ),
+                  const SizedBox(width: 6),
+                  if (_countBySource('local') > 0) ...[
+                    _FilterChip(
+                      label: 'Lokal (${_countBySource('local')})',
+                      selected: _sourceFilter == 'local',
+                      onSelected: () =>
+                          setState(() => _sourceFilter = 'local'),
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (_countBySource('recipe') > 0) ...[
+                    _FilterChip(
+                      label: 'Rezepte (${_countBySource('recipe')})',
+                      selected: _sourceFilter == 'recipe',
+                      onSelected: () =>
+                          setState(() => _sourceFilter = 'recipe'),
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (_countBySource('meal') > 0) ...[
+                    _FilterChip(
+                      label: 'Gerichte (${_countBySource('meal')})',
+                      selected: _sourceFilter == 'meal',
+                      onSelected: () =>
+                          setState(() => _sourceFilter = 'meal'),
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (_countBySource('off') > 0)
+                    _FilterChip(
+                      label: 'Online (${_countBySource('off')})',
+                      selected: _sourceFilter == 'off',
+                      onSelected: () =>
+                          setState(() => _sourceFilter = 'off'),
+                      cs: cs,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: filtered.length + 1,
+            itemBuilder: (ctx, i) {
+              if (i == filtered.length) {
+                return ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Manuell eingeben'),
+                  onTap: _pickManual,
+                );
+              }
+              final item = filtered[i];
+              return _SearchItemTile(item: item, cs: cs, onTap: () => _pick(item));
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHistoryTab(List<NutritionLog> logs, ColorScheme cs) {
+    if (_historyLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (logs.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history, size: 48, color: cs.outline),
+              const SizedBox(height: 12),
+              Text(
+                'Noch keine Einträge vorhanden.',
+                style: TextStyle(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      itemCount: logs.length,
+      itemBuilder: (ctx, i) {
+        final log = logs[i];
+        final (bgColor, fgColor, icon) = switch (log.source) {
+          'recipe' => (
+              cs.tertiaryContainer,
+              cs.onTertiaryContainer,
+              Icons.menu_book_outlined
+            ),
+          'meal' => (
+              cs.tertiaryContainer,
+              cs.onTertiaryContainer,
+              Icons.dinner_dining
+            ),
+          'local' => (
+              cs.primaryContainer,
+              cs.onPrimaryContainer,
+              Icons.inventory_2_outlined
+            ),
+          _ => (
+              cs.secondaryContainer,
+              cs.onSecondaryContainer,
+              Icons.public
+            ),
+        };
+        final kcalStr = log.kcal != null
+            ? '${log.kcal!.toStringAsFixed(0)} kcal'
+            : null;
+        final subtitle = [log.brand, kcalStr]
+            .whereType<String>()
+            .join(' · ');
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: bgColor,
+            child: Icon(icon, size: 18, color: fgColor),
+          ),
+          title: Text(log.productName),
+          subtitle: subtitle.isNotEmpty
+              ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant))
+              : null,
+          onTap: () => _pickFromLog(log),
+        );
+      },
+    );
+  }
+}
+
+class _SearchItemTile extends StatelessWidget {
+  final _SearchItem item;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  const _SearchItemTile({
+    required this.item,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final (bgColor, fgColor, icon) = switch (item.source) {
+      'recipe' => (
+          cs.tertiaryContainer,
+          cs.onTertiaryContainer,
+          Icons.menu_book_outlined
+        ),
+      'meal' => (
+          cs.tertiaryContainer,
+          cs.onTertiaryContainer,
+          Icons.dinner_dining
+        ),
+      'local' => (
+          cs.primaryContainer,
+          cs.onPrimaryContainer,
+          Icons.inventory_2_outlined
+        ),
+      _ => (cs.secondaryContainer, cs.onSecondaryContainer, Icons.public),
+    };
+    final refUnit = item.nutritionRefUnit ?? 'g';
+    final subtitle = [
+      if (item.brand != null) item.brand!,
+      if (item.caloriesPer100g != null)
+        '${item.caloriesPer100g!.toStringAsFixed(0)} kcal/100$refUnit'
+      else if (item.recipeKcalTotal != null)
+        '${item.recipeKcalTotal!.toStringAsFixed(0)} kcal gesamt',
+    ].join(' · ');
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: bgColor,
+        child: Icon(icon, size: 18, color: fgColor),
+      ),
+      title: Text(item.name),
+      subtitle: subtitle.isNotEmpty
+          ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant))
+          : null,
+      onTap: onTap,
     );
   }
 }
@@ -565,14 +785,13 @@ class _SearchItem {
         : null;
     return _SearchItem(
       name: r.name,
-      itemId: r.id, // stored so diary log can find ingredients for deduction
+      itemId: r.id,
       caloriesPer100g: nutrition?.caloriesPer100g,
       proteinPer100g: nutrition?.proteinPer100g,
       carbsPer100g: nutrition?.carbsPer100g,
       fatPer100g: nutrition?.fatPer100g,
       fiberPer100g: nutrition?.fiberPer100g,
       servingSizeG: servingSizeG,
-      // Fall back to stored per-serving values when no ingredients are linked
       recipeKcalTotal: nutrition?.kcal ?? r.caloriesPerServing,
       recipeProteinTotal: nutrition?.proteinG ?? r.proteinPerServing,
       recipeCarbsTotal: nutrition?.carbsG ?? r.carbsPerServing,
@@ -585,15 +804,13 @@ class _SearchItem {
   factory _SearchItem.fromMeal(StandardMeal m, RecipeNutritionData? nutrition) {
     return _SearchItem(
       name: m.name,
-      itemId: m.id, // stored so diary log can find ingredients for deduction
+      itemId: m.id,
       caloriesPer100g: nutrition?.caloriesPer100g,
       proteinPer100g: nutrition?.proteinPer100g,
       carbsPer100g: nutrition?.carbsPer100g,
       fatPer100g: nutrition?.fatPer100g,
       fiberPer100g: nutrition?.fiberPer100g,
       servingSizeG: nutrition?.totalWeightG,
-      // Fall back to values stored on the meal row when ingredient-based
-      // computation returns nothing (no linked items, no nutrition data).
       recipeKcalTotal: nutrition?.kcal ?? m.kcalTotal,
       recipeProteinTotal: nutrition?.proteinG ?? m.proteinG,
       recipeCarbsTotal: nutrition?.carbsG ?? m.carbsG,
