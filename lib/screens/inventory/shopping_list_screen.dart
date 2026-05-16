@@ -10,19 +10,66 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/shops_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../widgets/search_filter_bar.dart';
 import '../items/item_detail_screen.dart';
 
 /// Tracks whether the simplified "Einkaufsmodus" is active.
 /// Scoped to the app session — resets on hot restart but not hot reload.
 final _shoppingModeProvider = StateProvider<bool>((ref) => false);
 
-class ShoppingListScreen extends ConsumerWidget {
+class ShoppingListScreen extends ConsumerStatefulWidget {
   /// When true, omits the Scaffold/AppBar — used when embedded in a TabBarView.
   final bool embedded;
   const ShoppingListScreen({super.key, this.embedded = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShoppingListScreen> createState() => _ShoppingListScreenState();
+}
+
+class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
+  String _query = '';
+  String? _typeFilter; // null=all | 'needs' | 'custom'
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _hasFilters => _typeFilter != null;
+
+  List<ActiveFilterChip> _buildChips() {
+    if (_typeFilter == null) return [];
+    final label = _typeFilter == 'needs' ? 'Mindestbestand' : 'Manuell';
+    return [
+      ActiveFilterChip(
+        label: label,
+        onRemove: () => setState(() => _typeFilter = null),
+      )
+    ];
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _ShoppingFilterSheet(
+        typeFilter: _typeFilter,
+        onChanged: (t) {
+          setState(() => _typeFilter = t);
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final sectionsAsync = ref.watch(shoppingByShopProvider);
     final shoppingMode = ref.watch(_shoppingModeProvider);
 
@@ -38,13 +85,13 @@ class ShoppingListScreen extends ConsumerWidget {
         IconButton(
           icon: const Icon(Icons.qr_code_scanner),
           tooltip: 'Scan zum Hinzufügen',
-          onPressed: () => _scanToAdd(context, ref),
+          onPressed: () => _scanToAdd(context),
         ),
       if (!shoppingMode)
         IconButton(
           icon: const Icon(Icons.add),
           tooltip: 'Eintrag hinzufügen',
-          onPressed: () => _showAddDialog(context, ref),
+          onPressed: () => _showAddDialog(context),
         ),
       if (!shoppingMode)
         PopupMenuButton<String>(
@@ -106,7 +153,7 @@ class ShoppingListScreen extends ConsumerWidget {
                 ],
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
-                  onPressed: () => _showAddDialog(context, ref),
+                  onPressed: () => _showAddDialog(context),
                   icon: const Icon(Icons.add),
                   label: const Text('Eintrag hinzufügen'),
                 ),
@@ -114,6 +161,30 @@ class ShoppingListScreen extends ConsumerWidget {
             ),
           );
         }
+
+        // Apply search + type filter to each section client-side
+        ShoppingSection filterSection(ShoppingSection s) {
+          var needs = s.needs;
+          var custom = s.customItems;
+          if (_typeFilter == 'needs') custom = [];
+          if (_typeFilter == 'custom') needs = [];
+          if (_query.isNotEmpty) {
+            final q = _query.toLowerCase();
+            needs = needs
+                .where((n) => n.name.toLowerCase().contains(q))
+                .toList();
+            custom = custom
+                .where((c) => c.name.toLowerCase().contains(q))
+                .toList();
+          }
+          return ShoppingSection(
+              shop: s.shop, needs: needs, customItems: custom);
+        }
+
+        final filteredSections = sections
+            .map(filterSection)
+            .where((s) => s.needs.isNotEmpty || s.customItems.isNotEmpty)
+            .toList();
 
         final checkedCount =
             allCustom.where((c) => c.checked).length;
@@ -150,7 +221,7 @@ class ShoppingListScreen extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.qr_code_scanner),
                             tooltip: 'Scan zum Hinzufügen',
-                            onPressed: () => _scanToAdd(context, ref),
+                            onPressed: () => _scanToAdd(context),
                           ),
                         ],
                         const Spacer(),
@@ -187,11 +258,21 @@ class ShoppingListScreen extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.add),
                             tooltip: 'Eintrag hinzufügen',
-                            onPressed: () => _showAddDialog(context, ref),
+                            onPressed: () => _showAddDialog(context),
                           ),
                       ],
                     ),
                   ),
+                  if (!shoppingMode)
+                    SearchAndFilterBar(
+                      query: _query,
+                      controller: _searchCtrl,
+                      onQueryChanged: (v) => setState(() => _query = v),
+                      hintText: 'Artikel suchen…',
+                      hasActiveFilters: _hasFilters,
+                      activeFilterChips: _buildChips(),
+                      onFilterTap: () => _showFilterSheet(context),
+                    ),
                   if (shoppingMode)
                     Container(
                       width: double.infinity,
@@ -222,26 +303,39 @@ class ShoppingListScreen extends ConsumerWidget {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                itemCount: sections.length,
-                itemBuilder: (context, si) {
-                  final section = sections[si];
-                  return _ShopSection(
-                    section: section,
-                    shoppingMode: shoppingMode,
-                    onAddCustom: () => _showAddDialog(context, ref,
-                        preselectedShopId: section.shop?.id),
-                  );
-                },
-              ),
+              child: filteredSections.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.search_off,
+                              size: 48,
+                              color: Theme.of(context).colorScheme.outline),
+                          const SizedBox(height: 8),
+                          const Text('Keine Treffer'),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      itemCount: filteredSections.length,
+                      itemBuilder: (context, si) {
+                        final section = filteredSections[si];
+                        return _ShopSection(
+                          section: section,
+                          shoppingMode: shoppingMode,
+                          onAddCustom: () => _showAddDialog(context,
+                              preselectedShopId: section.shop?.id),
+                        );
+                      },
+                    ),
             ),
           ],
         );
       },
     );
 
-    if (embedded) {
+    if (widget.embedded) {
       return body;
     }
 
@@ -254,8 +348,7 @@ class ShoppingListScreen extends ConsumerWidget {
     );
   }
 
-  void _showAddDialog(BuildContext context, WidgetRef ref,
-      {String? preselectedShopId}) {
+  void _showAddDialog(BuildContext context, {String? preselectedShopId}) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -266,7 +359,7 @@ class ShoppingListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _scanToAdd(BuildContext context, WidgetRef ref) async {
+  Future<void> _scanToAdd(BuildContext context) async {
     final ean = await context.push<String>('/scan');
     if (ean == null || !context.mounted) return;
     final db = ref.read(databaseProvider);
@@ -662,7 +755,6 @@ class _LinkedItemCard extends ConsumerWidget {
                       visualDensity: VisualDensity.compact,
                       tooltip: 'Entfernen',
                     ),
-                    const Spacer(),
                     // Buy button → opens AddStockSheet, auto-removes on success
                     Expanded(
                       child: OutlinedButton.icon(
@@ -1213,6 +1305,79 @@ class _AddCustomItemSheetState extends ConsumerState<_AddCustomItemSheet> {
                     : Text(_isEdit ? 'Speichern' : 'Hinzufügen'),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Shopping filter sheet ─────────────────────────────────────────────────────
+
+class _ShoppingFilterSheet extends StatelessWidget {
+  final String? typeFilter;
+  final ValueChanged<String?> onChanged;
+  const _ShoppingFilterSheet(
+      {required this.typeFilter, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.35,
+      minChildSize: 0.2,
+      maxChildSize: 0.6,
+      builder: (_, scroll) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+            child: Row(
+              children: [
+                Text('Filter', style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                if (typeFilter != null)
+                  TextButton(
+                    onPressed: () => onChanged(null),
+                    child: const Text('Zurücksetzen'),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 16),
+          Expanded(
+            child: ListView(
+              controller: scroll,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('Typ',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: cs.outline)),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final entry in [
+                      ('needs', 'Mindestbestand'),
+                      ('custom', 'Manuell'),
+                    ])
+                      FilterChip(
+                        label: Text(entry.$2),
+                        selected: typeFilter == entry.$1,
+                        onSelected: (_) =>
+                            onChanged(typeFilter == entry.$1 ? null : entry.$1),
+                        visualDensity: VisualDensity.compact,
+                        selectedColor: cs.primaryContainer,
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),

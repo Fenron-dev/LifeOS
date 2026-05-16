@@ -56,6 +56,10 @@ class AppSettingsData {
   final int historyFrequentCount;
   /// How many cross-meal-type entries to show in the "Alle Mahlzeiten" section.
   final int historyAllMealsCount;
+  /// When true, constrained text (buttons, chips, cards) scales down instead of clipping.
+  final bool autoSizeText;
+  /// Maximum number of font-size steps (2pt each) allowed for auto-sizing (1–3).
+  final int maxSizeReduction;
 
   static const defaultQuickActions = [
     QuickAction.addInventory,
@@ -71,6 +75,8 @@ class AppSettingsData {
     this.historyRecentCount = 20,
     this.historyFrequentCount = 20,
     this.historyAllMealsCount = 10,
+    this.autoSizeText = false,
+    this.maxSizeReduction = 2,
   });
 
   AppSettingsData copyWith({
@@ -80,6 +86,8 @@ class AppSettingsData {
     int? historyRecentCount,
     int? historyFrequentCount,
     int? historyAllMealsCount,
+    bool? autoSizeText,
+    int? maxSizeReduction,
   }) =>
       AppSettingsData(
         themeMode: themeMode ?? this.themeMode,
@@ -88,6 +96,8 @@ class AppSettingsData {
         historyRecentCount: historyRecentCount ?? this.historyRecentCount,
         historyFrequentCount: historyFrequentCount ?? this.historyFrequentCount,
         historyAllMealsCount: historyAllMealsCount ?? this.historyAllMealsCount,
+        autoSizeText: autoSizeText ?? this.autoSizeText,
+        maxSizeReduction: maxSizeReduction ?? this.maxSizeReduction,
       );
 }
 
@@ -121,6 +131,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
         int.tryParse(await db.getSetting('history_frequent_count') ?? '') ?? 20;
     final historyAllMealsCount =
         int.tryParse(await db.getSetting('history_all_meals_count') ?? '') ?? 10;
+    final autoSizeText =
+        (await db.getSetting('auto_size_text') ?? 'false') == 'true';
+    final maxSizeReduction =
+        int.tryParse(await db.getSetting('max_size_reduction') ?? '') ?? 2;
 
     return AppSettingsData(
       themeMode: switch (themeRaw) {
@@ -133,6 +147,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
       historyRecentCount: historyRecentCount,
       historyFrequentCount: historyFrequentCount,
       historyAllMealsCount: historyAllMealsCount,
+      autoSizeText: autoSizeText,
+      maxSizeReduction: maxSizeReduction,
     );
   }
 
@@ -190,5 +206,21 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
     state = AsyncData(
         state.valueOrNull?.copyWith(historyAllMealsCount: count) ??
             AppSettingsData(historyAllMealsCount: count));
+  }
+
+  Future<void> setAutoSizeText(bool enabled) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('auto_size_text', enabled ? 'true' : 'false');
+    state = AsyncData(state.valueOrNull?.copyWith(autoSizeText: enabled) ??
+        AppSettingsData(autoSizeText: enabled));
+  }
+
+  Future<void> setMaxSizeReduction(int steps) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('max_size_reduction', '$steps');
+    state = AsyncData(state.valueOrNull?.copyWith(maxSizeReduction: steps) ??
+        AppSettingsData(maxSizeReduction: steps));
   }
 }

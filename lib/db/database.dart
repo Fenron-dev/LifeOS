@@ -112,7 +112,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 39;
+  int get schemaVersion => 40;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -370,6 +370,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(items, items.isStaple);
             await m.addColumn(items, items.purchaseUnit);
             await m.addColumn(items, items.purchaseQty);
+          }
+          if (from < 40) {
+            await m.addColumn(workoutPlans, workoutPlans.notes);
           }
           if (from < 39) {
             // Expiry type + shelf-life-days for auto-calculated MHD on stock booking.

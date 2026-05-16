@@ -11,7 +11,9 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../providers/unit_conversions_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/vault_provider.dart';
 import '../../widgets/adaptive_shell.dart';
+import '../../widgets/search_filter_bar.dart';
 import 'inventory_value_screen.dart';
 
 class InventoryScreen extends ConsumerStatefulWidget {
@@ -40,6 +42,38 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   void _clearSearch() {
     _searchCtrl.clear();
     ref.read(itemSearchQueryProvider.notifier).state = '';
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const _InventoryFilterSheet(),
+    );
+  }
+
+  Future<void> _scanBarcode(BuildContext context) async {
+    final ean = await context.push<String>('/scan');
+    if (ean == null || !context.mounted) return;
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    final item = await db.itemByEan(ean);
+    if (!context.mounted) return;
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Kein Artikel mit diesem Barcode gefunden'),
+          action: SnackBarAction(
+            label: 'Anlegen',
+            onPressed: () =>
+                context.push('/haushalt/item/new', extra: ean),
+          ),
+        ),
+      );
+      return;
+    }
+    context.push('/haushalt/item/${item.id}');
   }
 
   @override
@@ -77,41 +111,19 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           ...shellMenuActions(context),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(104),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                child: SearchBar(
-                  controller: _searchCtrl,
-                  hintText: 'Artikel suchen…',
-                  leading: const Icon(Icons.search),
-                  trailing: [
-                    if (query.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: _clearSearch,
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.qr_code_scanner),
-                      tooltip: 'Barcode scannen',
-                      onPressed: () => context.push('/scan'),
-                    ),
-                  ],
-                  onChanged: (v) =>
-                      ref.read(itemSearchQueryProvider.notifier).state = v,
-                ),
-              ),
-              _CategoryFilterRow(),
-            ],
+          preferredSize: const Size.fromHeight(60),
+          child: _InventorySearchBar(
+            searchCtrl: _searchCtrl,
+            query: query,
+            onClear: _clearSearch,
+            onScan: () => _scanBarcode(context),
+            onFilter: () => _showFilterSheet(context),
           ),
         ),
       ),
       body: Column(
         children: [
-          _TagFilterRow(),
-          _QuickFilterRow(),
+          _ActiveInventoryFilters(),
           Expanded(
             child: itemsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -392,173 +404,337 @@ class _ProductTypeIcon extends StatelessWidget {
   }
 }
 
-class _CategoryFilterRow extends ConsumerWidget {
+// ── New search bar + filter standard ──────────────────────────────────────────
+
+class _InventorySearchBar extends ConsumerWidget {
+  final TextEditingController searchCtrl;
+  final String query;
+  final VoidCallback onClear;
+  final VoidCallback onScan;
+  final VoidCallback onFilter;
+  const _InventorySearchBar({
+    required this.searchCtrl,
+    required this.query,
+    required this.onClear,
+    required this.onScan,
+    required this.onFilter,
+  });
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(itemCategoryFilterProvider);
-    final customCats =
-        ref.watch(categoryDefinitionsProvider).valueOrNull ?? [];
+    final hasFilter = ref.watch(itemCategoryFilterProvider) != null ||
+        ref.watch(itemTagFilterProvider) != null ||
+        ref.watch(itemFavoriteFilterProvider) ||
+        ref.watch(itemMinRatingFilterProvider) != null ||
+        ref.watch(itemTrashedFilterProvider);
 
-    final chips = <(String, String)>[
-      for (final id in ItemCategory.allItemCategories)
-        (id, ItemCategory.labelDe(id)),
-      for (final cat in customCats)
-        (cat.id, cat.name),
-    ];
-
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: chips.length,
-        separatorBuilder: (context, i) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final (id, label) = chips[i];
-          final isSelected = selected == id;
-          return FilterChip(
-            label: Text(label),
-            selected: isSelected,
-            onSelected: (_) => ref
-                .read(itemCategoryFilterProvider.notifier)
-                .state = isSelected ? null : id,
-            visualDensity: VisualDensity.compact,
-          );
-        },
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: SearchBar(
+              controller: searchCtrl,
+              hintText: 'Artikel suchen…',
+              leading: const Icon(Icons.search),
+              trailing: [
+                if (query.isNotEmpty)
+                  IconButton(
+                      icon: const Icon(Icons.close), onPressed: onClear),
+                IconButton(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  tooltip: 'Barcode scannen',
+                  onPressed: onScan,
+                ),
+              ],
+              onChanged: (v) =>
+                  ref.read(itemSearchQueryProvider.notifier).state = v,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Badge(
+            isLabelVisible: hasFilter,
+            smallSize: 8,
+            child: IconButton.filledTonal(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Filtern',
+              onPressed: onFilter,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TagFilterRow extends ConsumerWidget {
+class _ActiveInventoryFilters extends ConsumerWidget {
+  const _ActiveInventoryFilters();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final category = ref.watch(itemCategoryFilterProvider);
-    final selectedTagId = ref.watch(itemTagFilterProvider);
-
-    // Show tags for the selected category, or nothing when no category chosen
-    if (category == null) {
-      if (selectedTagId == null) return const SizedBox.shrink();
-      // Tag was selected but category cleared — also clear tag
-      WidgetsBinding.instance.addPostFrameCallback((_) =>
-          ref.read(itemTagFilterProvider.notifier).state = null);
-      return const SizedBox.shrink();
-    }
-
-    final tagsAsync = ref.watch(tagDefinitionsForCategoryProvider(category));
-    final tags = tagsAsync.valueOrNull ?? [];
-    if (tags.isEmpty) return const SizedBox.shrink();
-
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-        itemCount: tags.length,
-        separatorBuilder: (context, i) => const SizedBox(width: 6),
-        itemBuilder: (_, i) {
-          final tag = tags[i];
-          final isSelected = selectedTagId == tag.id;
-          return FilterChip(
-            avatar: Icon(Icons.label_outline, size: 12),
-            label: Text(tag.name, style: const TextStyle(fontSize: 11)),
-            selected: isSelected,
-            onSelected: (_) => ref
-                .read(itemTagFilterProvider.notifier)
-                .state = isSelected ? null : tag.id,
-            visualDensity: VisualDensity.compact,
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _QuickFilterRow extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
+    final cat = ref.watch(itemCategoryFilterProvider);
+    final tagId = ref.watch(itemTagFilterProvider);
     final favOnly = ref.watch(itemFavoriteFilterProvider);
     final minRating = ref.watch(itemMinRatingFilterProvider);
     final trashedOnly = ref.watch(itemTrashedFilterProvider);
 
-    final hasAny = favOnly || minRating != null || trashedOnly;
-    if (!hasAny &&
-        !favOnly &&
-        minRating == null &&
-        !trashedOnly) {
-      // Show a single compact row only when some filter is active or hinted
-    }
+    final customCats =
+        ref.watch(categoryDefinitionsProvider).valueOrNull ?? [];
+    final catLabel = cat != null
+        ? (customCats
+                .where((c) => c.id == cat)
+                .firstOrNull
+                ?.name ??
+            ItemCategory.labelDe(cat))
+        : null;
+
+    // Resolve tag name (always watch, but only use when tagId != null)
+    final tagsForCat = ref
+        .watch(tagDefinitionsForCategoryProvider(cat ?? ''))
+        .valueOrNull ??
+        [];
+    final tagLabel = tagId != null
+        ? tagsForCat.where((t) => t.id == tagId).firstOrNull?.name
+        : null;
+
+    final chips = <ActiveFilterChip>[
+      if (catLabel != null)
+        ActiveFilterChip(
+          label: catLabel,
+          onRemove: () {
+            ref.read(itemCategoryFilterProvider.notifier).state = null;
+            ref.read(itemTagFilterProvider.notifier).state = null;
+          },
+        ),
+      if (tagLabel != null)
+        ActiveFilterChip(
+          label: tagLabel,
+          onRemove: () =>
+              ref.read(itemTagFilterProvider.notifier).state = null,
+        ),
+      if (favOnly)
+        ActiveFilterChip(
+          label: '❤️ Favoriten',
+          onRemove: () =>
+              ref.read(itemFavoriteFilterProvider.notifier).state = false,
+        ),
+      if (minRating != null)
+        ActiveFilterChip(
+          label: '${'★' * minRating}+',
+          onRemove: () =>
+              ref.read(itemMinRatingFilterProvider.notifier).state = null,
+        ),
+      if (trashedOnly)
+        ActiveFilterChip(
+          label: 'Abgelehnt',
+          onRemove: () =>
+              ref.read(itemTrashedFilterProvider.notifier).state = false,
+        ),
+    ];
+
+    if (chips.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
       height: 36,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        children: chips,
+      ),
+    );
+  }
+}
+
+class _InventoryFilterSheet extends ConsumerWidget {
+  const _InventoryFilterSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final selectedCat = ref.watch(itemCategoryFilterProvider);
+    final selectedTag = ref.watch(itemTagFilterProvider);
+    final favOnly = ref.watch(itemFavoriteFilterProvider);
+    final minRating = ref.watch(itemMinRatingFilterProvider);
+    final trashedOnly = ref.watch(itemTrashedFilterProvider);
+    final customCats =
+        ref.watch(categoryDefinitionsProvider).valueOrNull ?? [];
+    final tags = selectedCat != null
+        ? (ref
+                .watch(tagDefinitionsForCategoryProvider(selectedCat))
+                .valueOrNull ??
+            [])
+        : <TagDefinition>[];
+
+    final catChips = <(String, String)>[
+      for (final id in ItemCategory.allItemCategories)
+        (id, ItemCategory.labelDe(id)),
+      for (final cat in customCats) (cat.id, cat.name),
+    ];
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollCtrl) => Column(
         children: [
-          FilterChip(
-            avatar: Icon(Icons.favorite,
-                size: 13,
-                color: favOnly ? Colors.red.shade400 : null),
-            label: const Text('Favoriten'),
-            selected: favOnly,
-            onSelected: (_) => ref
-                .read(itemFavoriteFilterProvider.notifier)
-                .state = !favOnly,
-            visualDensity: VisualDensity.compact,
-          ),
-          const SizedBox(width: 6),
-          FilterChip(
-            avatar: Icon(Icons.star,
-                size: 13,
-                color: minRating != null ? Colors.amber : null),
-            label: Text(minRating == null
-                ? 'Bewertet'
-                : '${'★' * minRating}+'),
-            selected: minRating != null,
-            onSelected: (_) {
-              if (minRating == null) {
-                ref.read(itemMinRatingFilterProvider.notifier).state = 3;
-              } else if (minRating < 5) {
-                ref.read(itemMinRatingFilterProvider.notifier).state =
-                    minRating + 1;
-              } else {
-                ref.read(itemMinRatingFilterProvider.notifier).state = null;
-              }
-            },
-            visualDensity: VisualDensity.compact,
-          ),
-          const SizedBox(width: 6),
-          FilterChip(
-            avatar: Icon(Icons.thumb_down_outlined,
-                size: 13,
-                color: trashedOnly
-                    ? Theme.of(context).colorScheme.error
-                    : null),
-            label: const Text('Abgelehnt'),
-            selected: trashedOnly,
-            onSelected: (_) => ref
-                .read(itemTrashedFilterProvider.notifier)
-                .state = !trashedOnly,
-            visualDensity: VisualDensity.compact,
-          ),
-          if (hasAny) ...[
-            const SizedBox(width: 6),
-            ActionChip(
-              avatar: const Icon(Icons.close, size: 13),
-              label: const Text('Zurücksetzen'),
-              onPressed: () {
-                ref.read(itemFavoriteFilterProvider.notifier).state = false;
-                ref.read(itemMinRatingFilterProvider.notifier).state = null;
-                ref.read(itemTrashedFilterProvider.notifier).state = false;
-              },
-              visualDensity: VisualDensity.compact,
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
             ),
-          ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+            child: Row(
+              children: [
+                Text('Filter',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    ref.read(itemCategoryFilterProvider.notifier).state =
+                        null;
+                    ref.read(itemTagFilterProvider.notifier).state = null;
+                    ref.read(itemFavoriteFilterProvider.notifier).state =
+                        false;
+                    ref.read(itemMinRatingFilterProvider.notifier).state =
+                        null;
+                    ref.read(itemTrashedFilterProvider.notifier).state =
+                        false;
+                  },
+                  child: const Text('Zurücksetzen'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              children: [
+                _FSection('Kategorie'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final chip in catChips)
+                      FilterChip(
+                        label: Text(chip.$2),
+                        selected: selectedCat == chip.$1,
+                        onSelected: (_) {
+                          final next = selectedCat == chip.$1
+                              ? null
+                              : chip.$1;
+                          ref
+                              .read(itemCategoryFilterProvider.notifier)
+                              .state = next;
+                          if (next == null) {
+                            ref
+                                .read(itemTagFilterProvider.notifier)
+                                .state = null;
+                          }
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+                if (tags.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _FSection('Tags'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: tags
+                        .map((tag) => FilterChip(
+                              avatar: const Icon(
+                                  Icons.label_outline,
+                                  size: 12),
+                              label: Text(tag.name,
+                                  style:
+                                      const TextStyle(fontSize: 12)),
+                              selected: selectedTag == tag.id,
+                              onSelected: (_) => ref
+                                  .read(itemTagFilterProvider.notifier)
+                                  .state = selectedTag == tag.id
+                                      ? null
+                                      : tag.id,
+                              visualDensity: VisualDensity.compact,
+                            ))
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                _FSection('Bewertung & Status'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    FilterChip(
+                      avatar: Icon(Icons.favorite,
+                          size: 13,
+                          color: favOnly ? Colors.red.shade400 : null),
+                      label: const Text('Favoriten'),
+                      selected: favOnly,
+                      onSelected: (_) => ref
+                          .read(itemFavoriteFilterProvider.notifier)
+                          .state = !favOnly,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    for (final stars in [3, 4, 5])
+                      FilterChip(
+                        label: Text('${'★' * stars}+'),
+                        selected: minRating == stars,
+                        onSelected: (_) => ref
+                            .read(itemMinRatingFilterProvider.notifier)
+                            .state = minRating == stars ? null : stars,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    FilterChip(
+                      avatar: const Icon(Icons.thumb_down_outlined,
+                          size: 13),
+                      label: const Text('Abgelehnt'),
+                      selected: trashedOnly,
+                      onSelected: (_) => ref
+                          .read(itemTrashedFilterProvider.notifier)
+                          .state = !trashedOnly,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
+class _FSection extends StatelessWidget {
+  final String text;
+  const _FSection(this.text);
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+      );
+}
+
 
 class _EmptyState extends StatelessWidget {
   final bool hasQuery;

@@ -9,6 +9,7 @@ import '../../providers/items_provider.dart';
 import '../../providers/tasks_provider.dart';
 import '../../widgets/adaptive_shell.dart';
 import '../../widgets/entity_photo_section.dart';
+import '../../widgets/search_filter_bar.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -58,19 +59,118 @@ Future<void> showAddTaskSheet(BuildContext context,
       builder: (_) => _TaskDialog(task: task, parentId: parentId),
     );
 
-class TasksScreen extends ConsumerWidget {
+class TasksScreen extends ConsumerStatefulWidget {
   final bool embedded;
   const TasksScreen({super.key, this.embedded = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TasksScreen> createState() => _TasksScreenState();
+}
+
+class _TasksScreenState extends ConsumerState<TasksScreen> {
+  String _query = '';
+  String? _priorityFilter; // 'low' | 'medium' | 'high'
+  String? _statusFilter;   // 'open' | 'done' | 'overdue'
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _hasFilters => _priorityFilter != null || _statusFilter != null;
+
+  List<Task> _applyFilters(List<Task> all) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    var tasks = all;
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      tasks = tasks.where((t) => t.title.toLowerCase().contains(q)).toList();
+    }
+    if (_priorityFilter != null) {
+      tasks = tasks.where((t) => t.priority == _priorityFilter).toList();
+    }
+    if (_statusFilter != null) {
+      tasks = switch (_statusFilter) {
+        'done' => tasks.where((t) => t.status == 'done').toList(),
+        'overdue' => tasks
+            .where((t) =>
+                t.status != 'done' &&
+                t.dueDate != null &&
+                t.dueDate!.isBefore(today))
+            .toList(),
+        _ => tasks.where((t) => t.status != 'done').toList(),
+      };
+    }
+    return tasks;
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _TaskFilterSheet(
+        priorityFilter: _priorityFilter,
+        statusFilter: _statusFilter,
+        onChanged: (priority, status) {
+          setState(() {
+            _priorityFilter = priority;
+            _statusFilter = status;
+          });
+        },
+      ),
+    );
+  }
+
+  List<ActiveFilterChip> _buildChips() {
+    final chips = <ActiveFilterChip>[];
+    if (_priorityFilter != null) {
+      chips.add(ActiveFilterChip(
+        label: 'Priorität: ${_priorityLabel(_priorityFilter!)}',
+        onRemove: () => setState(() => _priorityFilter = null),
+      ));
+    }
+    if (_statusFilter != null) {
+      final label = switch (_statusFilter) {
+        'done' => 'Erledigt',
+        'overdue' => 'Überfällig',
+        _ => 'Offen',
+      };
+      chips.add(ActiveFilterChip(
+        label: label,
+        onRemove: () => setState(() => _statusFilter = null),
+      ));
+    }
+    return chips;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tasksAsync = ref.watch(tasksProvider);
+
+    final searchBar = SearchAndFilterBar(
+      query: _query,
+      controller: _searchCtrl,
+      onQueryChanged: (v) => setState(() => _query = v),
+      hintText: 'Aufgaben suchen…',
+      hasActiveFilters: _hasFilters,
+      activeFilterChips: _buildChips(),
+      onFilterTap: () => _showFilterSheet(context),
+    );
 
     final body = tasksAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Fehler: $e')),
       data: (allTasks) {
-        if (allTasks.isEmpty) {
+        final tasks = _applyFilters(allTasks);
+
+        if (tasks.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -79,13 +179,15 @@ class TasksScreen extends ConsumerWidget {
                     size: 64,
                     color: Theme.of(context).colorScheme.outline),
                 const SizedBox(height: 16),
-                const Text('Keine Aufgaben'),
-                const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed: () => _showDialog(context, ref),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Aufgabe anlegen'),
-                ),
+                Text(allTasks.isEmpty ? 'Keine Aufgaben' : 'Keine Treffer'),
+                if (allTasks.isEmpty) ...[
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: () => _showAddDialog(context),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Aufgabe anlegen'),
+                  ),
+                ],
               ],
             ),
           );
@@ -94,26 +196,26 @@ class TasksScreen extends ConsumerWidget {
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
-        final overdue = allTasks
+        final overdue = tasks
             .where((t) =>
                 t.status != 'done' &&
                 t.dueDate != null &&
                 t.dueDate!.isBefore(today))
             .toList();
-        final todayTasks = allTasks
+        final todayTasks = tasks
             .where((t) =>
                 t.status != 'done' &&
                 t.dueDate != null &&
                 _isToday(t.dueDate!))
             .toList();
-        final thisWeek = allTasks
+        final thisWeek = tasks
             .where((t) =>
                 t.status != 'done' &&
                 t.dueDate != null &&
                 !_isToday(t.dueDate!) &&
                 _isThisWeek(t.dueDate!))
             .toList();
-        final later = allTasks
+        final later = tasks
             .where((t) =>
                 t.status != 'done' &&
                 t.dueDate != null &&
@@ -121,11 +223,9 @@ class TasksScreen extends ConsumerWidget {
                 !_isToday(t.dueDate!) &&
                 !t.dueDate!.isBefore(today))
             .toList();
-        final noDate = allTasks
-            .where((t) => t.status != 'done' && t.dueDate == null)
-            .toList();
-        final done =
-            allTasks.where((t) => t.status == 'done').toList();
+        final noDate =
+            tasks.where((t) => t.status != 'done' && t.dueDate == null).toList();
+        final done = tasks.where((t) => t.status == 'done').toList();
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -163,25 +263,166 @@ class TasksScreen extends ConsumerWidget {
       },
     );
 
-    if (embedded) {
-      return body;
+    if (widget.embedded) {
+      return Column(
+        children: [
+          searchBar,
+          Expanded(child: body),
+        ],
+      );
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aufgaben'),
         actions: shellMenuActions(context),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(
+              _hasFilters || _query.isNotEmpty ? 92 : 60),
+          child: searchBar,
+        ),
       ),
       body: body,
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showDialog(context, ref),
+        onPressed: () => _showAddDialog(context),
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  void _showDialog(BuildContext context, WidgetRef ref, [Task? task]) =>
-      showAddTaskSheet(context, task: task);
+  void _showAddDialog(BuildContext context) =>
+      showAddTaskSheet(context);
+}
+
+// ── Task filter sheet ─────────────────────────────────────────────────────────
+
+class _TaskFilterSheet extends StatefulWidget {
+  final String? priorityFilter;
+  final String? statusFilter;
+  final void Function(String? priority, String? status) onChanged;
+
+  const _TaskFilterSheet({
+    required this.priorityFilter,
+    required this.statusFilter,
+    required this.onChanged,
+  });
+
+  @override
+  State<_TaskFilterSheet> createState() => _TaskFilterSheetState();
+}
+
+class _TaskFilterSheetState extends State<_TaskFilterSheet> {
+  late String? _priority;
+  late String? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    _priority = widget.priorityFilter;
+    _status = widget.statusFilter;
+  }
+
+  void _apply() {
+    widget.onChanged(_priority, _status);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasAny = _priority != null || _status != null;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.45,
+      minChildSize: 0.3,
+      maxChildSize: 0.85,
+      builder: (_, scroll) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+            child: Row(
+              children: [
+                Text('Filter', style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                if (hasAny)
+                  TextButton(
+                    onPressed: () {
+                      setState(() { _priority = null; _status = null; });
+                    },
+                    child: const Text('Zurücksetzen'),
+                  ),
+                FilledButton(
+                  onPressed: _apply,
+                  child: const Text('Anwenden'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 16),
+          Expanded(
+            child: ListView(
+              controller: scroll,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              children: [
+                _FSection('Priorität'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final p in ['low', 'medium', 'high'])
+                      FilterChip(
+                        label: Text(_priorityLabel(p)),
+                        selected: _priority == p,
+                        onSelected: (_) =>
+                            setState(() => _priority = _priority == p ? null : p),
+                        visualDensity: VisualDensity.compact,
+                        selectedColor: cs.primaryContainer,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _FSection('Status'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final entry in [
+                      ('open', 'Offen'),
+                      ('done', 'Erledigt'),
+                      ('overdue', 'Überfällig'),
+                    ])
+                      FilterChip(
+                        label: Text(entry.$2),
+                        selected: _status == entry.$1,
+                        onSelected: (_) =>
+                            setState(() => _status = _status == entry.$1 ? null : entry.$1),
+                        visualDensity: VisualDensity.compact,
+                        selectedColor: cs.primaryContainer,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FSection extends StatelessWidget {
+  final String title;
+  const _FSection(this.title);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(title,
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(color: Theme.of(context).colorScheme.outline)),
+      );
 }
 
 // ── Section header ────────────────────────────────────────────────────────────

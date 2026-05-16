@@ -22887,6 +22887,15 @@ class $WorkoutPlansTable extends WorkoutPlans
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -22956,6 +22965,7 @@ class $WorkoutPlansTable extends WorkoutPlans
     id,
     name,
     description,
+    notes,
     isActive,
     isFavorite,
     starRating,
@@ -22994,6 +23004,12 @@ class $WorkoutPlansTable extends WorkoutPlans
           data['description']!,
           _descriptionMeta,
         ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
     if (data.containsKey('is_active')) {
@@ -23050,6 +23066,10 @@ class $WorkoutPlansTable extends WorkoutPlans
         DriftSqlType.string,
         data['${effectivePrefix}description'],
       ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -23083,6 +23103,9 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
   final String id;
   final String name;
   final String? description;
+
+  /// Personal notes, goals, equipment list etc.
+  final String? notes;
   final bool isActive;
   final bool isFavorite;
   final int? starRating;
@@ -23092,6 +23115,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
     required this.id,
     required this.name,
     this.description,
+    this.notes,
     required this.isActive,
     required this.isFavorite,
     this.starRating,
@@ -23105,6 +23129,9 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
     }
     map['is_active'] = Variable<bool>(isActive);
     map['is_favorite'] = Variable<bool>(isFavorite);
@@ -23125,6 +23152,9 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
       isActive: Value(isActive),
       isFavorite: Value(isFavorite),
       starRating: starRating == null && nullToAbsent
@@ -23146,6 +23176,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       description: serializer.fromJson<String?>(json['description']),
+      notes: serializer.fromJson<String?>(json['notes']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       starRating: serializer.fromJson<int?>(json['starRating']),
@@ -23160,6 +23191,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'description': serializer.toJson<String?>(description),
+      'notes': serializer.toJson<String?>(notes),
       'isActive': serializer.toJson<bool>(isActive),
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'starRating': serializer.toJson<int?>(starRating),
@@ -23172,6 +23204,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
     String? id,
     String? name,
     Value<String?> description = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
     bool? isActive,
     bool? isFavorite,
     Value<int?> starRating = const Value.absent(),
@@ -23181,6 +23214,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
     id: id ?? this.id,
     name: name ?? this.name,
     description: description.present ? description.value : this.description,
+    notes: notes.present ? notes.value : this.notes,
     isActive: isActive ?? this.isActive,
     isFavorite: isFavorite ?? this.isFavorite,
     starRating: starRating.present ? starRating.value : this.starRating,
@@ -23194,6 +23228,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
       description: data.description.present
           ? data.description.value
           : this.description,
+      notes: data.notes.present ? data.notes.value : this.notes,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       isFavorite: data.isFavorite.present
           ? data.isFavorite.value
@@ -23214,6 +23249,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('description: $description, ')
+          ..write('notes: $notes, ')
           ..write('isActive: $isActive, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('starRating: $starRating, ')
@@ -23228,6 +23264,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
     id,
     name,
     description,
+    notes,
     isActive,
     isFavorite,
     starRating,
@@ -23241,6 +23278,7 @@ class WorkoutPlan extends DataClass implements Insertable<WorkoutPlan> {
           other.id == this.id &&
           other.name == this.name &&
           other.description == this.description &&
+          other.notes == this.notes &&
           other.isActive == this.isActive &&
           other.isFavorite == this.isFavorite &&
           other.starRating == this.starRating &&
@@ -23252,6 +23290,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
   final Value<String> id;
   final Value<String> name;
   final Value<String?> description;
+  final Value<String?> notes;
   final Value<bool> isActive;
   final Value<bool> isFavorite;
   final Value<int?> starRating;
@@ -23262,6 +23301,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.description = const Value.absent(),
+    this.notes = const Value.absent(),
     this.isActive = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.starRating = const Value.absent(),
@@ -23273,6 +23313,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     required String id,
     required String name,
     this.description = const Value.absent(),
+    this.notes = const Value.absent(),
     this.isActive = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.starRating = const Value.absent(),
@@ -23285,6 +23326,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? description,
+    Expression<String>? notes,
     Expression<bool>? isActive,
     Expression<bool>? isFavorite,
     Expression<int>? starRating,
@@ -23296,6 +23338,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (description != null) 'description': description,
+      if (notes != null) 'notes': notes,
       if (isActive != null) 'is_active': isActive,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (starRating != null) 'star_rating': starRating,
@@ -23309,6 +23352,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     Value<String>? id,
     Value<String>? name,
     Value<String?>? description,
+    Value<String?>? notes,
     Value<bool>? isActive,
     Value<bool>? isFavorite,
     Value<int?>? starRating,
@@ -23320,6 +23364,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      notes: notes ?? this.notes,
       isActive: isActive ?? this.isActive,
       isFavorite: isFavorite ?? this.isFavorite,
       starRating: starRating ?? this.starRating,
@@ -23340,6 +23385,9 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
     }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
@@ -23368,6 +23416,7 @@ class WorkoutPlansCompanion extends UpdateCompanion<WorkoutPlan> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('description: $description, ')
+          ..write('notes: $notes, ')
           ..write('isActive: $isActive, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('starRating: $starRating, ')
@@ -47504,6 +47553,7 @@ typedef $$WorkoutPlansTableCreateCompanionBuilder =
       required String id,
       required String name,
       Value<String?> description,
+      Value<String?> notes,
       Value<bool> isActive,
       Value<bool> isFavorite,
       Value<int?> starRating,
@@ -47516,6 +47566,7 @@ typedef $$WorkoutPlansTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String?> description,
+      Value<String?> notes,
       Value<bool> isActive,
       Value<bool> isFavorite,
       Value<int?> starRating,
@@ -47597,6 +47648,11 @@ class $$WorkoutPlansTableFilterComposer
 
   ColumnFilters<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -47700,6 +47756,11 @@ class $$WorkoutPlansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -47745,6 +47806,9 @@ class $$WorkoutPlansTableAnnotationComposer
     column: $table.description,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
@@ -47853,6 +47917,7 @@ class $$WorkoutPlansTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
@@ -47863,6 +47928,7 @@ class $$WorkoutPlansTableTableManager
                 id: id,
                 name: name,
                 description: description,
+                notes: notes,
                 isActive: isActive,
                 isFavorite: isFavorite,
                 starRating: starRating,
@@ -47875,6 +47941,7 @@ class $$WorkoutPlansTableTableManager
                 required String id,
                 required String name,
                 Value<String?> description = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<int?> starRating = const Value.absent(),
@@ -47885,6 +47952,7 @@ class $$WorkoutPlansTableTableManager
                 id: id,
                 name: name,
                 description: description,
+                notes: notes,
                 isActive: isActive,
                 isFavorite: isFavorite,
                 starRating: starRating,

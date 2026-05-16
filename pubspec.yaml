@@ -57,6 +57,9 @@ dependencies:
   cryptography: ^2.9.0
   local_auth: ^2.3.0
 
+  # Auto-sizing text (scales down font when constrained)
+  auto_size_text: ^3.0.0
+
   # Charts (Health: Gewichtsverlauf, Makros, Workout-Statistiken)
   fl_chart: ^0.69.0
 

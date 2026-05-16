@@ -2884,7 +2884,7 @@ class _PlanCard extends ConsumerWidget {
           ),
           if (byDay.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Row(
                 children: List.generate(7, (d) {
                   final dayExercises = byDay[d] ?? [];
@@ -2921,6 +2921,34 @@ class _PlanCard extends ConsumerWidget {
                 }),
               ),
             ),
+          // Equipment chips
+          Builder(builder: (_) {
+            final allEquipment = (exercisesAsync.valueOrNull ?? [])
+                .map((pe) => exerciseMap[pe.exerciseId]?.equipment)
+                .whereType<String>()
+                .toSet()
+                .toList();
+            if (allEquipment.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: allEquipment
+                    .map((eq) => Chip(
+                          label: Text(_equipLabel(eq),
+                              style: const TextStyle(fontSize: 11)),
+                          backgroundColor: cs.surfaceContainerHighest,
+                          visualDensity: VisualDensity.compact,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ))
+                    .toList(),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -2972,6 +3000,11 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
         title: Text(plan.name),
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Plan bearbeiten',
+            onPressed: () => _editPlanInfo(context, ref, plan),
+          ),
+          IconButton(
             icon: Icon(plan.isFavorite
                 ? Icons.favorite
                 : Icons.favorite_border),
@@ -2995,6 +3028,74 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
+          // ── Info header (description + notes) ─────────────────────────
+          if (plan.description != null && plan.description!.isNotEmpty) ...[
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.info_outline,
+                          size: 14, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text('Beschreibung',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(color: cs.primary)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(plan.description!,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (plan.notes != null && plan.notes!.isNotEmpty) ...[
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              color: cs.surfaceContainerHighest,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.notes_outlined,
+                          size: 14, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 6),
+                      Text('Notizen',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(color: cs.onSurfaceVariant)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(plan.notes!,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (plan.description == null && plan.notes == null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: OutlinedButton.icon(
+                onPressed: () => _editPlanInfo(context, ref, plan),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Beschreibung & Notizen hinzufügen'),
+                style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact),
+              ),
+            ),
           // ── Ratings ───────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -3236,6 +3337,78 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
           dayOfWeek: day,
           targetSets: sets,
           targetReps: reps,
+        );
+  }
+
+  Future<void> _editPlanInfo(
+      BuildContext context, WidgetRef ref, WorkoutPlan plan) async {
+    final nameCtrl = TextEditingController(text: plan.name);
+    final descCtrl = TextEditingController(text: plan.description ?? '');
+    final notesCtrl = TextEditingController(text: plan.notes ?? '');
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Plan bearbeiten'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Name *',
+                        border: OutlineInputBorder()),
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Beschreibung',
+                        hintText: 'Ziel, Fokus, Zielgruppe …',
+                        border: OutlineInputBorder()),
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Notizen',
+                        hintText: 'Equipment, Hinweise, persönliche Anmerkungen …',
+                        border: OutlineInputBorder()),
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Abbrechen')),
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Speichern')),
+            ],
+          ),
+        ) ??
+        false;
+    final name = nameCtrl.text.trim();
+    final desc = descCtrl.text.trim();
+    final notes = notesCtrl.text.trim();
+    nameCtrl.dispose();
+    descCtrl.dispose();
+    notesCtrl.dispose();
+    if (!ok || !context.mounted) return;
+    if (name.isEmpty) return;
+    await ref.read(workoutOpsProvider.notifier).updatePlan(
+          WorkoutPlansCompanion(
+            id: drift.Value(plan.id),
+            name: drift.Value(name),
+            description: drift.Value(desc.isEmpty ? null : desc),
+            notes: drift.Value(notes.isEmpty ? null : notes),
+          ),
         );
   }
 

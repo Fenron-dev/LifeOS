@@ -87,6 +87,8 @@ class WorkoutPlans extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get description => text().nullable()();
+  /// Personal notes, goals, equipment list etc.
+  TextColumn get notes => text().nullable()();
   BoolColumn get isActive =>
       boolean().withDefault(const Constant(true))();
   BoolColumn get isFavorite =>

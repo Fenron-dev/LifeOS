@@ -275,6 +275,40 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
           const ListTile(
             dense: true,
+            title: Text('Darstellung',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          settingsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (settings) => Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.text_fields),
+                  title: const Text('Automatische Schriftgröße'),
+                  subtitle: const Text(
+                      'Text wird verkleinert statt abgeschnitten'),
+                  value: settings.autoSizeText,
+                  onChanged: (v) =>
+                      ref.read(settingsProvider.notifier).setAutoSizeText(v),
+                ),
+                if (settings.autoSizeText)
+                  _CountSettingTile(
+                    icon: Icons.format_size,
+                    title: 'Max. Verkleinerung',
+                    subtitle: 'Schritte à 2pt (1 = −2pt, 2 = −4pt, 3 = −6pt)',
+                    value: settings.maxSizeReduction,
+                    options: const [1, 2, 3],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .setMaxSizeReduction(v),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(),
+          const ListTile(
+            dense: true,
             title: Text('Tagebuch – Verlauf',
                 style: TextStyle(fontWeight: FontWeight.w600)),
           ),
