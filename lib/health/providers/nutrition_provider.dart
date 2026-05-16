@@ -44,6 +44,24 @@ final nutritionLogsForRangeProvider =
   return db.getLogsForRange(range.$1, range.$2);
 });
 
+/// Estimated food cost in € for the given date range.
+/// Returns null when no priced items were logged.
+final consumedFoodCostProvider =
+    FutureProvider.family<double?, (DateTime, DateTime)>((ref, range) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return null;
+  ref.watch(nutritionLogsForDayProvider(range.$1));
+  return db.consumedFoodCostForRange(range.$1, range.$2);
+});
+
+/// Estimated consumed vs. wasted food cost for [year].
+final foodFinancialStatsProvider =
+    FutureProvider.family<({double consumed, double wasted}), int>((ref, year) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return (consumed: 0.0, wasted: 0.0);
+  return db.foodFinancialStatsForYear(year);
+});
+
 /// Health factor counts for [from]..[to]: {1: healthy, 0: neutral, -1: unhealthy, null: unknown}.
 final healthFactorStatsProvider =
     FutureProvider.family<Map<int?, int>, (DateTime, DateTime)>((ref, range) async {

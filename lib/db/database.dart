@@ -1512,6 +1512,116 @@ class AppDatabase extends _$AppDatabase {
   /// Count of nutrition log entries grouped by item.healthFactor for [from]..[to].
   /// Returns {1: healthy, 0: neutral, -1: unhealthy, null: unknown}.
   /// Only entries with an itemId linked to an item with a set healthFactor are counted.
+  /// Grams per unit for basic SI weight/volume units. Null for non-weight units.
+  static double? _weightUnitToGrams(String unit) => switch (unit.toLowerCase().trim()) {
+    'g' || 'gr' || 'gramm' => 1.0,
+    'kg' || 'kilogramm' => 1000.0,
+    'ml' || 'milliliter' => 1.0,
+    'cl' => 10.0,
+    'dl' => 100.0,
+    'l' || 'liter' => 1000.0,
+    _ => null,
+  };
+
+  /// €/gram from the most recent purchase event with a weight/volume unit.
+  /// Returns null if the item has no priced weight-unit purchase events.
+  Future<double?> lastPurchasePricePerGram(String itemId) async {
+    final rows = await customSelect(
+      'SELECT price, quantity, unit FROM item_events '
+      "WHERE item_id = ? AND type = 'purchase' "
+      'AND price IS NOT NULL AND price > 0 '
+      'AND quantity IS NOT NULL AND quantity > 0 '
+      'ORDER BY created_at DESC LIMIT 1',
+      variables: [Variable.withString(itemId)],
+      readsFrom: {itemEvents},
+    ).get();
+    if (rows.isEmpty) return null;
+    final price = rows.first.read<double?>('price');
+    final qty = rows.first.read<double?>('quantity');
+    final unit = rows.first.read<String?>('unit');
+    if (price == null || qty == null || unit == null) return null;
+    final gFactor = _weightUnitToGrams(unit);
+    if (gFactor == null) return null;
+    return price / (qty * gFactor);
+  }
+
+  /// Estimated cost of food logged in nutrition_logs from [from] to [to].
+  /// Only counts entries with a weight/volume displayUnit where an item
+  /// purchase price per gram is known.
+  Future<double?> consumedFoodCostForRange(DateTime from, DateTime to) async {
+    final logs = await (select(nutritionLogs)
+          ..where((l) =>
+              l.loggedAt.isBiggerOrEqualValue(from) &
+              l.loggedAt.isSmallerThanValue(to) &
+              l.itemId.isNotNull()))
+        .get();
+    if (logs.isEmpty) return null;
+
+    double total = 0;
+    bool hasAny = false;
+    final priceCache = <String, double?>{};
+    final checked = <String>{};
+
+    for (final log in logs) {
+      final itemId = log.itemId;
+      if (itemId == null) continue;
+      if (_weightUnitToGrams(log.displayUnit) == null) continue;
+      if (!checked.contains(itemId)) {
+        priceCache[itemId] = await lastPurchasePricePerGram(itemId);
+        checked.add(itemId);
+      }
+      final pricePerGram = priceCache[itemId];
+      if (pricePerGram == null) continue;
+      total += log.quantityG * pricePerGram;
+      hasAny = true;
+    }
+    return hasAny ? total : null;
+  }
+
+  /// Estimated consumed vs. wasted food cost for [year] from item_events.
+  /// Only counts consumption events with weight/volume units where a
+  /// purchase price per gram is known for the item.
+  Future<({double consumed, double wasted})> foodFinancialStatsForYear(int year) async {
+    final from = DateTime(year, 1, 1);
+    final to = DateTime(year + 1, 1, 1);
+
+    final events = await (select(itemEvents)
+          ..where((e) =>
+              e.type.equals('consumption') &
+              e.createdAt.isBiggerOrEqualValue(from) &
+              e.createdAt.isSmallerThanValue(to) &
+              e.itemId.isNotNull() &
+              e.quantity.isNotNull()))
+        .get();
+
+    double consumed = 0, wasted = 0;
+    final priceCache = <String, double?>{};
+    final checked = <String>{};
+
+    for (final event in events) {
+      final itemId = event.itemId;
+      final qty = event.quantity;
+      final unit = event.unit;
+      if (qty == null || unit == null) continue;
+      final gFactor = _weightUnitToGrams(unit);
+      if (gFactor == null) continue;
+      if (!checked.contains(itemId)) {
+        priceCache[itemId] = await lastPurchasePricePerGram(itemId);
+        checked.add(itemId);
+      }
+      final pricePerGram = priceCache[itemId];
+      if (pricePerGram == null) continue;
+      final cost = qty * gFactor * pricePerGram;
+      final reason = event.consumptionReason;
+      if (reason == 'consumed') {
+        consumed += cost;
+      } else if (reason == 'expired' || reason == 'discarded') {
+        wasted += cost;
+      }
+    }
+    return (consumed: consumed, wasted: wasted);
+  }
+
   Future<Map<int?, int>> healthFactorStats(
       DateTime from, DateTime to) async {
     final logs = await (select(nutritionLogs)

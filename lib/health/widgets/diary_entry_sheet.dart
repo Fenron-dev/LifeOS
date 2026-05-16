@@ -254,8 +254,9 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       _convs = allConvs;
       _inventoryEntries = entries;
       _hasInventory = entries.isNotEmpty;
+      final unitChanging = newUnit != _unit;
       _unit = newUnit;
-      if (newQty != null && _qtyController.text.trim().isEmpty) {
+      if (newQty != null && (unitChanging || _qtyController.text.trim().isEmpty)) {
         _qtyController.text = _fmtQty(newQty);
       }
     });

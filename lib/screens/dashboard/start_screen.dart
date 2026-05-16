@@ -71,6 +71,8 @@ class _StartScreenState extends ConsumerState<StartScreen>
           SizedBox(height: 12),
           _TodayHealthCard(),
           SizedBox(height: 12),
+          _JahresstatistikCard(),
+          SizedBox(height: 12),
           _RemindersCard(),
           SizedBox(height: 12),
           _QuickAccessCard(),
@@ -170,7 +172,12 @@ class _TodayHealthCard extends ConsumerWidget {
             .fold<int>(0, (s, e) => s + e.value) ??
         0);
 
+    final costAsync =
+        ref.watch(consumedFoodCostProvider((today, tomorrow)));
+    final cost = costAsync.valueOrNull;
+
     final cs = Theme.of(context).colorScheme;
+    final euroFmt = NumberFormat.currency(locale: 'de_DE', symbol: '€', decimalDigits: 2);
 
     return Card(
       child: Padding(
@@ -193,7 +200,7 @@ class _TodayHealthCard extends ConsumerWidget {
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () => context.go('/ich'),
+                    onTap: () => context.go('/me'),
                     child: _HealthStatTile(
                       icon: Icons.local_fire_department_outlined,
                       label: 'kcal heute',
@@ -205,7 +212,7 @@ class _TodayHealthCard extends ConsumerWidget {
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () => context.go('/ich'),
+                    onTap: () => context.go('/me'),
                     child: _HealthStatTile(
                       icon: Icons.fitness_center_outlined,
                       label: 'Workouts',
@@ -213,6 +220,16 @@ class _TodayHealthCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+                if (cost != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _HealthStatTile(
+                      icon: Icons.euro_outlined,
+                      label: 'Kosten heute',
+                      value: euroFmt.format(cost),
+                    ),
+                  ),
+                ],
               ],
             ),
             if (totalRated > 0) ...[
@@ -261,6 +278,81 @@ class _HealthStatTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Jahresstatistik ───────────────────────────────────────────────────────────
+
+class _JahresstatistikCard extends ConsumerWidget {
+  const _JahresstatistikCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final year = DateTime.now().year;
+    final statsAsync = ref.watch(foodFinancialStatsProvider(year));
+    final cs = Theme.of(context).colorScheme;
+    final euroFmt = NumberFormat.currency(locale: 'de_DE', symbol: '€', decimalDigits: 2);
+
+    return statsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (stats) {
+        if (stats.consumed == 0 && stats.wasted == 0) return const SizedBox.shrink();
+        final total = stats.consumed + stats.wasted;
+        final consumedFlex = (stats.consumed / total * 100).round().clamp(1, 98);
+        final wastedFlex = (100 - consumedFlex).clamp(1, 98);
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.bar_chart_outlined, color: cs.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Lebensmittel $year',
+                        style: Theme.of(context).textTheme.titleSmall),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: consumedFlex,
+                        child: Container(height: 10, color: Colors.green.shade400),
+                      ),
+                      Expanded(
+                        flex: wastedFlex,
+                        child: Container(height: 10, color: Colors.red.shade400),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(width: 10, height: 10,
+                        decoration: BoxDecoration(color: Colors.green.shade400, shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text('Verbraucht: ${euroFmt.format(stats.consumed)}',
+                        style: const TextStyle(fontSize: 12)),
+                    const Spacer(),
+                    Container(width: 10, height: 10,
+                        decoration: BoxDecoration(color: Colors.red.shade400, shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text('Verschwendet: ${euroFmt.format(stats.wasted)}',
+                        style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
