@@ -16,6 +16,14 @@ import '../../widgets/adaptive_shell.dart';
 import '../../widgets/search_filter_bar.dart';
 import 'inventory_value_screen.dart';
 
+/// Returns the emoji for a healthFactor value (1/0/-1/null).
+String? healthEmoji(int? factor) => switch (factor) {
+      1 => '😊',
+      0 => '😐',
+      -1 => '😞',
+      _ => null,
+    };
+
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
 
@@ -207,6 +215,11 @@ class _ItemCard extends StatelessWidget {
             if (item.isFavorite) ...[
               const SizedBox(width: 4),
               Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
+            ],
+            if (healthEmoji(item.healthFactor) != null) ...[
+              const SizedBox(width: 4),
+              Text(healthEmoji(item.healthFactor)!,
+                  style: const TextStyle(fontSize: 13)),
             ],
           ],
         ),

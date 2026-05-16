@@ -28,7 +28,8 @@ class ShoppingListScreen extends ConsumerStatefulWidget {
 
 class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
   String _query = '';
-  String? _typeFilter; // null=all | 'needs' | 'custom'
+  String? _typeFilter;  // null=all | 'needs' | 'custom'
+  String? _shopFilter;  // null=all | shopId | '__none__' (Kein Geschäft)
   final _searchCtrl = TextEditingController();
 
   @override
@@ -37,17 +38,28 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
     super.dispose();
   }
 
-  bool get _hasFilters => _typeFilter != null;
+  bool get _hasFilters => _typeFilter != null || _shopFilter != null;
 
   List<ActiveFilterChip> _buildChips() {
-    if (_typeFilter == null) return [];
-    final label = _typeFilter == 'needs' ? 'Mindestbestand' : 'Manuell';
-    return [
-      ActiveFilterChip(
-        label: label,
+    final chips = <ActiveFilterChip>[];
+    if (_typeFilter != null) {
+      chips.add(ActiveFilterChip(
+        label: _typeFilter == 'needs' ? 'Mindestbestand' : 'Manuell',
         onRemove: () => setState(() => _typeFilter = null),
-      )
-    ];
+      ));
+    }
+    if (_shopFilter != null) {
+      final shops = ref.read(allShopsProvider).valueOrNull ?? [];
+      final shopName = _shopFilter == '__none__'
+          ? 'Kein Geschäft'
+          : shops.where((s) => s.id == _shopFilter).firstOrNull?.name ??
+              'Geschäft';
+      chips.add(ActiveFilterChip(
+        label: shopName,
+        onRemove: () => setState(() => _shopFilter = null),
+      ));
+    }
+    return chips;
   }
 
   void _showFilterSheet(BuildContext context) {
@@ -60,10 +72,11 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
       ),
       builder: (_) => _ShoppingFilterSheet(
         typeFilter: _typeFilter,
-        onChanged: (t) {
-          setState(() => _typeFilter = t);
-          Navigator.of(context).pop();
-        },
+        shopFilter: _shopFilter,
+        onChanged: (t, s) => setState(() {
+          _typeFilter = t;
+          _shopFilter = s;
+        }),
       ),
     );
   }
@@ -162,8 +175,17 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
           );
         }
 
-        // Apply search + type filter to each section client-side
+        // Apply search + type + shop filters to each section client-side
         ShoppingSection filterSection(ShoppingSection s) {
+          // Shop filter: '__none__' matches sections with no shop
+          if (_shopFilter != null) {
+            final matchesShop = _shopFilter == '__none__'
+                ? s.shop == null
+                : s.shop?.id == _shopFilter;
+            if (!matchesShop) {
+              return ShoppingSection(shop: s.shop, needs: [], customItems: []);
+            }
+          }
           var needs = s.needs;
           var custom = s.customItems;
           if (_typeFilter == 'needs') custom = [];
@@ -177,8 +199,7 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
                 .where((c) => c.name.toLowerCase().contains(q))
                 .toList();
           }
-          return ShoppingSection(
-              shop: s.shop, needs: needs, customItems: custom);
+          return ShoppingSection(shop: s.shop, needs: needs, customItems: custom);
         }
 
         final filteredSections = sections
@@ -1314,20 +1335,49 @@ class _AddCustomItemSheetState extends ConsumerState<_AddCustomItemSheet> {
 
 // ── Shopping filter sheet ─────────────────────────────────────────────────────
 
-class _ShoppingFilterSheet extends StatelessWidget {
+class _ShoppingFilterSheet extends ConsumerStatefulWidget {
   final String? typeFilter;
-  final ValueChanged<String?> onChanged;
-  const _ShoppingFilterSheet(
-      {required this.typeFilter, required this.onChanged});
+  final String? shopFilter;
+  final void Function(String? type, String? shop) onChanged;
+
+  const _ShoppingFilterSheet({
+    required this.typeFilter,
+    required this.shopFilter,
+    required this.onChanged,
+  });
+
+  @override
+  ConsumerState<_ShoppingFilterSheet> createState() =>
+      _ShoppingFilterSheetState();
+}
+
+class _ShoppingFilterSheetState extends ConsumerState<_ShoppingFilterSheet> {
+  late String? _type;
+  late String? _shop;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.typeFilter;
+    _shop = widget.shopFilter;
+  }
+
+  void _apply() {
+    widget.onChanged(_type, _shop);
+    Navigator.of(context).pop();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final shops = ref.watch(allShopsProvider).valueOrNull ?? [];
+    final hasAny = _type != null || _shop != null;
+
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.35,
-      minChildSize: 0.2,
-      maxChildSize: 0.6,
+      initialChildSize: 0.55,
+      minChildSize: 0.3,
+      maxChildSize: 0.85,
       builder: (_, scroll) => Column(
         children: [
           Padding(
@@ -1336,11 +1386,15 @@ class _ShoppingFilterSheet extends StatelessWidget {
               children: [
                 Text('Filter', style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                if (typeFilter != null)
+                if (hasAny)
                   TextButton(
-                    onPressed: () => onChanged(null),
+                    onPressed: () => setState(() { _type = null; _shop = null; }),
                     child: const Text('Zurücksetzen'),
                   ),
+                FilledButton(
+                  onPressed: _apply,
+                  child: const Text('Anwenden'),
+                ),
               ],
             ),
           ),
@@ -1350,14 +1404,7 @@ class _ShoppingFilterSheet extends StatelessWidget {
               controller: scroll,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text('Typ',
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelMedium
-                          ?.copyWith(color: cs.outline)),
-                ),
+                _SheetLabel('Typ', cs),
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
@@ -1368,9 +1415,34 @@ class _ShoppingFilterSheet extends StatelessWidget {
                     ])
                       FilterChip(
                         label: Text(entry.$2),
-                        selected: typeFilter == entry.$1,
-                        onSelected: (_) =>
-                            onChanged(typeFilter == entry.$1 ? null : entry.$1),
+                        selected: _type == entry.$1,
+                        onSelected: (_) => setState(
+                            () => _type = _type == entry.$1 ? null : entry.$1),
+                        visualDensity: VisualDensity.compact,
+                        selectedColor: cs.primaryContainer,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _SheetLabel('Geschäft', cs),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    FilterChip(
+                      label: const Text('Kein Geschäft'),
+                      selected: _shop == '__none__',
+                      onSelected: (_) => setState(() =>
+                          _shop = _shop == '__none__' ? null : '__none__'),
+                      visualDensity: VisualDensity.compact,
+                      selectedColor: cs.primaryContainer,
+                    ),
+                    for (final s in shops)
+                      FilterChip(
+                        label: Text(s.name),
+                        selected: _shop == s.id,
+                        onSelected: (_) => setState(
+                            () => _shop = _shop == s.id ? null : s.id),
                         visualDensity: VisualDensity.compact,
                         selectedColor: cs.primaryContainer,
                       ),
@@ -1383,4 +1455,19 @@ class _ShoppingFilterSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SheetLabel extends StatelessWidget {
+  final String text;
+  final ColorScheme cs;
+  const _SheetLabel(this.text, this.cs);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text,
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(color: cs.outline)),
+      );
 }

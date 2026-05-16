@@ -8,6 +8,7 @@ import '../providers/nutrition_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/water_provider.dart';
 import '../widgets/diary_entry_sheet.dart';
+import '../widgets/health_factor_bar.dart';
 
 /// Phase 6.4 — Ernährungstagebuch. Shows a day-picker, per-meal-slot sections
 /// and a daily macro summary. FAB and per-slot "+" buttons open
@@ -1192,6 +1193,8 @@ class _ConsumptionHistoryState extends ConsumerState<_ConsumptionHistory> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final logsAsync = ref.watch(nutritionLogsForRangeProvider(_range));
+    final healthStats =
+        ref.watch(healthFactorStatsProvider(_range)).valueOrNull;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -1277,7 +1280,19 @@ class _ConsumptionHistoryState extends ConsumerState<_ConsumptionHistory> {
                 padding: const EdgeInsets.all(16),
                 child: Text('Fehler: $e'),
               ),
-              data: (logs) => _HistoryContent(logs: logs, sort: _sort),
+              data: (logs) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (healthStats != null &&
+                      healthStats.entries
+                          .any((e) => e.key != null && e.value > 0))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: HealthFactorBar(stats: healthStats),
+                    ),
+                  _HistoryContent(logs: logs, sort: _sort),
+                ],
+              ),
             ),
           ],
         ],

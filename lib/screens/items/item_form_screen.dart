@@ -114,6 +114,9 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   late final TextEditingController _purchaseUnitCtrl;
   String _expiryType = 'bestBefore';
   int? _shelfLifeDays;
+
+  // Health factor: 1=healthy, 0=neutral, -1=unhealthy
+  int? _healthFactor;
   late final TextEditingController _purchaseQtyCtrl;
 
   // Group membership
@@ -174,6 +177,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _isStaple = i.isStaple;
       _expiryType = i.expiryType;
       _shelfLifeDays = i.shelfLifeDays;
+      _healthFactor = i.healthFactor;
       if (i.minStockQuantity != null) {
         _hasMinStock = true;
         _minStockUnit = i.minStockUnit;
@@ -468,6 +472,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         purchaseQty: double.tryParse(_purchaseQtyCtrl.text.trim().replaceAll(',', '.')),
         expiryType: _expiryType,
         shelfLifeDays: _shelfLifeDays,
+        healthFactor: _healthFactor,
       );
     } else {
       await notifier.updateItem(existing.copyWith(
@@ -510,6 +515,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         purchaseQty: Value(double.tryParse(_purchaseQtyCtrl.text.trim().replaceAll(',', '.'))),
         expiryType: _expiryType,
         shelfLifeDays: Value(_shelfLifeDays),
+        healthFactor: Value(_healthFactor),
         updatedAt: DateTime.now(),
       ));
       itemId = existing.id;
@@ -975,6 +981,12 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                   color: Theme.of(context).colorScheme.outline,
                 ),
               ),
+            ),
+            const SizedBox(height: 12),
+            // Health factor
+            _HealthFactorPicker(
+              value: _healthFactor,
+              onChanged: (v) => setState(() => _healthFactor = v),
             ),
             const SizedBox(height: 12),
             // Default location picker
@@ -1528,6 +1540,95 @@ class _FormTagPickerSheetState extends ConsumerState<_FormTagPickerSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Health factor picker ──────────────────────────────────────────────────────
+
+/// Emoji row for selecting a health classification.
+/// [value]: 1=healthy, 0=neutral, -1=unhealthy, null=not set.
+class _HealthFactorPicker extends StatelessWidget {
+  final int? value;
+  final ValueChanged<int?> onChanged;
+  const _HealthFactorPicker({required this.value, required this.onChanged});
+
+  static const _options = [
+    (1, '😊', 'Gesund'),
+    (0, '😐', 'Neutral'),
+    (-1, '😞', 'Ungesund'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text('Gesundheitsfaktor',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: cs.onSurfaceVariant)),
+        ),
+        Row(
+          children: [
+            for (final (val, emoji, label) in _options) ...[
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => onChanged(value == val ? null : val),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: value == val
+                          ? cs.primaryContainer
+                          : cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: value == val
+                            ? cs.primary
+                            : cs.outlineVariant,
+                        width: value == val ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(emoji,
+                            style: const TextStyle(fontSize: 28)),
+                        const SizedBox(height: 2),
+                        Text(label,
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: value == val
+                                    ? cs.onPrimaryContainer
+                                    : cs.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (val != -1) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+        if (value != null) ...[
+          const SizedBox(height: 4),
+          TextButton.icon(
+            onPressed: () => onChanged(null),
+            icon: const Icon(Icons.close, size: 14),
+            label: const Text('Zurücksetzen'),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

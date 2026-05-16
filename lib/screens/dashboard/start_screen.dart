@@ -8,6 +8,7 @@ import '../../health/providers/nutrition_provider.dart';
 import '../../health/providers/profile_provider.dart';
 import '../../health/providers/water_provider.dart';
 import '../../health/providers/workouts_provider.dart';
+import '../../health/widgets/health_factor_bar.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/meal_plan_provider.dart';
@@ -21,6 +22,7 @@ final missingStaplesProvider = StreamProvider<List<Item>>((ref) {
   if (db == null) return const Stream.empty();
   return db.watchMissingStapleItems();
 });
+
 
 class StartScreen extends ConsumerStatefulWidget {
   const StartScreen({super.key});
@@ -161,6 +163,13 @@ class _TodayHealthCard extends ConsumerWidget {
       return d.year == now.year && d.month == now.month && d.day == now.day;
     }).length;
 
+    final healthStats =
+        ref.watch(healthFactorStatsProvider((today, tomorrow))).valueOrNull;
+    final totalRated = (healthStats?.entries
+            .where((e) => e.key != null)
+            .fold<int>(0, (s, e) => s + e.value) ??
+        0);
+
     final cs = Theme.of(context).colorScheme;
 
     return Card(
@@ -206,6 +215,10 @@ class _TodayHealthCard extends ConsumerWidget {
                 ),
               ],
             ),
+            if (totalRated > 0) ...[
+              const SizedBox(height: 12),
+              HealthFactorBar(stats: healthStats!),
+            ],
           ],
         ),
       ),

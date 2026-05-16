@@ -112,7 +112,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 40;
+  int get schemaVersion => 41;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -370,6 +370,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(items, items.isStaple);
             await m.addColumn(items, items.purchaseUnit);
             await m.addColumn(items, items.purchaseQty);
+          }
+          if (from < 41) {
+            await m.addColumn(items, items.healthFactor);
           }
           if (from < 40) {
             await m.addColumn(workoutPlans, workoutPlans.notes);
@@ -1505,6 +1508,36 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteWaterLog(String id) =>
       (delete(waterLogs)..where((l) => l.id.equals(id))).go();
+
+  /// Count of nutrition log entries grouped by item.healthFactor for [from]..[to].
+  /// Returns {1: healthy, 0: neutral, -1: unhealthy, null: unknown}.
+  /// Only entries with an itemId linked to an item with a set healthFactor are counted.
+  Future<Map<int?, int>> healthFactorStats(
+      DateTime from, DateTime to) async {
+    final logs = await (select(nutritionLogs)
+          ..where((l) =>
+              l.loggedAt.isBiggerOrEqualValue(from) &
+              l.loggedAt.isSmallerThanValue(to)))
+        .get();
+    final itemIds = logs
+        .map((l) => l.itemId)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (itemIds.isEmpty) return {null: logs.length};
+
+    final linkedItems = await (select(items)
+          ..where((i) => i.id.isIn(itemIds)))
+        .get();
+    final factorById = {for (final i in linkedItems) i.id: i.healthFactor};
+
+    final counts = <int?, int>{};
+    for (final log in logs) {
+      final factor = log.itemId != null ? factorById[log.itemId] : null;
+      counts[factor] = (counts[factor] ?? 0) + 1;
+    }
+    return counts;
+  }
 
   /// Summed kcal / protein / carbs / fat for the calendar day of [day].
   Future<DailyNutritionTotals> dailyNutritionTotals(DateTime day) async {

@@ -168,6 +168,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
     double? purchaseQty,
     String expiryType = 'bestBefore',
     int? shelfLifeDays,
+    int? healthFactor,
   }) async {
     final id = _uuid.v4();
     await _db.insertItem(ItemsCompanion.insert(
@@ -209,6 +210,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       purchaseQty: Value(purchaseQty),
       expiryType: Value(expiryType),
       shelfLifeDays: Value(shelfLifeDays),
+      healthFactor: Value(healthFactor),
     ));
     return id;
   }
@@ -254,6 +256,7 @@ class ItemsNotifier extends AsyncNotifier<void> {
       purchaseQty: Value(item.purchaseQty),
       expiryType: Value(item.expiryType),
       shelfLifeDays: Value(item.shelfLifeDays),
+      healthFactor: Value(item.healthFactor),
       updatedAt: Value(DateTime.now()),
     ));
   }

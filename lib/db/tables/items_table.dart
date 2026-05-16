@@ -98,6 +98,10 @@ class Items extends Table {
   /// How many stock units are contained in one purchase unit (e.g. 10 pieces per pack).
   RealColumn get purchaseQty => real().nullable()();
 
+  /// Health classification set by the user: 1 = healthy, 0 = neutral, -1 = unhealthy.
+  /// Displayed as emoji (😊/😐/😞) in inventory and used for nutrition health stats.
+  IntColumn get healthFactor => integer().nullable()();
+
   /// How expiry is tracked when booking stock:
   /// 'bestBefore' = MHD (user picks date), 'useBy' = Verbrauchsdatum (user picks date),
   /// 'daysAfterPurchase' = shelf life computed automatically from today + [shelfLifeDays].

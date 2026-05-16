@@ -226,18 +226,16 @@ class WorkoutOpsNotifier extends AsyncNotifier<void> {
       name: name,
       description: Value(description),
     ));
-    ref.invalidate(workoutPlansProvider);
+    // workoutPlansProvider is a StreamProvider — Drift stream auto-updates on write.
     return id;
   }
 
   Future<void> updatePlan(WorkoutPlansCompanion entry) async {
     await _db.updateWorkoutPlan(entry);
-    ref.invalidate(workoutPlansProvider);
   }
 
   Future<void> deletePlan(String id) async {
     await _db.deleteWorkoutPlan(id);
-    ref.invalidate(workoutPlansProvider);
   }
 
   Future<String> addPlanExercise({

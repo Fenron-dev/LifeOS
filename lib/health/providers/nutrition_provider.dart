@@ -44,6 +44,14 @@ final nutritionLogsForRangeProvider =
   return db.getLogsForRange(range.$1, range.$2);
 });
 
+/// Health factor counts for [from]..[to]: {1: healthy, 0: neutral, -1: unhealthy, null: unknown}.
+final healthFactorStatsProvider =
+    FutureProvider.family<Map<int?, int>, (DateTime, DateTime)>((ref, range) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return {};
+  return db.healthFactorStats(range.$1, range.$2);
+});
+
 final nutritionOpsProvider =
     AsyncNotifierProvider<NutritionOpsNotifier, void>(
         NutritionOpsNotifier.new);
