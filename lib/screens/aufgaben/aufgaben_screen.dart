@@ -58,7 +58,20 @@ class _AufgabenScreenState extends ConsumerState<AufgabenScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aufgaben'),
-        actions: shellMenuActions(context),
+        actions: [
+          // Show "+" only on the Aufgaben tab
+          ListenableBuilder(
+            listenable: _tab,
+            builder: (context, _) => _tab.index == 0
+                ? IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Aufgabe anlegen',
+                    onPressed: () => showAddTaskSheet(context),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          ...shellMenuActions(context),
+        ],
         bottom: TabBar(
           controller: _tab,
           tabs: _tabs

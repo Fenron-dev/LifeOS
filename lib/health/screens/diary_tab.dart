@@ -19,18 +19,52 @@ class DiaryTab extends ConsumerStatefulWidget {
   ConsumerState<DiaryTab> createState() => _DiaryTabState();
 }
 
-class _DiaryTabState extends ConsumerState<DiaryTab> {
+class _DiaryTabState extends ConsumerState<DiaryTab>
+    with WidgetsBindingObserver {
   DateTime _day = _today();
+  // True once the user manually navigates to a past day — prevents auto-snap.
+  bool _userNavigated = false;
 
   static DateTime _today() {
     final n = DateTime.now();
     return DateTime(n.year, n.month, n.day);
   }
 
-  void _prevDay() => setState(() => _day = _day.subtract(const Duration(days: 1)));
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_userNavigated) {
+      final today = _today();
+      if (_day != today && mounted) setState(() => _day = today);
+    }
+  }
+
+  void _prevDay() {
+    setState(() {
+      _day = _day.subtract(const Duration(days: 1));
+      _userNavigated = true;
+    });
+  }
+
   void _nextDay() {
     final next = _day.add(const Duration(days: 1));
-    if (!next.isAfter(_today())) setState(() => _day = next);
+    if (!next.isAfter(_today())) {
+      setState(() {
+        _day = next;
+        _userNavigated = next != _today();
+      });
+    }
   }
 
   bool get _isToday => _day == _today();

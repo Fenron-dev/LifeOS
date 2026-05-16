@@ -48,6 +48,16 @@ bool _isThisWeek(DateTime d) {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
+/// Opens the add/edit task bottom-sheet. Can be called from outside this file.
+Future<void> showAddTaskSheet(BuildContext context,
+        {Task? task, String? parentId}) =>
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _TaskDialog(task: task, parentId: parentId),
+    );
+
 class TasksScreen extends ConsumerWidget {
   final bool embedded;
   const TasksScreen({super.key, this.embedded = false});
@@ -154,20 +164,7 @@ class TasksScreen extends ConsumerWidget {
     );
 
     if (embedded) {
-      return Stack(
-        children: [
-          body,
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: FloatingActionButton(
-              heroTag: 'add_task',
-              onPressed: () => _showDialog(context, ref),
-              child: const Icon(Icons.add),
-            ),
-          ),
-        ],
-      );
+      return body;
     }
 
     return Scaffold(
@@ -183,14 +180,8 @@ class TasksScreen extends ConsumerWidget {
     );
   }
 
-  void _showDialog(BuildContext context, WidgetRef ref, [Task? task]) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _TaskDialog(task: task),
-    );
-  }
+  void _showDialog(BuildContext context, WidgetRef ref, [Task? task]) =>
+      showAddTaskSheet(context, task: task);
 }
 
 // ── Section header ────────────────────────────────────────────────────────────
@@ -299,18 +290,13 @@ class _TaskTileState extends ConsumerState<_TaskTile> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Expand/collapse toggle — only shown when subtasks exist
+                        // Expand indicator — tap on the full tile handles expand
                         if (hasSubtasks)
                           AnimatedRotation(
                             turns: _expanded ? 0.5 : 0,
                             duration: const Duration(milliseconds: 200),
-                            child: IconButton(
-                              icon: const Icon(Icons.expand_more, size: 20),
-                              onPressed: () =>
-                                  setState(() => _expanded = !_expanded),
-                              color: cs.outline,
-                              visualDensity: VisualDensity.compact,
-                            ),
+                            child: Icon(Icons.expand_more,
+                                size: 18, color: cs.outline),
                           ),
                         PopupMenuButton<String>(
                           onSelected: (v) async {
@@ -438,32 +424,35 @@ class _TaskTileState extends ConsumerState<_TaskTile> {
       ));
     }
 
-    if (task.description != null) {
-      chips.add(Text(
-        task.description!,
-        style: Theme.of(context)
-            .textTheme
-            .bodySmall
-            ?.copyWith(color: cs.onSurfaceVariant),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ));
-    }
+    final desc = task.description;
 
-    if (chips.isEmpty) return null;
-    return Wrap(spacing: 4, runSpacing: 2, children: chips);
+    if (chips.isEmpty && desc == null) return null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (chips.isNotEmpty) Wrap(spacing: 4, runSpacing: 2, children: chips),
+        if (desc != null)
+          Text(
+            desc,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+      ],
+    );
   }
 
   void _showDialog(BuildContext context, {String? parentId}) {
-    final task = widget.task;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _TaskDialog(
-          task: parentId == null ? task : null, parentId: parentId),
+    showAddTaskSheet(
+      context,
+      task: parentId == null ? widget.task : null,
+      parentId: parentId,
     ).then((_) {
-      // Auto-expand when a subtask was just added
       if (parentId != null && mounted) setState(() => _expanded = true);
     });
   }
@@ -529,10 +518,15 @@ class _SubChip extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: color),
         const SizedBox(width: 2),
-        Text(
-          label,
-          style:
-              Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 120),
+          child: Text(
+            label,
+            style:
+                Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ),
       ],
     );

@@ -443,11 +443,10 @@ class ExerciseDetailScreen extends ConsumerWidget {
                   isFavorite: drift.Value(!exercise.isFavorite),
                 )),
           ),
-          if (exercise.isCustom)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _editExercise(context, ref),
-            ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => _editExercise(context, ref),
+          ),
         ],
       ),
       body: ListView(
@@ -748,8 +747,12 @@ class _RatingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Row(
-      children: [
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
         IconButton(
           icon: Icon(Icons.thumb_up,
               color: thumbRating == 1 ? cs.primary : cs.outlineVariant),
@@ -785,7 +788,8 @@ class _RatingRow extends StatelessWidget {
             onPressed: () => onStar(starRating == star ? null : star),
           );
         }),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -2196,6 +2200,275 @@ class _ExercisePickerSheetState
   }
 }
 
+// ── Exercise filter sheet ─────────────────────────────────────────────────────
+
+// Sentinel: filter for exercises that have null equipment
+const _kEquipNone = '__none__';
+
+class _ExerciseFilterSheet extends StatefulWidget {
+  final String? cat;
+  final String? equipFilter;
+  final String? diff;
+  final bool favOnly;
+  final bool thumbUpOnly;
+  final int? minStar;
+  final void Function({
+    String? cat,
+    String? equipFilter,
+    String? diff,
+    required bool favOnly,
+    required bool thumbUpOnly,
+    int? minStar,
+  }) onChange;
+
+  const _ExerciseFilterSheet({
+    required this.cat,
+    required this.equipFilter,
+    required this.diff,
+    required this.favOnly,
+    required this.thumbUpOnly,
+    required this.minStar,
+    required this.onChange,
+  });
+
+  @override
+  State<_ExerciseFilterSheet> createState() =>
+      _ExerciseFilterSheetState();
+}
+
+class _ExerciseFilterSheetState extends State<_ExerciseFilterSheet> {
+  late String? _cat;
+  late String? _equipFilter;
+  late String? _diff;
+  late bool _favOnly;
+  late bool _thumbUpOnly;
+  late int? _minStar;
+
+  @override
+  void initState() {
+    super.initState();
+    _cat = widget.cat;
+    _equipFilter = widget.equipFilter;
+    _diff = widget.diff;
+    _favOnly = widget.favOnly;
+    _thumbUpOnly = widget.thumbUpOnly;
+    _minStar = widget.minStar;
+  }
+
+  void _notify() => widget.onChange(
+        cat: _cat,
+        equipFilter: _equipFilter,
+        diff: _diff,
+        favOnly: _favOnly,
+        thumbUpOnly: _thumbUpOnly,
+        minStar: _minStar,
+      );
+
+  void _reset() {
+    setState(() {
+      _cat = null;
+      _equipFilter = null;
+      _diff = null;
+      _favOnly = false;
+      _thumbUpOnly = false;
+      _minStar = null;
+    });
+    _notify();
+  }
+
+  Widget _equipChip(String? value) {
+    final sentinel = value ?? _kEquipNone;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6, bottom: 4),
+      child: FilterChip(
+        label: Text(_equipLabel(value)),
+        selected: _equipFilter == sentinel,
+        onSelected: (_) {
+          setState(
+              () => _equipFilter = _equipFilter == sentinel ? null : sentinel);
+          _notify();
+        },
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollCtrl) => Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+            child: Row(
+              children: [
+                Text('Filter',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                TextButton(
+                  onPressed: _reset,
+                  child: const Text('Zurücksetzen'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              children: [
+                _FFilterTitle('Bewertung'),
+                const SizedBox(height: 8),
+                Wrap(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6, bottom: 4),
+                      child: FilterChip(
+                        label: const Text('❤️ Favoriten'),
+                        selected: _favOnly,
+                        onSelected: (v) {
+                          setState(() => _favOnly = v);
+                          _notify();
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6, bottom: 4),
+                      child: FilterChip(
+                        label: const Text('👍 Empfohlen'),
+                        selected: _thumbUpOnly,
+                        onSelected: (v) {
+                          setState(() => _thumbUpOnly = v);
+                          _notify();
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6, bottom: 4),
+                      child: FilterChip(
+                        label: const Text('★ 4+'),
+                        selected: _minStar == 4,
+                        onSelected: (v) {
+                          setState(() => _minStar = v ? 4 : null);
+                          _notify();
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6, bottom: 4),
+                      child: FilterChip(
+                        label: const Text('★ 3+'),
+                        selected: _minStar == 3,
+                        onSelected: (v) {
+                          setState(() => _minStar = v ? 3 : null);
+                          _notify();
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _FFilterTitle('Kategorie'),
+                const SizedBox(height: 8),
+                Wrap(
+                  children: _categories
+                      .map((c) => Padding(
+                            padding:
+                                const EdgeInsets.only(right: 6, bottom: 4),
+                            child: FilterChip(
+                              label: Text(_catLabel(c)),
+                              selected: _cat == c,
+                              onSelected: (_) {
+                                setState(() =>
+                                    _cat = _cat == c ? null : c);
+                                _notify();
+                              },
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ))
+                      .toList(),
+                ),
+                const SizedBox(height: 16),
+                _FFilterTitle('Equipment'),
+                const SizedBox(height: 8),
+                Wrap(
+                  children: [
+                    _equipChip('barbell'),
+                    _equipChip('dumbbell'),
+                    _equipChip('machine'),
+                    _equipChip('bodyweight'),
+                    _equipChip('cable'),
+                    _equipChip('other'),
+                    _equipChip(null),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _FFilterTitle('Schwierigkeit'),
+                const SizedBox(height: 8),
+                Wrap(
+                  children: ['beginner', 'intermediate', 'advanced']
+                      .map((d) => Padding(
+                            padding:
+                                const EdgeInsets.only(right: 6, bottom: 4),
+                            child: FilterChip(
+                              label: Text(_diffLabel(d)),
+                              selected: _diff == d,
+                              onSelected: (_) {
+                                setState(() =>
+                                    _diff = _diff == d ? null : d);
+                                _notify();
+                              },
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FFilterTitle extends StatelessWidget {
+  final String text;
+  const _FFilterTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+      );
+}
+
 // ── Exercise library screen ───────────────────────────────────────────────────
 
 class ExerciseLibraryScreen extends ConsumerStatefulWidget {
@@ -2210,9 +2483,19 @@ class _ExerciseLibraryScreenState
     extends ConsumerState<ExerciseLibraryScreen> {
   String _query = '';
   String? _cat;
+  String? _equipFilter; // null=off; _kEquipNone=null-equipment; else=value
+  String? _diff;
   bool _favOnly = false;
   bool _thumbUpOnly = false;
   int? _minStar;
+
+  bool get _hasFilter =>
+      _cat != null ||
+      _equipFilter != null ||
+      _diff != null ||
+      _favOnly ||
+      _thumbUpOnly ||
+      _minStar != null;
 
   @override
   Widget build(BuildContext context) {
@@ -2220,6 +2503,11 @@ class _ExerciseLibraryScreenState
     final filtered = all
         .where((e) =>
             (_cat == null || e.category == _cat) &&
+            (_equipFilter == null ||
+                (_equipFilter == _kEquipNone
+                    ? e.equipment == null
+                    : e.equipment == _equipFilter)) &&
+            (_diff == null || e.difficulty == _diff) &&
             (_query.isEmpty ||
                 e.name.toLowerCase().contains(_query.toLowerCase())) &&
             (!_favOnly || e.isFavorite) &&
@@ -2231,83 +2519,30 @@ class _ExerciseLibraryScreenState
       appBar: AppBar(
         title: const Text('Übungsbibliothek'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(136),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                child: SearchBar(
-                  hintText: 'Übung suchen…',
-                  leading: const Icon(Icons.search),
-                  onChanged: (v) => setState(() => _query = v),
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SearchBar(
+                    hintText: 'Übung suchen…',
+                    leading: const Icon(Icons.search),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    FilterChip(
-                      label: const Text('Alle'),
-                      selected: _cat == null,
-                      onSelected: (_) => setState(() => _cat = null),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 6),
-                    ..._categories.map((c) => Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: FilterChip(
-                            label: Text(_catLabel(c)),
-                            selected: _cat == c,
-                            onSelected: (_) => setState(
-                                () => _cat = _cat == c ? null : c),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        )),
-                  ],
+                const SizedBox(width: 8),
+                Badge(
+                  isLabelVisible: _hasFilter,
+                  smallSize: 8,
+                  child: IconButton.filledTonal(
+                    icon: const Icon(Icons.tune),
+                    tooltip: 'Filtern',
+                    onPressed: () => _showFilterSheet(context),
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    FilterChip(
-                      label: const Text('❤️ Favoriten'),
-                      selected: _favOnly,
-                      onSelected: (v) => setState(() => _favOnly = v),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 6),
-                    FilterChip(
-                      label: const Text('👍 Empfohlen'),
-                      selected: _thumbUpOnly,
-                      onSelected: (v) =>
-                          setState(() => _thumbUpOnly = v),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 6),
-                    FilterChip(
-                      label: const Text('★ 4+'),
-                      selected: _minStar == 4,
-                      onSelected: (v) =>
-                          setState(() => _minStar = v ? 4 : null),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 6),
-                    FilterChip(
-                      label: const Text('★ 3+'),
-                      selected: _minStar == 3,
-                      onSelected: (v) =>
-                          setState(() => _minStar = v ? 3 : null),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2367,6 +2602,39 @@ class _ExerciseLibraryScreenState
         onPressed: () => _addCustom(context),
         tooltip: 'Eigene Übung',
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ExerciseFilterSheet(
+        cat: _cat,
+        equipFilter: _equipFilter,
+        diff: _diff,
+        favOnly: _favOnly,
+        thumbUpOnly: _thumbUpOnly,
+        minStar: _minStar,
+        onChange: ({
+          String? cat,
+          String? equipFilter,
+          String? diff,
+          required bool favOnly,
+          required bool thumbUpOnly,
+          int? minStar,
+        }) {
+          setState(() {
+            _cat = cat;
+            _equipFilter = equipFilter;
+            _diff = diff;
+            _favOnly = favOnly;
+            _thumbUpOnly = thumbUpOnly;
+            _minStar = minStar;
+          });
+        },
       ),
     );
   }
@@ -2869,14 +3137,22 @@ class WorkoutPlanDetailScreen extends ConsumerWidget {
       ),
       title: Text(ex?.name ?? pe.exerciseId,
           style: const TextStyle(fontSize: 13)),
-      subtitle: Text(
-        [
+      subtitle: () {
+        final target = [
           if (pe.targetSets != null) '${pe.targetSets} Sätze',
           if (pe.targetReps != null) '${pe.targetReps} Wdh',
-          if (pe.targetDurationSeconds != null) '${pe.targetDurationSeconds}s',
-        ].join(' × '),
-        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-      ),
+          if (pe.targetDurationSeconds != null)
+            '${pe.targetDurationSeconds}s',
+        ].join(' × ');
+        final equip =
+            ex?.equipment != null ? _equipLabel(ex!.equipment) : '';
+        final label = [
+          if (target.isNotEmpty) target,
+          if (equip.isNotEmpty) equip,
+        ].join(' · ');
+        return Text(label,
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant));
+      }(),
       trailing: IconButton(
         icon: const Icon(Icons.close, size: 16),
         padding: EdgeInsets.zero,

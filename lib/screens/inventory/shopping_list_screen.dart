@@ -118,60 +118,106 @@ class ShoppingListScreen extends ConsumerWidget {
         final checkedCount =
             allCustom.where((c) => c.checked).length;
 
+        final cs = Theme.of(context).colorScheme;
         return Column(
           children: [
-            if (shoppingMode)
-              MaterialBanner(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                content: Text(
-                  'Einkaufsmodus aktiv – tippe Artikel zum Abhaken',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer),
-                ),
-                backgroundColor:
-                    Theme.of(context).colorScheme.primaryContainer,
-                actions: [
-                  TextButton(
-                    onPressed: () => ref
-                        .read(_shoppingModeProvider.notifier)
-                        .state = false,
-                    child: const Text('Beenden'),
-                  ),
-                ],
-              ),
-            if (!shoppingMode)
-              Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Row(
+            // ── Persistent action toolbar ────────────────────────────────────
+            Material(
+              color: cs.surface,
+              elevation: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.info_outline,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      [
-                        if (allNeeds.isNotEmpty)
-                          '${allNeeds.length} unter Mindestbestand',
-                        if (allCustom.isNotEmpty)
-                          '${allCustom.length} manuell',
-                        if (snoozedCount > 0)
-                          '$snoozedCount übersprungen',
-                      ].join(' · '),
-                      style: Theme.of(context).textTheme.bodySmall,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    child: Row(
+                      children: [
+                        // Shopping-mode toggle
+                        IconButton(
+                          icon: Icon(shoppingMode
+                              ? Icons.shopping_cart
+                              : Icons.shopping_cart_outlined),
+                          color: shoppingMode ? cs.primary : null,
+                          tooltip: shoppingMode
+                              ? 'Einkaufsmodus beenden'
+                              : 'Einkaufsmodus starten',
+                          onPressed: () => ref
+                              .read(_shoppingModeProvider.notifier)
+                              .state = !shoppingMode,
+                        ),
+                        if (!shoppingMode) ...[
+                          // Scan to add
+                          IconButton(
+                            icon: const Icon(Icons.qr_code_scanner),
+                            tooltip: 'Scan zum Hinzufügen',
+                            onPressed: () => _scanToAdd(context, ref),
+                          ),
+                        ],
+                        const Spacer(),
+                        // Stats
+                        Flexible(
+                          child: Text(
+                            [
+                              if (allNeeds.isNotEmpty)
+                                '${allNeeds.length} unter Mindestbestand',
+                              if (allCustom.isNotEmpty)
+                                '${allCustom.length} manuell',
+                              if (snoozedCount > 0)
+                                '$snoozedCount übersprungen',
+                            ].join(' · '),
+                            style: Theme.of(context).textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (checkedCount > 0)
+                          TextButton.icon(
+                            onPressed: () => ref
+                                .read(databaseProvider)
+                                ?.deleteCheckedCustomShoppingItems(),
+                            icon: const Icon(Icons.delete_sweep_outlined,
+                                size: 16),
+                            label: Text('$checkedCount erledigt löschen'),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              textStyle: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        // Add entry
+                        if (!shoppingMode)
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            tooltip: 'Eintrag hinzufügen',
+                            onPressed: () => _showAddDialog(context, ref),
+                          ),
+                      ],
                     ),
                   ),
-                  if (checkedCount > 0)
-                    TextButton.icon(
-                      onPressed: () =>
-                          ref.read(databaseProvider)?.deleteCheckedCustomShoppingItems(),
-                      icon: const Icon(Icons.delete_sweep_outlined, size: 16),
-                      label: Text('$checkedCount erledigt löschen'),
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        textStyle: const TextStyle(fontSize: 12),
+                  if (shoppingMode)
+                    Container(
+                      width: double.infinity,
+                      color: cs.primaryContainer,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Einkaufsmodus aktiv – tippe Artikel zum Abhaken',
+                              style: TextStyle(
+                                  color: cs.onPrimaryContainer,
+                                  fontSize: 13),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => ref
+                                .read(_shoppingModeProvider.notifier)
+                                .state = false,
+                            child: const Text('Beenden'),
+                          ),
+                        ],
                       ),
                     ),
+                  Divider(height: 1, color: cs.outlineVariant),
                 ],
               ),
             ),
@@ -196,52 +242,7 @@ class ShoppingListScreen extends ConsumerWidget {
     );
 
     if (embedded) {
-      return Stack(
-        children: [
-          body,
-          if (!shoppingMode)
-            Positioned(
-              right: 16,
-              bottom: 136,
-              child: FloatingActionButton.small(
-                heroTag: 'scan_shopping',
-                onPressed: () => _scanToAdd(context, ref),
-                tooltip: 'Scan zum Hinzufügen',
-                child: const Icon(Icons.qr_code_scanner),
-              ),
-            ),
-          Positioned(
-            right: 16,
-            bottom: 80,
-            child: FloatingActionButton.small(
-              heroTag: 'shopping_mode_toggle',
-              onPressed: () =>
-                  ref.read(_shoppingModeProvider.notifier).state = !shoppingMode,
-              tooltip:
-                  shoppingMode ? 'Einkaufsmodus beenden' : 'Einkaufsmodus',
-              backgroundColor: shoppingMode
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-              foregroundColor: shoppingMode
-                  ? Theme.of(context).colorScheme.onPrimary
-                  : null,
-              child: Icon(shoppingMode
-                  ? Icons.shopping_cart
-                  : Icons.shopping_cart_outlined),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              heroTag: 'add_shopping',
-              onPressed: () => _showAddDialog(context, ref),
-              tooltip: 'Eintrag hinzufügen',
-              child: const Icon(Icons.add),
-            ),
-          ),
-        ],
-      );
+      return body;
     }
 
     return Scaffold(
@@ -635,11 +636,11 @@ class _LinkedItemCard extends ConsumerWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     // Edit
-                    TextButton.icon(
+                    IconButton(
                       onPressed: () => showModalBottomSheet<void>(
                         context: context,
                         isScrollControlled: true,
@@ -647,23 +648,19 @@ class _LinkedItemCard extends ConsumerWidget {
                         builder: (_) =>
                             _AddCustomItemSheet(existing: customItem),
                       ),
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('Bearbeiten'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.outline,
-                        visualDensity: VisualDensity.compact,
-                      ),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      color: theme.colorScheme.outline,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Bearbeiten',
                     ),
                     // Delete
-                    TextButton.icon(
+                    IconButton(
                       onPressed: () =>
                           db?.deleteCustomShoppingItem(customItem.id),
-                      icon: const Icon(Icons.close, size: 16),
-                      label: const Text('Entfernen'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.outline,
-                        visualDensity: VisualDensity.compact,
-                      ),
+                      icon: const Icon(Icons.close, size: 18),
+                      color: theme.colorScheme.error,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Entfernen',
                     ),
                     const Spacer(),
                     // Buy button → opens AddStockSheet, auto-removes on success
@@ -844,11 +841,11 @@ class _NeedCard extends ConsumerWidget {
                     AlwaysStoppedAnimation(theme.colorScheme.error),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton.icon(
+                IconButton(
                   onPressed: () {
                     final id = need.group?.id ?? need.item?.id;
                     if (id != null) {
@@ -857,12 +854,10 @@ class _NeedCard extends ConsumerWidget {
                           .update((s) => {...s, id});
                     }
                   },
-                  icon: const Icon(Icons.close, size: 16),
-                  label: const Text('Skip'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.error,
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  icon: const Icon(Icons.close, size: 18),
+                  color: Theme.of(context).colorScheme.error,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Überspringen',
                 ),
                 Expanded(
                   child: Builder(builder: (context) {

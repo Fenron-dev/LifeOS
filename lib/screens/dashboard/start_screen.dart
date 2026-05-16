@@ -22,11 +22,36 @@ final missingStaplesProvider = StreamProvider<List<Item>>((ref) {
   return db.watchMissingStapleItems();
 });
 
-class StartScreen extends ConsumerWidget {
+class StartScreen extends ConsumerStatefulWidget {
   const StartScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StartScreen> createState() => _StartScreenState();
+}
+
+class _StartScreenState extends ConsumerState<StartScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Force child widgets (ExpiryCard, TodayHealthCard…) to recompute
+    // DateTime.now() when the app comes back to the foreground.
+    if (state == AppLifecycleState.resumed && mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Start'),
