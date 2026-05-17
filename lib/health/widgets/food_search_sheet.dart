@@ -983,10 +983,19 @@ class _SearchItem {
       fatPer100g: nutrition?.fatPer100g,
       fiberPer100g: nutrition?.fiberPer100g,
       servingSizeG: servingSizeG,
-      recipeKcalTotal: nutrition?.kcal ?? r.caloriesPerServing,
-      recipeProteinTotal: nutrition?.proteinG ?? r.proteinPerServing,
-      recipeCarbsTotal: nutrition?.carbsG ?? r.carbsPerServing,
-      recipeFatTotal: nutrition?.fatG ?? r.fatPerServing,
+      // nutrition.kcal is the TOTAL for all servings → divide by r.servings for per-serving
+      recipeKcalTotal: nutrition != null && r.servings > 0
+          ? nutrition.kcal / r.servings
+          : r.caloriesPerServing,
+      recipeProteinTotal: nutrition != null && r.servings > 0
+          ? nutrition.proteinG / r.servings
+          : r.proteinPerServing,
+      recipeCarbsTotal: nutrition != null && r.servings > 0
+          ? nutrition.carbsG / r.servings
+          : r.carbsPerServing,
+      recipeFatTotal: nutrition != null && r.servings > 0
+          ? nutrition.fatG / r.servings
+          : r.fatPerServing,
       servingUnit: r.servingUnit,
       source: 'recipe',
     );

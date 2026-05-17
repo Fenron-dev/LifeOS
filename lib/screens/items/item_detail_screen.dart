@@ -877,118 +877,122 @@ class _StockEntryCard extends ConsumerWidget {
       color: cardColor,
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${_formatQty(entry.quantity)} ${entry.unit}',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  if (entry.expiryDate != null)
-                    Text(
-                      _expiryLabel(entry.expiryDate!, expiresIn!),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isExpired
-                            ? theme.colorScheme.error
-                            : isExpiringSoon
-                                ? Colors.orange.shade700
-                                : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  _StateChip(state: entry.state),
-                  if (entry.frozenAt != null) ...[
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      Icon(Icons.ac_unit, size: 12, color: Colors.blue.shade400),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Eingefroren ${DateFormat('dd.MM.yy').format(entry.frozenAt!)}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.blue.shade400),
-                      ),
-                    ]),
-                  ],
-                  if (entry.thawedAt != null) ...[
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      Icon(Icons.water_drop_outlined,
-                          size: 12, color: Colors.cyan.shade600),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Aufgetaut ${DateFormat('dd.MM.yy').format(entry.thawedAt!)}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.cyan.shade600),
-                      ),
-                    ]),
-                  ],
-                  if (entry.price != null) ...[
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      Icon(Icons.euro,
-                          size: 12, color: theme.colorScheme.outline),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${entry.price!.toStringAsFixed(2)} €',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.outline),
-                      ),
-                    ]),
-                  ],
-                  if (location != null) ...[
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(Icons.place_outlined,
-                            size: 12,
-                            color: theme.colorScheme.outline),
-                        const SizedBox(width: 3),
-                        Text(location.name,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.outline)),
-                      ],
-                    ),
-                  ],
-                  if (entry.openedAt != null) ...[
-                    const SizedBox(height: 4),
-                    Row(children: [
-                      Icon(Icons.lock_open_outlined,
-                          size: 12, color: Colors.blue.shade600),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Geöffnet ${DateFormat('dd.MM.yy').format(entry.openedAt!)}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.blue.shade600),
-                      ),
-                    ]),
-                  ],
-                ],
-              ),
+            // ── Quantity + expiry ───────────────────────────────────────────
+            Row(
+              children: [
+                Text(
+                  '${_formatQty(entry.quantity)} ${entry.unit}',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(width: 8),
+                _StateChip(state: entry.state),
+              ],
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
+            if (entry.expiryDate != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                _expiryLabel(entry.expiryDate!, expiresIn!),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isExpired
+                      ? theme.colorScheme.error
+                      : isExpiringSoon
+                          ? Colors.orange.shade700
+                          : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            // ── Extra details (frozen, price, location, opened) ────────────
+            if (entry.frozenAt != null) ...[
+              const SizedBox(height: 2),
+              Row(children: [
+                Icon(Icons.ac_unit, size: 12, color: Colors.blue.shade400),
+                const SizedBox(width: 3),
+                Text(
+                  'Eingefroren ${DateFormat('dd.MM.yy').format(entry.frozenAt!)}',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.blue.shade400),
+                ),
+              ]),
+            ],
+            if (entry.thawedAt != null) ...[
+              const SizedBox(height: 2),
+              Row(children: [
+                Icon(Icons.water_drop_outlined,
+                    size: 12, color: Colors.cyan.shade600),
+                const SizedBox(width: 3),
+                Text(
+                  'Aufgetaut ${DateFormat('dd.MM.yy').format(entry.thawedAt!)}',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.cyan.shade600),
+                ),
+              ]),
+            ],
+            if (entry.price != null || location != null) ...[
+              const SizedBox(height: 2),
+              Row(children: [
+                if (entry.price != null) ...[
+                  Icon(Icons.euro, size: 12, color: theme.colorScheme.outline),
+                  const SizedBox(width: 3),
+                  Text(
+                    '${entry.price!.toStringAsFixed(2)} €',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline),
+                  ),
+                  if (location != null) const SizedBox(width: 12),
+                ],
+                if (location != null) ...[
+                  Icon(Icons.place_outlined,
+                      size: 12, color: theme.colorScheme.outline),
+                  const SizedBox(width: 3),
+                  Text(location.name,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.outline)),
+                ],
+              ]),
+            ],
+            if (entry.openedAt != null) ...[
+              const SizedBox(height: 2),
+              Row(children: [
+                Icon(Icons.lock_open_outlined,
+                    size: 12, color: Colors.blue.shade600),
+                const SizedBox(width: 3),
+                Text(
+                  'Geöffnet ${DateFormat('dd.MM.yy').format(entry.openedAt!)}',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.blue.shade600),
+                ),
+              ]),
+            ],
+            // ── Action buttons ──────────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: 'Buchung bearbeiten',
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => _showEditDialog(context, ref),
                 ),
                 IconButton(
                   icon: const Icon(Icons.remove_circle_outline, size: 20),
                   tooltip: 'Verbrauchen',
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => _showConsumeDialog(context, ref),
                 ),
                 IconButton(
                   icon: const Icon(Icons.sync_alt, size: 20),
                   tooltip: 'Zustand ändern',
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => _showStateChangeSheet(context),
                 ),
                 IconButton(
                   icon: const Icon(Icons.move_down_outlined, size: 20),
                   tooltip: 'Umbuchen',
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => _showRelocateSheet(context, ref, locations),
                 ),
               ],
@@ -1600,8 +1604,9 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
             : prefillQty.toStringAsFixed(1))
         : '1';
     _qtyCtrl = TextEditingController(text: qtyText);
-    // Pre-select unit: prefill → item stockUnit → fallback
+    // Pre-select unit: prefill → purchaseUnit → stockUnit → fallback
     _unit = widget.prefillUnit ??
+        widget.item.purchaseUnit ??
         widget.item.stockUnit ??
         'Stück';
     // Pre-select most recent location for this item

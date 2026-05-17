@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
+import '../../providers/settings_provider.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/water_provider.dart';
@@ -80,6 +81,10 @@ class GoalsTab extends ConsumerWidget {
             color: Colors.blue,
           ),
         ),
+        const SizedBox(height: 12),
+
+        // ── Water reminder ────────────────────────────────────────────────
+        const _WaterReminderSection(),
         const SizedBox(height: 12),
 
         // ── Macro goals ───────────────────────────────────────────────────
@@ -538,6 +543,116 @@ class _WorkoutGoalContent extends StatelessWidget {
               color: reached ? Colors.green : cs.onSurfaceVariant),
         ),
       ],
+    );
+  }
+}
+
+// ── Water reminder section ────────────────────────────────────────────────────
+
+class _WaterReminderSection extends ConsumerWidget {
+  const _WaterReminderSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settingsAsync = ref.watch(settingsProvider);
+    final settings = settingsAsync.valueOrNull ?? const AppSettingsData();
+    final notifier = ref.read(settingsProvider.notifier);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    String fmtHour(int h) => '${h.toString().padLeft(2, '0')}:00';
+
+    String fmtInterval(int minutes) => switch (minutes) {
+          30 => '30 Minuten',
+          60 => '1 Stunde',
+          90 => '1,5 Stunden',
+          120 => '2 Stunden',
+          180 => '3 Stunden',
+          _ => '$minutes Minuten',
+        };
+
+    Future<void> pickTimeWindow() async {
+      final fromTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: settings.waterReminderFromHour, minute: 0),
+        helpText: 'Startzeit',
+      );
+      if (fromTime == null) return;
+      if (!context.mounted) return;
+      final toTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: settings.waterReminderToHour, minute: 0),
+        helpText: 'Endzeit',
+      );
+      if (toTime == null) return;
+      await notifier.setWaterReminderFromHour(fromTime.hour);
+      await notifier.setWaterReminderToHour(toTime.hour);
+    }
+
+    Future<void> pickInterval() async {
+      const options = [30, 60, 90, 120, 180];
+      final picked = await showDialog<int>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Erinnerungsintervall'),
+          children: options
+              .map(
+                (m) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(ctx).pop(m),
+                  child: Text(fmtInterval(m)),
+                ),
+              )
+              .toList(),
+        ),
+      );
+      if (picked != null) {
+        await notifier.setWaterReminderIntervalMinutes(picked);
+      }
+    }
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Row(
+              children: [
+                Icon(Icons.notifications_outlined,
+                    size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Text('Wasserreminder', style: theme.textTheme.titleSmall),
+              ],
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Erinnerungen aktiviert'),
+            value: settings.waterReminderEnabled,
+            onChanged: (v) => notifier.setWaterReminderEnabled(v),
+          ),
+          if (settings.waterReminderEnabled) ...[
+            ListTile(
+              leading: const Icon(Icons.schedule_outlined),
+              title: const Text('Zeitfenster'),
+              subtitle: Text(
+                '${fmtHour(settings.waterReminderFromHour)} – '
+                '${fmtHour(settings.waterReminderToHour)}',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: pickTimeWindow,
+            ),
+            ListTile(
+              leading: const Icon(Icons.timer_outlined),
+              title: const Text('Interval'),
+              subtitle: Text(
+                  'Alle ${fmtInterval(settings.waterReminderIntervalMinutes)}'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: pickInterval,
+            ),
+          ],
+          const SizedBox(height: 4),
+        ],
+      ),
     );
   }
 }

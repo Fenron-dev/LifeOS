@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/notification_service.dart';
 import 'vault_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,14 @@ class AppSettingsData {
   final bool autoSizeText;
   /// Maximum number of font-size steps (2pt each) allowed for auto-sizing (1–3).
   final int maxSizeReduction;
+  /// Whether water reminder notifications are enabled.
+  final bool waterReminderEnabled;
+  /// Hour of day when water reminders start (0–23).
+  final int waterReminderFromHour;
+  /// Hour of day when water reminders end (0–23).
+  final int waterReminderToHour;
+  /// Interval between water reminders in minutes.
+  final int waterReminderIntervalMinutes;
 
   static const defaultQuickActions = [
     QuickAction.addInventory,
@@ -77,6 +86,10 @@ class AppSettingsData {
     this.historyAllMealsCount = 10,
     this.autoSizeText = false,
     this.maxSizeReduction = 2,
+    this.waterReminderEnabled = false,
+    this.waterReminderFromHour = 8,
+    this.waterReminderToHour = 22,
+    this.waterReminderIntervalMinutes = 120,
   });
 
   AppSettingsData copyWith({
@@ -88,6 +101,10 @@ class AppSettingsData {
     int? historyAllMealsCount,
     bool? autoSizeText,
     int? maxSizeReduction,
+    bool? waterReminderEnabled,
+    int? waterReminderFromHour,
+    int? waterReminderToHour,
+    int? waterReminderIntervalMinutes,
   }) =>
       AppSettingsData(
         themeMode: themeMode ?? this.themeMode,
@@ -98,6 +115,12 @@ class AppSettingsData {
         historyAllMealsCount: historyAllMealsCount ?? this.historyAllMealsCount,
         autoSizeText: autoSizeText ?? this.autoSizeText,
         maxSizeReduction: maxSizeReduction ?? this.maxSizeReduction,
+        waterReminderEnabled: waterReminderEnabled ?? this.waterReminderEnabled,
+        waterReminderFromHour:
+            waterReminderFromHour ?? this.waterReminderFromHour,
+        waterReminderToHour: waterReminderToHour ?? this.waterReminderToHour,
+        waterReminderIntervalMinutes:
+            waterReminderIntervalMinutes ?? this.waterReminderIntervalMinutes,
       );
 }
 
@@ -135,6 +158,16 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
         (await db.getSetting('auto_size_text') ?? 'false') == 'true';
     final maxSizeReduction =
         int.tryParse(await db.getSetting('max_size_reduction') ?? '') ?? 2;
+    final waterReminderEnabled =
+        (await db.getSetting('water_reminder_enabled') ?? 'false') == 'true';
+    final waterReminderFromHour =
+        int.tryParse(await db.getSetting('water_reminder_from_hour') ?? '') ??
+            8;
+    final waterReminderToHour =
+        int.tryParse(await db.getSetting('water_reminder_to_hour') ?? '') ?? 22;
+    final waterReminderIntervalMinutes = int.tryParse(
+            await db.getSetting('water_reminder_interval_minutes') ?? '') ??
+        120;
 
     return AppSettingsData(
       themeMode: switch (themeRaw) {
@@ -149,6 +182,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
       historyAllMealsCount: historyAllMealsCount,
       autoSizeText: autoSizeText,
       maxSizeReduction: maxSizeReduction,
+      waterReminderEnabled: waterReminderEnabled,
+      waterReminderFromHour: waterReminderFromHour,
+      waterReminderToHour: waterReminderToHour,
+      waterReminderIntervalMinutes: waterReminderIntervalMinutes,
     );
   }
 
@@ -222,5 +259,67 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
     await db.setSetting('max_size_reduction', '$steps');
     state = AsyncData(state.valueOrNull?.copyWith(maxSizeReduction: steps) ??
         AppSettingsData(maxSizeReduction: steps));
+  }
+
+  Future<void> setWaterReminderEnabled(bool enabled) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('water_reminder_enabled', enabled ? 'true' : 'false');
+    final current = state.valueOrNull ?? const AppSettingsData();
+    state = AsyncData(current.copyWith(waterReminderEnabled: enabled));
+    if (enabled) {
+      await NotificationService.scheduleWaterReminders(
+        fromHour: current.waterReminderFromHour,
+        toHour: current.waterReminderToHour,
+        intervalMinutes: current.waterReminderIntervalMinutes,
+      );
+    } else {
+      await NotificationService.cancelWaterReminders();
+    }
+  }
+
+  Future<void> setWaterReminderFromHour(int hour) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('water_reminder_from_hour', '$hour');
+    final current = state.valueOrNull ?? const AppSettingsData();
+    state = AsyncData(current.copyWith(waterReminderFromHour: hour));
+    if (current.waterReminderEnabled) {
+      await NotificationService.scheduleWaterReminders(
+        fromHour: hour,
+        toHour: current.waterReminderToHour,
+        intervalMinutes: current.waterReminderIntervalMinutes,
+      );
+    }
+  }
+
+  Future<void> setWaterReminderToHour(int hour) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('water_reminder_to_hour', '$hour');
+    final current = state.valueOrNull ?? const AppSettingsData();
+    state = AsyncData(current.copyWith(waterReminderToHour: hour));
+    if (current.waterReminderEnabled) {
+      await NotificationService.scheduleWaterReminders(
+        fromHour: current.waterReminderFromHour,
+        toHour: hour,
+        intervalMinutes: current.waterReminderIntervalMinutes,
+      );
+    }
+  }
+
+  Future<void> setWaterReminderIntervalMinutes(int minutes) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('water_reminder_interval_minutes', '$minutes');
+    final current = state.valueOrNull ?? const AppSettingsData();
+    state = AsyncData(current.copyWith(waterReminderIntervalMinutes: minutes));
+    if (current.waterReminderEnabled) {
+      await NotificationService.scheduleWaterReminders(
+        fromHour: current.waterReminderFromHour,
+        toHour: current.waterReminderToHour,
+        intervalMinutes: minutes,
+      );
+    }
   }
 }
