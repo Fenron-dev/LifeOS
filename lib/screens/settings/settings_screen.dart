@@ -148,6 +148,19 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/settings/automation'),
           ),
           const Divider(),
+          // ── Benachrichtigungen ──────────────────────────────────────────
+          const ListTile(
+            leading: Icon(Icons.notifications_outlined),
+            title: Text('Benachrichtigungen'),
+            dense: true,
+            enabled: false,
+          ),
+          settingsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (settings) => _WaterReminderTile(settings: settings),
+          ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.help_outline),
             title: const Text('Hilfe & Anleitung'),
@@ -355,6 +368,104 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 }
+
+// ── Water reminder settings tile ──────────────────────────────────────────────
+
+class _WaterReminderTile extends ConsumerWidget {
+  final AppSettingsData settings;
+  const _WaterReminderTile({required this.settings});
+
+  String _fmtHour(int h) => '${h.toString().padLeft(2, '0')}:00';
+
+  String _fmtInterval(int min) {
+    if (min < 60) return 'alle $min Min.';
+    if (min % 60 == 0) return 'alle ${min ~/ 60} Std.';
+    return 'alle ${(min / 60).toStringAsFixed(1)} Std.';
+  }
+
+  Future<void> _pickWindow(BuildContext context, WidgetRef ref) async {
+    final from = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: settings.waterReminderFromHour, minute: 0),
+      helpText: 'Von (Startzeit)',
+    );
+    if (from == null || !context.mounted) return;
+    final to = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: settings.waterReminderToHour, minute: 0),
+      helpText: 'Bis (Endzeit)',
+    );
+    if (to == null || !context.mounted) return;
+    final notifier = ref.read(settingsProvider.notifier);
+    await notifier.setWaterReminderFromHour(from.hour);
+    await notifier.setWaterReminderToHour(to.hour);
+  }
+
+  Future<void> _pickInterval(BuildContext context, WidgetRef ref) async {
+    const options = [30, 60, 90, 120, 180];
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Erinnerungsintervall'),
+        children: options
+            .map((m) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(ctx).pop(m),
+                  child: Text(
+                    m < 60
+                        ? 'Alle $m Minuten'
+                        : m % 60 == 0
+                            ? 'Alle ${m ~/ 60} Stunden'
+                            : 'Alle ${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')} Std.',
+                    style: TextStyle(
+                      fontWeight: m == settings.waterReminderIntervalMinutes
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+    if (picked != null && context.mounted) {
+      await ref.read(settingsProvider.notifier).setWaterReminderIntervalMinutes(picked);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.water_drop_outlined),
+          title: const Text('Wasserreminder'),
+          subtitle: const Text('Push-Hinweis wenn Ziel nicht erreicht'),
+          value: settings.waterReminderEnabled,
+          onChanged: (v) =>
+              ref.read(settingsProvider.notifier).setWaterReminderEnabled(v),
+        ),
+        if (settings.waterReminderEnabled) ...[
+          ListTile(
+            leading: const SizedBox.shrink(),
+            title: const Text('Zeitfenster'),
+            subtitle: Text(
+                '${_fmtHour(settings.waterReminderFromHour)} – ${_fmtHour(settings.waterReminderToHour)}'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pickWindow(context, ref),
+          ),
+          ListTile(
+            leading: const SizedBox.shrink(),
+            title: const Text('Interval'),
+            subtitle: Text(_fmtInterval(settings.waterReminderIntervalMinutes)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pickInterval(context, ref),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _CountSettingTile extends StatelessWidget {
   final IconData icon;

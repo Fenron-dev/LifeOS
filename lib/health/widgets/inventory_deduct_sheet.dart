@@ -236,6 +236,10 @@ class _InventoryDeductSheetState
     } else if (log.source == 'recipe' && log.itemId != null) {
       final ings = await db.ingredientsForRecipe(log.itemId!);
       final recipe = await db.recipeById(log.itemId!);
+      // Recipe ingredient quantities are stored as TOTAL for all recipe servings.
+      // Divide by recipe.servings to get per-serving amount, then multiply by
+      // how many servings the user consumed.
+      final recipeServings = (recipe?.servings ?? 1).toDouble();
       final servings = _computeServings(
         quantityG: log.quantityG,
         displayUnit: log.displayUnit,
@@ -251,7 +255,7 @@ class _InventoryDeductSheetState
         rows.add(await makeRow(
           label: ing.name,
           itemId: ing.itemId,
-          qty: ing.quantity * servings,
+          qty: (ing.quantity / recipeServings) * servings,
           unit: ing.unit,
           entries: entries,
           item: item,

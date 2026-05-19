@@ -358,14 +358,19 @@ class _DiaryEntrySheetState extends ConsumerState<DiaryEntrySheet> {
       );
     }
     if (mounted) {
-      Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(logs.length == 1
-              ? '„${logs.first.productName}" hinzugefügt.'
-              : '${logs.length} Einträge hinzugefügt.'),
-        ),
-      );
+      final messenger = ScaffoldMessenger.of(context);
+      final nav = Navigator.of(context);
+      final count = logs.length;
+      final name = logs.first.productName;
+      // Close FoodSearchSheet (topmost) then DiaryEntrySheet so the user
+      // lands back in the diary without an extra tap.
+      nav.pop();
+      nav.pop();
+      messenger.showSnackBar(SnackBar(
+        content: Text(count == 1
+            ? '„$name" hinzugefügt.'
+            : '$count Einträge hinzugefügt.'),
+      ));
     }
   }
 
