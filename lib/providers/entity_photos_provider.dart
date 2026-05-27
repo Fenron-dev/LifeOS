@@ -42,6 +42,12 @@ class EntityPhotoOpsNotifier extends AsyncNotifier<void> {
     final xfile = await picker.pickImage(source: source, imageQuality: 85);
     if (xfile == null) return;
 
+    const maxBytes = 25 * 1024 * 1024; // 25 MB
+    final size = await xfile.length();
+    if (size > maxBytes) {
+      throw Exception('Foto zu groß (${(size / 1024 / 1024).toStringAsFixed(1)} MB). Maximal 25 MB erlaubt.');
+    }
+
     final id = _uuid.v4();
     final photosDir = Directory(p.join(_vaultPath, 'photos'));
     if (!photosDir.existsSync()) photosDir.createSync(recursive: true);

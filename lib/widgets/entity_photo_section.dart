@@ -145,11 +145,18 @@ class _PhotoStrip extends ConsumerWidget {
       ),
     );
     if (source == null || !context.mounted) return;
-    await ref.read(entityPhotoOpsProvider.notifier).addPhoto(
-          entityId: entityId,
-          entityType: entityType,
-          source: source,
-        );
+    try {
+      await ref.read(entityPhotoOpsProvider.notifier).addPhoto(
+            entityId: entityId,
+            entityType: entityType,
+            source: source,
+          );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 }
 

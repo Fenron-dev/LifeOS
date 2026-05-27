@@ -804,6 +804,21 @@ class _StockSection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 8),
+        // Low-stock warning banner
+        statesAsync.whenData((states) {
+          if (item.minStockQuantity == null) return const SizedBox.shrink();
+          final unit = item.minStockUnit ?? item.stockUnit ?? '';
+          final total = states
+              .where((s) => s.unit == unit)
+              .fold(0.0, (sum, s) => sum + s.currentQuantity);
+          if (total >= item.minStockQuantity!) return const SizedBox.shrink();
+          return _LowStockBanner(
+            item: item,
+            currentTotal: total,
+            unit: unit,
+            onAddToList: () => _showAddToShoppingList(context, ref, item),
+          );
+        }).valueOrNull ?? const SizedBox.shrink(),
         entriesAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Text('Fehler: $e'),
@@ -819,6 +834,58 @@ class _StockSection extends ConsumerWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _LowStockBanner extends StatelessWidget {
+  final Item item;
+  final double currentTotal;
+  final String unit;
+  final VoidCallback onAddToList;
+
+  const _LowStockBanner({
+    required this.item,
+    required this.currentTotal,
+    required this.unit,
+    required this.onAddToList,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fmtCurrent = currentTotal == currentTotal.truncateToDouble()
+        ? currentTotal.toInt().toString()
+        : currentTotal.toStringAsFixed(1);
+    final fmtMin = item.minStockQuantity! == item.minStockQuantity!.truncateToDouble()
+        ? item.minStockQuantity!.toInt().toString()
+        : item.minStockQuantity!.toStringAsFixed(1);
+    return Card(
+      color: cs.errorContainer,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: cs.onErrorContainer, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Bestand niedrig: $fmtCurrent / $fmtMin $unit',
+                style: TextStyle(color: cs.onErrorContainer, fontSize: 13),
+              ),
+            ),
+            TextButton(
+              onPressed: onAddToList,
+              style: TextButton.styleFrom(
+                foregroundColor: cs.onErrorContainer,
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Kaufen'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1613,6 +1680,10 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
     _initLocation();
     // Auto-calculate expiry for items with fixed shelf life
     _initExpiryDate();
+    // Smart Tara: auto-link default container if set on the item
+    if (widget.item.containerItemId != null) {
+      _containerId = widget.item.containerItemId;
+    }
   }
 
   Future<void> _initLocation() async {

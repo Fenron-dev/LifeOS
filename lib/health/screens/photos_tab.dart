@@ -72,10 +72,17 @@ class PhotosTab extends ConsumerWidget {
     final type = await _pickPhotoType(context);
     if (type == null || !context.mounted) return;
 
-    await ref.read(photoOpsProvider.notifier).addPhoto(
-          source: source,
-          photoType: type,
-        );
+    try {
+      await ref.read(photoOpsProvider.notifier).addPhoto(
+            source: source,
+            photoType: type,
+          );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 
   Future<String?> _pickPhotoType(BuildContext context) {

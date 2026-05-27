@@ -98,6 +98,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
   String? _openedLocationId;
   bool _taraEnabled = false;
   late final TextEditingController _taraWeightGCtrl;
+  String? _containerItemId;
 
   // Default consume unit (per-item deduction override)
   late final TextEditingController _consumeQtyCtrl;
@@ -171,6 +172,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
       _defaultLocationId = i.defaultLocationId;
       _openedLocationId = i.openedLocationId;
       _taraEnabled = i.taraWeightG != null;
+      _containerItemId = i.containerItemId;
       _nutritionRefUnit = i.nutritionRefUnit;
       _consumeUnit = i.consumeUnit;
       _showNutrition = _hasAnyNutrition(i);
@@ -486,6 +488,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockUnit: minStockQty != null ? _minStockUnit : null,
         preferredShopId: _preferredShopId,
         templateId: _templateId,
+        containerItemId: _containerItemId,
         taraWeightG: _taraEnabled
             ? double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))
             : null,
@@ -529,6 +532,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
         minStockUnit: Value(minStockQty != null ? _minStockUnit : null),
         preferredShopId: Value(_preferredShopId),
         templateId: Value(_templateId),
+        containerItemId: Value(_containerItemId),
         taraWeightG: Value(_taraEnabled
             ? double.tryParse(_taraWeightGCtrl.text.replaceAll(',', '.'))
             : null),
@@ -1078,6 +1082,51 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                     const TextInputType.numberWithOptions(decimal: true),
               ),
             ],
+            const SizedBox(height: 8),
+            // Smart Tara: default container item
+            Consumer(builder: (context, ref, _) {
+              final allItems = ref.watch(allItemsProvider).valueOrNull ?? [];
+              final containers = allItems
+                  .where((i) => i.taraWeightG != null && i.id != (widget.item?.id ?? ''))
+                  .toList();
+              if (containers.isEmpty) return const SizedBox.shrink();
+              final selected = containers.cast<Item?>().firstWhere(
+                    (i) => i?.id == _containerItemId,
+                    orElse: () => null,
+                  );
+              return ListTile(
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('Standard-Behälter (Smart Tara)'),
+                subtitle: Text(selected?.name ?? 'Keiner ausgewählt'),
+                contentPadding: EdgeInsets.zero,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_containerItemId != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        tooltip: 'Behälter entfernen',
+                        onPressed: () => setState(() => _containerItemId = null),
+                      ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () async {
+                  final picked = await showModalBottomSheet<String?>(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (_) => _ContainerItemPickerSheet(
+                      containers: containers,
+                      selectedId: _containerItemId,
+                    ),
+                  );
+                  if (picked != null && mounted) {
+                    setState(() => _containerItemId = picked.isEmpty ? null : picked);
+                  }
+                },
+              );
+            }),
             const SizedBox(height: 12),
             TextFormField(
               controller: _notesCtrl,
@@ -1652,6 +1701,103 @@ class _HealthFactorPicker extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ── Smart Tara: Container item picker sheet ───────────────────────────────────
+
+class _ContainerItemPickerSheet extends StatefulWidget {
+  final List<Item> containers;
+  final String? selectedId;
+
+  const _ContainerItemPickerSheet({
+    required this.containers,
+    required this.selectedId,
+  });
+
+  @override
+  State<_ContainerItemPickerSheet> createState() =>
+      _ContainerItemPickerSheetState();
+}
+
+class _ContainerItemPickerSheetState
+    extends State<_ContainerItemPickerSheet> {
+  late String _query;
+  late String? _selectedId;
+
+  @override
+  void initState() {
+    super.initState();
+    _query = '';
+    _selectedId = widget.selectedId;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.containers
+        .where((i) => i.name.toLowerCase().contains(_query.toLowerCase()))
+        .toList();
+
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Text('Behälter auswählen',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                if (_selectedId != null)
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(''),
+                    child: const Text('Entfernen'),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Suchen…',
+                prefixIcon: Icon(Icons.search),
+                isDense: true,
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: filtered.length,
+              itemBuilder: (_, i) {
+                final c = filtered[i];
+                return ListTile(
+                  leading: Icon(
+                    Icons.inventory_2_outlined,
+                    color: _selectedId == c.id
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  title: Text(c.name),
+                  subtitle: Text('Tara: ${c.taraWeightG!.toStringAsFixed(0)} g'),
+                  selected: _selectedId == c.id,
+                  onTap: () => Navigator.of(context).pop(c.id),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

@@ -40,6 +40,12 @@ class PhotoOpsNotifier extends AsyncNotifier<void> {
     final xfile = await picker.pickImage(source: source, imageQuality: 85);
     if (xfile == null) return;
 
+    const maxBytes = 25 * 1024 * 1024; // 25 MB
+    final fileSize = await xfile.length();
+    if (fileSize > maxBytes) {
+      throw Exception('Foto zu groß (${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB). Maximal 25 MB erlaubt.');
+    }
+
     final bytes = await xfile.readAsBytes();
     final id = _uuid.v4();
     final privateDir =
