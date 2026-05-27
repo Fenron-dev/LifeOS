@@ -30,6 +30,7 @@ import 'screens/settings/templates_screen.dart';
 import 'screens/settings/template_detail_screen.dart';
 import 'screens/settings/product_types_screen.dart';
 import 'screens/settings/automation_screen.dart';
+import 'screens/settings/sync_settings_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'health/screens/me_screen.dart';
 import 'screens/search/global_search_screen.dart';
@@ -116,6 +117,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'automation',
             builder: (context, state) => const AutomationScreen(),
+          ),
+          GoRoute(
+            path: 'sync',
+            builder: (context, state) => const SyncSettingsScreen(),
           ),
         ],
       ),

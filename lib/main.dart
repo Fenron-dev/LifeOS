@@ -11,6 +11,7 @@ import 'db/sql_cipher_loader.dart';
 import 'services/notification_service.dart';
 import 'providers/home_widget_provider.dart';
 import 'providers/inventory_provider.dart';
+import 'providers/sync_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/vault_provider.dart';
 import 'router.dart';
@@ -86,6 +87,7 @@ class _LifeOSAppState extends ConsumerState<LifeOSApp> {
     // Keep side-effect providers alive as long as the app runs.
     ref.watch(expiryNotificationSchedulerProvider);
     ref.watch(homeWidgetUpdaterProvider);
+    ref.watch(syncServerProvider); // starts shelf server when enabled (Desktop)
 
     return MaterialApp.router(
       title: 'LifeOS',

@@ -147,6 +147,13 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/automation'),
           ),
+          ListTile(
+            leading: const Icon(Icons.sync_outlined),
+            title: const Text('Synchronisation'),
+            subtitle: const Text('Desktop ↔ Android über WLAN'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/sync'),
+          ),
           const Divider(),
           // ── Benachrichtigungen ──────────────────────────────────────────
           const ListTile(

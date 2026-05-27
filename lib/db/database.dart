@@ -2976,4 +2976,41 @@ extension BodyPhotosDao on AppDatabase {
   Future<void> updateEntityPhotoCaption(String id, String? caption) =>
       (update(entityPhotos)..where((p) => p.id.equals(id)))
           .write(EntityPhotosCompanion(caption: Value(caption)));
+
+  // ── Sync ──────────────────────────────────────────────────────────────────
+
+  /// Returns all item events created after [since], optionally excluding
+  /// events from [excludeDeviceId] (the requesting device's own events).
+  Future<List<ItemEvent>> getItemEventsSince(
+    DateTime since, {
+    String? excludeDeviceId,
+  }) {
+    final query = select(itemEvents)
+      ..where((e) => e.createdAt.isBiggerThanValue(since));
+    if (excludeDeviceId != null) {
+      query.where((e) => e.deviceId.equals(excludeDeviceId).not());
+    }
+    query.orderBy([(e) => OrderingTerm.asc(e.createdAt)]);
+    return query.get();
+  }
+
+  /// Batch-inserts events received from a sync peer. Events whose IDs already
+  /// exist in the database are skipped (insert-or-ignore).
+  Future<void> insertSyncedEvents(List<ItemEventsCompanion> events) async {
+    if (events.isEmpty) return;
+    await batch((b) {
+      b.insertAllOnConflictUpdate(itemEvents, events);
+    });
+  }
+
+  /// Returns the timestamp of the most recent event from a foreign device,
+  /// or epoch if no foreign events exist. Used as the `since` cursor.
+  Future<DateTime> lastSyncedAt({required String localDeviceId}) async {
+    final result = await (select(itemEvents)
+          ..where((e) => e.deviceId.equals(localDeviceId).not())
+          ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
+          ..limit(1))
+        .getSingleOrNull();
+    return result?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
 }
