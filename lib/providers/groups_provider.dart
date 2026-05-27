@@ -20,12 +20,16 @@ class ShoppingNeed {
   final double currentQty;
   final double neededQty;
 
-  const ShoppingNeed({
+  ShoppingNeed({
     this.group,
     this.item,
     required this.currentQty,
     required this.neededQty,
-  }) : assert(group != null || item != null);
+  }) {
+    if (group == null && item == null) {
+      throw ArgumentError('ShoppingNeed requires either group or item');
+    }
+  }
 
   String get name => group?.name ?? item?.name ?? '';
   String get unit => group?.minStockUnit ?? item?.minStockUnit ?? '';

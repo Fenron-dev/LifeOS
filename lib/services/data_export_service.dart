@@ -118,14 +118,20 @@ class DataExportService {
 
           for (final row in rowList) {
             try {
-              final cols = row.keys.join(', ');
-              final placeholders = row.keys.map((_) => '?').join(', ');
-              final values = row.values
-                  .map((v) => v is bool ? (v ? 1 : 0) : v)
+              // Validate column names against a strict whitelist pattern to
+              // prevent SQL injection via crafted export files.
+              final safeKeys = row.keys
+                  .where((k) => RegExp(r'^[a-z_][a-z0-9_]*$').hasMatch(k))
                   .toList();
+              if (safeKeys.isEmpty) continue;
+              final safeValues = safeKeys
+                  .map((k) => row[k] is bool ? (row[k]! ? 1 : 0) : row[k])
+                  .toList();
+              final cols = safeKeys.join(', ');
+              final placeholders = safeKeys.map((_) => '?').join(', ');
               await db.customStatement(
                 'INSERT OR REPLACE INTO $tableName ($cols) VALUES ($placeholders)',
-                values,
+                safeValues,
               );
               totalRows++;
             } catch (_) {

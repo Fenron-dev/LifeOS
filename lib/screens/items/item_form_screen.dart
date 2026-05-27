@@ -248,6 +248,28 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
     super.dispose();
   }
 
+  /// Validates EAN/barcode input. Accepts EAN-8 (8 digits), UPC-A (12 digits),
+  /// EAN-13 (13 digits) with checksum, or any other all-digit code 6–20 chars.
+  String? _validateEan(String? v) {
+    if (v == null || v.trim().isEmpty) return null;
+    final code = v.trim();
+    if (!RegExp(r'^\d+$').hasMatch(code)) return 'Nur Ziffern erlaubt';
+    if (code.length < 6 || code.length > 20) return 'Ungültige Länge (6–20 Stellen)';
+    if (code.length == 8 || code.length == 13) {
+      // EAN-8 / EAN-13 checksum validation
+      int sum = 0;
+      for (int i = 0; i < code.length - 1; i++) {
+        final d = int.parse(code[i]);
+        sum += (code.length == 13)
+            ? (i.isEven ? d : d * 3)
+            : (i.isEven ? d * 3 : d);
+      }
+      final check = (10 - (sum % 10)) % 10;
+      if (check != int.parse(code[code.length - 1])) return 'Ungültige Prüfziffer';
+    }
+    return null;
+  }
+
   Future<void> _lookupOff() async {
     final ean = _eanCtrl.text.trim();
     if (ean.isEmpty) return;
@@ -582,6 +604,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                       prefixIcon: Icon(Icons.barcode_reader),
                     ),
                     keyboardType: TextInputType.number,
+                    validator: _validateEan,
                   ),
                 ),
                 const SizedBox(width: 8),

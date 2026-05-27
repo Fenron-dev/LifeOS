@@ -114,9 +114,11 @@ class _CurrentWeightCard extends StatelessWidget {
         NumberFormat.decimalPattern('de_DE')..maximumFractionDigits = 1;
     final start = profile?.startWeightKg;
     final target = profile?.targetWeightKg;
-    final lost = (start != null && latest != null) ? start - latest!.weightKg : null;
+    // Local non-null binding allows Dart flow analysis to narrow the type.
+    final log = latest;
+    final lost = (start != null && log != null) ? start - log.weightKg : null;
     final remaining =
-        (target != null && latest != null) ? latest!.weightKg - target : null;
+        (target != null && log != null) ? log.weightKg - target : null;
 
     return Card(
       color: cs.primaryContainer,
@@ -128,13 +130,13 @@ class _CurrentWeightCard extends StatelessWidget {
             Text('Aktuelles Gewicht',
                 style: TextStyle(color: cs.onPrimaryContainer)),
             const SizedBox(height: 8),
-            if (latest != null)
+            if (log != null)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    fmtKg.format(latest!.weightKg),
+                    fmtKg.format(log.weightKg),
                     style: TextStyle(
                       fontSize: 56,
                       fontWeight: FontWeight.w600,
@@ -154,9 +156,9 @@ class _CurrentWeightCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: cs.onPrimaryContainer)),
             const SizedBox(height: 4),
-            if (latest != null)
+            if (log != null)
               Text(
-                'Zuletzt: ${DateFormat.yMMMMd('de_DE').add_Hm().format(latest!.loggedAt)}',
+                'Zuletzt: ${DateFormat.yMMMMd('de_DE').add_Hm().format(log.loggedAt)}',
                 style: TextStyle(
                     color: cs.onPrimaryContainer.withValues(alpha: 0.8)),
               ),
@@ -204,31 +206,31 @@ class _CurrentWeightCard extends StatelessWidget {
                 ],
               ),
             ],
-            if (latest != null && _hasComposition(latest!)) ...[
+            if (log != null && _hasComposition(log)) ...[
               const Divider(height: 24),
               Wrap(
                 spacing: 24,
                 runSpacing: 8,
                 children: [
-                  if (latest!.bodyFatPct != null)
+                  if (log.bodyFatPct != null)
                     _CompoChip(
                       label: 'KFA',
-                      value: '${fmtKg.format(latest!.bodyFatPct!)} %',
+                      value: '${fmtKg.format(log.bodyFatPct!)} %',
                     ),
-                  if (latest!.muscleMassPct != null)
+                  if (log.muscleMassPct != null)
                     _CompoChip(
                       label: 'Muskel',
-                      value: '${fmtKg.format(latest!.muscleMassPct!)} %',
+                      value: '${fmtKg.format(log.muscleMassPct!)} %',
                     ),
-                  if (latest!.visceralFat != null)
+                  if (log.visceralFat != null)
                     _CompoChip(
                       label: 'Visceral',
-                      value: fmtKg.format(latest!.visceralFat!),
+                      value: fmtKg.format(log.visceralFat!),
                     ),
-                  if (latest!.waterPct != null)
+                  if (log.waterPct != null)
                     _CompoChip(
                       label: 'Wasser',
-                      value: '${fmtKg.format(latest!.waterPct!)} %',
+                      value: '${fmtKg.format(log.waterPct!)} %',
                     ),
                 ],
               ),

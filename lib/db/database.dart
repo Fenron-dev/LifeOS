@@ -446,7 +446,8 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<Item>> allItems() => select(items).get();
 
-  Stream<List<Item>> watchAllItems() => select(items).watch();
+  Stream<List<Item>> watchAllItems() =>
+      (select(items)..orderBy([(i) => OrderingTerm.asc(i.name)])).watch();
 
   Stream<List<Item>> watchItemsByCategory(String categoryId) =>
       (select(items)..where((i) => i.categoryId.equals(categoryId))).watch();
@@ -472,7 +473,8 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Item>> searchItems(String query) {
     final like = '%${query.toLowerCase()}%';
     return (select(items)
-          ..where((i) => i.name.lower().like(like) | i.brand.lower().like(like)))
+          ..where((i) => i.name.lower().like(like) | i.brand.lower().like(like))
+          ..limit(50))
         .watch();
   }
 
@@ -515,7 +517,13 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<({InventoryEntry entry, Item item})>> watchShelfLife() {
     final query = select(inventoryEntries).join([
       innerJoin(items, items.id.equalsExp(inventoryEntries.itemId)),
-    ]);
+    ])
+      // Only fetch entries that actually have shelf-life data to sort on.
+      ..where(
+        inventoryEntries.expiryDate.isNotNull() |
+            inventoryEntries.openedAt.isNotNull(),
+      )
+      ..orderBy([OrderingTerm.asc(inventoryEntries.expiryDate)]);
     return query.watch().map(
           (rows) => rows
               .map((r) => (
@@ -1068,6 +1076,11 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_mta_mealtype ON meal_type_assignments (meal_type_id)',
       'CREATE INDEX IF NOT EXISTS idx_nutr_logged_at ON nutrition_logs (logged_at)',
       'CREATE INDEX IF NOT EXISTS idx_nutr_meal_type ON nutrition_logs (meal_type_id)',
+      // Composite for day-view queries that filter by date and group by meal type.
+      'CREATE INDEX IF NOT EXISTS idx_nutr_logged_meal ON nutrition_logs (logged_at, meal_type_id)',
+      // Inventory hot-path: state filter (fresh/opened/frozen) and shelf-life calc.
+      'CREATE INDEX IF NOT EXISTS idx_inv_state ON inventory_entries (state)',
+      'CREATE INDEX IF NOT EXISTS idx_inv_opened_at ON inventory_entries (opened_at)',
     ];
     for (final s in stmts) {
       await customStatement(s);
@@ -1120,7 +1133,10 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<Recipe>> searchRecipes(String query) {
     final like = '%${query.toLowerCase()}%';
-    return (select(recipes)..where((r) => r.name.lower().like(like))).watch();
+    return (select(recipes)
+          ..where((r) => r.name.lower().like(like))
+          ..limit(50))
+        .watch();
   }
 
   Future<void> insertRecipe(RecipesCompanion entry) =>
