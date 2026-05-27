@@ -241,7 +241,10 @@ class _PhotoTileState extends ConsumerState<_PhotoTile> {
                     color: cs.onErrorContainer),
               )
             else
-              Image.memory(_bytes!, fit: BoxFit.cover),
+              Image(
+                image: ResizeImage(MemoryImage(_bytes!), width: 200, height: 200),
+                fit: BoxFit.cover,
+              ),
             Positioned(
               left: 4,
               bottom: 4,

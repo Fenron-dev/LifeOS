@@ -447,10 +447,17 @@ class AppDatabase extends _$AppDatabase {
   Future<List<Item>> allItems() => select(items).get();
 
   Stream<List<Item>> watchAllItems() =>
-      (select(items)..orderBy([(i) => OrderingTerm.asc(i.name)])).watch();
+      (select(items)
+            ..orderBy([(i) => OrderingTerm.asc(i.name)])
+            ..limit(1000))
+          .watch();
 
   Stream<List<Item>> watchItemsByCategory(String categoryId) =>
-      (select(items)..where((i) => i.categoryId.equals(categoryId))).watch();
+      (select(items)
+            ..where((i) => i.categoryId.equals(categoryId))
+            ..orderBy([(i) => OrderingTerm.asc(i.name)])
+            ..limit(1000))
+          .watch();
 
   Future<Item?> itemById(String id) =>
       (select(items)..where((i) => i.id.equals(id))).getSingleOrNull();
@@ -1157,7 +1164,10 @@ class AppDatabase extends _$AppDatabase {
   // ── Recipes ────────────────────────────────────────────────────────────────
 
   Stream<List<Recipe>> watchAllRecipes() =>
-      (select(recipes)..orderBy([(r) => OrderingTerm.asc(r.name)])).watch();
+      (select(recipes)
+            ..orderBy([(r) => OrderingTerm.asc(r.name)])
+            ..limit(1000))
+          .watch();
 
   Future<Recipe?> recipeById(String id) =>
       (select(recipes)..where((r) => r.id.equals(id))).getSingleOrNull();
@@ -1343,7 +1353,8 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Item States (all) ─────────────────────────────────────────────────────
 
-  Stream<List<ItemState>> watchAllItemStates() => select(itemStates).watch();
+  Stream<List<ItemState>> watchAllItemStates() =>
+      (select(itemStates)..limit(2000)).watch();
 
   /// Streams items that currently have at least one stock entry with quantity > 0.
   Stream<List<Item>> watchItemsWithStock() {

@@ -23,6 +23,10 @@ final photoOpsProvider =
     AsyncNotifierProvider<PhotoOpsNotifier, void>(PhotoOpsNotifier.new);
 
 class PhotoOpsNotifier extends AsyncNotifier<void> {
+  // Decrypted-bytes cache — max 30 entries, LRU eviction via insertion order
+  final _byteCache = <String, Uint8List>{};
+  static const _kMaxCache = 30;
+
   @override
   Future<void> build() async {}
 
@@ -69,14 +73,28 @@ class PhotoOpsNotifier extends AsyncNotifier<void> {
     ref.invalidate(bodyPhotosProvider);
   }
 
-  /// Decrypts and returns raw image bytes for display.
+  /// Decrypts and returns raw image bytes for display. Results are cached
+  /// in memory (LRU, max 30 entries) to avoid re-decrypting on every rebuild.
   Future<Uint8List?> loadPhotoBytes(BodyPhoto photo) async {
+    if (_byteCache.containsKey(photo.id)) {
+      // Re-insert to mark as recently used
+      final cached = _byteCache.remove(photo.id)!;
+      _byteCache[photo.id] = cached;
+      return cached;
+    }
     final fullPath = p.join(_vaultPath, photo.filePathRelative);
     if (!File(fullPath).existsSync()) return null;
-    return PhotoEncryptionService.decryptFromFile(fullPath, photo.encryptionIv);
+    final bytes = await PhotoEncryptionService.decryptFromFile(
+        fullPath, photo.encryptionIv);
+    if (_byteCache.length >= _kMaxCache) {
+      _byteCache.remove(_byteCache.keys.first);
+    }
+    _byteCache[photo.id] = bytes;
+    return bytes;
   }
 
   Future<void> deletePhoto(BodyPhoto photo) async {
+    _byteCache.remove(photo.id);
     await PhotoEncryptionService.deleteFile(_vaultPath, photo.filePathRelative);
     await _db.deleteBodyPhoto(photo.id);
     ref.invalidate(bodyPhotosProvider);
