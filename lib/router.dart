@@ -32,6 +32,7 @@ import 'screens/settings/product_types_screen.dart';
 import 'screens/settings/automation_screen.dart';
 import 'screens/locations/locations_screen.dart';
 import 'health/screens/me_screen.dart';
+import 'screens/search/global_search_screen.dart';
 import 'widgets/adaptive_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -60,6 +61,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/wishlist',
         builder: (context, state) => const WishlistScreen(),
+      ),
+      GoRoute(
+        path: '/search',
+        builder: (context, state) => const GlobalSearchScreen(),
       ),
       GoRoute(
         path: '/settings',

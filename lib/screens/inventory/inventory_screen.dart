@@ -214,7 +214,10 @@ class _ItemCard extends StatelessWidget {
             ),
             if (item.isFavorite) ...[
               const SizedBox(width: 4),
-              Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
+              Semantics(
+                label: 'Favorit',
+                child: Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
+              ),
             ],
             if (healthEmoji(item.healthFactor) != null) ...[
               const SizedBox(width: 4),
@@ -238,7 +241,9 @@ class _ItemCard extends StatelessWidget {
             Row(
               children: [
                 if (item.ean != null) ...[
-                  Icon(Icons.barcode_reader, size: 12, color: cs.outline),
+                  ExcludeSemantics(
+                    child: Icon(Icons.barcode_reader, size: 12, color: cs.outline),
+                  ),
                   const SizedBox(width: 4),
                 ],
                 _StockBadge(item: item, states: states),
@@ -270,33 +275,45 @@ class _ExpiryBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color color;
     final String label;
+    String semanticLabel;
     if (daysLeft < 0) {
       color = Theme.of(context).colorScheme.error;
       label = 'Abgelaufen';
+      semanticLabel = 'Abgelaufen';
     } else if (daysLeft == 0) {
       color = Theme.of(context).colorScheme.error;
       label = 'Heute';
+      semanticLabel = 'Läuft heute ab';
     } else if (daysLeft <= 3) {
       color = Colors.orange;
       label = '${daysLeft}T';
+      semanticLabel = 'Läuft in $daysLeft ${daysLeft == 1 ? 'Tag' : 'Tagen'} ab';
     } else {
       color = Colors.amber.shade700;
       label = '${daysLeft}T';
+      semanticLabel = 'Läuft in $daysLeft Tagen ab';
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.event_busy_outlined, size: 10, color: color),
-          const SizedBox(width: 2),
-          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-        ],
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color.withValues(alpha: 0.5), width: 0.5),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.event_busy_outlined, size: 10, color: color),
+              const SizedBox(width: 2),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -311,7 +328,10 @@ class _FrozenBadge extends StatelessWidget {
     final hasThawed = states.any((s) => s.state == 'thawed');
     final color = hasThawed ? Colors.cyan.shade600 : Colors.blue.shade400;
     final label = hasThawed ? 'Aufgetaut' : 'Gefroren';
-    return Container(
+    return Semantics(
+      label: label,
+      child: ExcludeSemantics(
+        child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
@@ -327,6 +347,8 @@ class _FrozenBadge extends StatelessWidget {
               style: TextStyle(
                   fontSize: 10, color: color, fontWeight: FontWeight.w600)),
         ],
+      ),
+        ),
       ),
     );
   }

@@ -17,6 +17,11 @@ import '../utils/unit_deduct_utils.dart';
 /// Overflow menu actions shared across all main-branch AppBars.
 /// Provides navigation to Wishlist and Settings.
 List<Widget> shellMenuActions(BuildContext context) => [
+      IconButton(
+        icon: const Icon(Icons.search),
+        tooltip: 'Suchen',
+        onPressed: () => context.push('/search'),
+      ),
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
         tooltip: 'Mehr',

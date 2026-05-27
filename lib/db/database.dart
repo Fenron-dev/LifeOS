@@ -888,6 +888,13 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
 
+  Future<List<Task>> searchTasks(String query) =>
+      (select(tasks)
+            ..where((t) =>
+                t.title.like('%$query%') | t.notes.like('%$query%'))
+            ..limit(25))
+          .get();
+
   Stream<List<Task>> watchTasks() =>
       (select(tasks)
             ..orderBy([
