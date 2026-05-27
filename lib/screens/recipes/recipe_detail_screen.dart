@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../db/database.dart';
 import '../../health/widgets/diary_entry_sheet.dart';
 import '../../health/widgets/food_search_sheet.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../widgets/entity_photo_section.dart';
@@ -38,6 +39,11 @@ class RecipeDetailScreen extends ConsumerWidget {
           appBar: AppBar(
             title: Text(recipe.name),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.outdoor_grill_outlined),
+                tooltip: 'Gekocht — Zutaten ausbuchen',
+                onPressed: () => _cookRecipe(context, ref, recipe),
+              ),
               IconButton(
                 icon: const Icon(Icons.restaurant_outlined),
                 tooltip: 'Im Tagebuch erfassen',
@@ -144,6 +150,20 @@ class RecipeDetailScreen extends ConsumerWidget {
       }
     }
   }
+
+  static Future<void> _cookRecipe(
+      BuildContext context, WidgetRef ref, Recipe recipe) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    final ings = await db.ingredientsForRecipe(recipe.id);
+    if (!context.mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _CookRecipeSheet(recipe: recipe, ingredients: ings),
+    );
+  }
 }
 
 /// Embeddable detail pane used by both the full-screen [RecipeDetailScreen]
@@ -180,6 +200,12 @@ class RecipeSplitDetailPane extends ConsumerWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.outdoor_grill_outlined),
+                      tooltip: 'Gekocht — Zutaten ausbuchen',
+                      onPressed: () =>
+                          RecipeDetailScreen._cookRecipe(context, ref, recipe),
                     ),
                     IconButton(
                       icon: const Icon(Icons.restaurant_outlined),
@@ -538,6 +564,240 @@ class _IngredientRow extends StatelessWidget {
           Expanded(
             child: Text(
               ingredient.name + (ingredient.optional ? ' (optional)' : ''),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Cook Recipe Sheet ─────────────────────────────────────────────────────────
+
+class _CookRecipeSheet extends ConsumerStatefulWidget {
+  final Recipe recipe;
+  final List<RecipeIngredient> ingredients;
+
+  const _CookRecipeSheet({required this.recipe, required this.ingredients});
+
+  @override
+  ConsumerState<_CookRecipeSheet> createState() => _CookRecipeSheetState();
+}
+
+class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
+  late double _portions;
+  late Map<String, bool> _deduct; // ingredientId → selected for deduction
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _portions = widget.recipe.servings.toDouble();
+    _deduct = {
+      for (final ing in widget.ingredients)
+        if (ing.itemId != null) ing.id: true,
+    };
+  }
+
+  double get _scale =>
+      widget.recipe.servings > 0 ? _portions / widget.recipe.servings : 1.0;
+
+  String _fmtQty(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  Future<void> _cook(BuildContext context) async {
+    setState(() => _loading = true);
+    final db = ref.read(databaseProvider);
+    final ops = ref.read(inventoryOpsProvider.notifier);
+    if (db == null) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    int deducted = 0;
+    for (final ing in widget.ingredients) {
+      if (ing.itemId == null) continue;
+      if (!(_deduct[ing.id] ?? false)) continue;
+
+      final needed = ing.quantity * _scale;
+      final entries = await db.inventoryEntriesForItem(ing.itemId!);
+      double remaining = needed;
+      for (final entry in entries) {
+        if (remaining <= 0) break;
+        final take = remaining <= entry.quantity ? remaining : entry.quantity;
+        final leftInEntry = entry.quantity - take;
+        await ops.consume(
+          itemId: ing.itemId!,
+          inventoryEntryId: entry.id,
+          quantity: take,
+          unit: entry.unit,
+          remainingQuantity: leftInEntry,
+          consumptionReason: 'recipe_cook',
+        );
+        remaining -= take;
+      }
+      deducted++;
+    }
+
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          deducted > 0
+              ? '${widget.recipe.name} gekocht – $deducted Zutaten ausgebucht'
+              : '${widget.recipe.name} als gekocht markiert',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final linkedIngs =
+        widget.ingredients.where((i) => i.itemId != null).toList();
+    final unlinkedIngs =
+        widget.ingredients.where((i) => i.itemId == null).toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollCtrl) => Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.outdoor_grill_outlined, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Gekocht: ${widget.recipe.name}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          // Portions selector
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Text('Portionen:', style: Theme.of(context).textTheme.bodyMedium),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline),
+                  onPressed: _portions > 0.5
+                      ? () => setState(() => _portions =
+                          (_portions - 0.5).clamp(0.5, 99.0))
+                      : null,
+                ),
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    _fmtQty(_portions),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: () =>
+                      setState(() => _portions = (_portions + 0.5).clamp(0.5, 99.0)),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                if (linkedIngs.isNotEmpty) ...[
+                  Text('Aus Inventar ausbuchen',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          )),
+                  const SizedBox(height: 4),
+                  for (final ing in linkedIngs)
+                    CheckboxListTile(
+                      value: _deduct[ing.id] ?? false,
+                      onChanged: (v) =>
+                          setState(() => _deduct[ing.id] = v ?? false),
+                      title: Text(ing.name),
+                      subtitle: Text(
+                          '${_fmtQty(ing.quantity * _scale)} ${ing.unit}'),
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                ],
+                if (unlinkedIngs.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Nicht verknüpft (kein Bestand)',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          )),
+                  const SizedBox(height: 4),
+                  for (final ing in unlinkedIngs)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link_off, size: 14,
+                              color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(ing.name,
+                              style: const TextStyle(color: Colors.grey))),
+                          Text(
+                              '${_fmtQty(ing.quantity * _scale)} ${ing.unit}',
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                icon: _loading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check),
+                label: Text(_deduct.values.any((v) => v)
+                    ? 'Zutaten ausbuchen'
+                    : 'Als gekocht markieren'),
+                onPressed: _loading ? null : () => _cook(context),
+              ),
             ),
           ),
         ],

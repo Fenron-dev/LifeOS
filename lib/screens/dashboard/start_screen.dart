@@ -403,21 +403,48 @@ class _ExpiryCard extends ConsumerWidget {
                       ],
                     );
                   }
-                  final shown = items.take(3).toList();
-                  final rest = items.length - shown.length;
+                  final now = DateTime.now();
+                  final today = DateTime(now.year, now.month, now.day);
+
+                  // Bucket by days remaining (floor to calendar day)
+                  final urgent = items
+                      .where((r) => r.effectiveExpiry
+                          .difference(today)
+                          .inDays <= 3)
+                      .toList();
+                  final soon = items
+                      .where((r) {
+                        final d = r.effectiveExpiry.difference(today).inDays;
+                        return d > 3 && d <= 7;
+                      })
+                      .toList();
+                  final later = items
+                      .where((r) {
+                        final d = r.effectiveExpiry.difference(today).inDays;
+                        return d > 7 && d <= 14;
+                      })
+                      .toList();
+
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ...shown.map((r) => _ExpiryRow(
-                            name: r.item.name,
-                            expiry: r.effectiveExpiry,
-                          )),
-                      if (rest > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text('+ $rest weitere',
-                              style: TextStyle(
-                                  fontSize: 12, color: cs.onSurfaceVariant)),
+                      if (urgent.isNotEmpty)
+                        _ExpiryBucket(
+                          label: '≤ 3 Tage',
+                          color: cs.error,
+                          items: urgent,
+                        ),
+                      if (soon.isNotEmpty)
+                        _ExpiryBucket(
+                          label: '4–7 Tage',
+                          color: cs.tertiary,
+                          items: soon,
+                        ),
+                      if (later.isNotEmpty)
+                        _ExpiryBucket(
+                          label: '8–14 Tage',
+                          color: cs.onSurfaceVariant,
+                          items: later,
                         ),
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
@@ -446,17 +473,79 @@ class _ExpiryCard extends ConsumerWidget {
   }
 }
 
-class _ExpiryRow extends StatelessWidget {
-  final String name;
-  final DateTime expiry;
-  const _ExpiryRow({required this.name, required this.expiry});
+class _ExpiryBucket extends StatelessWidget {
+  final String label;
+  final Color color;
+  final List<({InventoryEntry entry, Item item, DateTime effectiveExpiry})> items;
+
+  const _ExpiryBucket({
+    required this.label,
+    required this.color,
+    required this.items,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final daysLeft = expiry.difference(DateTime.now()).inDays;
+    final shown = items.take(3).toList();
+    final rest = items.length - shown.length;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                      letterSpacing: 0.3)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ...shown.map((r) => _ExpiryRow(
+                name: r.item.name,
+                expiry: r.effectiveExpiry,
+                color: color,
+              )),
+          if (rest > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, left: 14),
+              child: Text('+ $rest weitere',
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExpiryRow extends StatelessWidget {
+  final String name;
+  final DateTime expiry;
+  final Color? color;
+  const _ExpiryRow({required this.name, required this.expiry, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final daysLeft = expiry.difference(today).inDays;
     final isExpired = daysLeft < 0;
-    final color = isExpired ? cs.error : cs.onSurfaceVariant;
+    final rowColor = color ?? (isExpired ? cs.error : cs.onSurfaceVariant);
     final dateStr = DateFormat('dd.MM.yy').format(expiry);
     final dayStr = isExpired
         ? 'abgelaufen'
@@ -465,7 +554,7 @@ class _ExpiryRow extends StatelessWidget {
             : 'in $daysLeft T.';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 3, left: 14),
       child: Row(
         children: [
           Expanded(
@@ -473,7 +562,7 @@ class _ExpiryRow extends StatelessWidget {
                   style: const TextStyle(fontSize: 13),
                   overflow: TextOverflow.ellipsis)),
           Text('$dateStr ($dayStr)',
-              style: TextStyle(fontSize: 12, color: color)),
+              style: TextStyle(fontSize: 11, color: rowColor)),
         ],
       ),
     );

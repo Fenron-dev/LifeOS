@@ -539,6 +539,24 @@ class AppDatabase extends _$AppDatabase {
         InventoryEntriesCompanion(openedAt: Value(openedAt)),
       );
 
+  Future<void> batchSetExpiryDate(List<String> ids, DateTime? date) =>
+      transaction(() async {
+        for (final id in ids) {
+          await (update(inventoryEntries)..where((e) => e.id.equals(id)))
+              .write(InventoryEntriesCompanion(expiryDate: Value(date)));
+        }
+      });
+
+  Future<void> batchDeleteEntries(List<String> ids) =>
+      transaction(() async {
+        for (final id in ids) {
+          await (delete(itemStates)
+                ..where((s) => s.inventoryEntryId.equals(id)))
+              .go();
+          await (delete(inventoryEntries)..where((e) => e.id.equals(id))).go();
+        }
+      });
+
   /// Returns all inventory entries for an item, sorted by expiry date (FIFO:
   /// consume soonest-expiring first; entries without expiry date come last).
   Future<List<InventoryEntry>> inventoryEntriesForItem(String itemId) =>
