@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:image_picker/image_picker.dart';
+
 import '../../core/allergen_detector.dart';
 import '../../core/product_types.dart';
+import '../../services/expiry_date_ocr.dart';
 import '../../db/database.dart';
 import '../../health/widgets/diary_entry_sheet.dart';
 import '../../health/widgets/food_search_sheet.dart';
@@ -1213,6 +1216,65 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
   String _fmt(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toString();
 
+  Future<void> _scanExpiryDate(BuildContext context) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Kamera'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Aus Galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !context.mounted) return;
+    try {
+      final date = await ExpiryDateOcr.pickAndRecognize(source: source);
+      if (!context.mounted) return;
+      if (date != null) {
+        setState(() => _expiryDate = date);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'MHD erkannt: ${DateFormat('dd.MM.yyyy').format(date)}'),
+            action: SnackBarAction(
+              label: 'Korrigieren',
+              onPressed: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: date,
+                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                  lastDate: DateTime.now().add(const Duration(days: 3650)),
+                );
+                if (d != null && mounted) setState(() => _expiryDate = d);
+              },
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Kein Datum erkannt — bitte manuell eingeben')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('OCR-Fehler: $e')),
+      );
+    }
+  }
+
   Future<void> _save() async {
     final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.'));
     if (qty == null || qty <= 0) return;
@@ -1299,31 +1361,43 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 3,
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today, size: 20),
-                    title: Text(_expiryDate == null
-                        ? 'Kein MHD'
-                        : DateFormat('dd.MM.yyyy').format(_expiryDate!),
-                        style: Theme.of(context).textTheme.bodyMedium),
-                    trailing: _expiryDate != null
-                        ? IconButton(
-                            icon: const Icon(Icons.close, size: 16),
-                            onPressed: () =>
-                                setState(() => _expiryDate = null))
-                        : null,
-                    onTap: () async {
-                      final d = await showDatePicker(
-                        context: context,
-                        initialDate: _expiryDate ??
-                            DateTime.now().add(const Duration(days: 7)),
-                        firstDate: DateTime.now()
-                            .subtract(const Duration(days: 30)),
-                        lastDate:
-                            DateTime.now().add(const Duration(days: 3650)),
-                      );
-                      if (d != null) setState(() => _expiryDate = d);
-                    },
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.calendar_today, size: 20),
+                          title: Text(_expiryDate == null
+                              ? 'Kein MHD'
+                              : DateFormat('dd.MM.yyyy').format(_expiryDate!),
+                              style: Theme.of(context).textTheme.bodyMedium),
+                          trailing: _expiryDate != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.close, size: 16),
+                                  onPressed: () =>
+                                      setState(() => _expiryDate = null))
+                              : null,
+                          onTap: () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: _expiryDate ??
+                                  DateTime.now().add(const Duration(days: 7)),
+                              firstDate: DateTime.now()
+                                  .subtract(const Duration(days: 30)),
+                              lastDate: DateTime.now()
+                                  .add(const Duration(days: 3650)),
+                            );
+                            if (d != null) setState(() => _expiryDate = d);
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.document_scanner_outlined,
+                            size: 20),
+                        tooltip: 'MHD per Kamera scannen',
+                        onPressed: () => _scanExpiryDate(context),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1959,6 +2033,67 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
     }
   }
 
+  Future<void> _scanExpiryDate(BuildContext context) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Kamera'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Aus Galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !context.mounted) return;
+    try {
+      final date = await ExpiryDateOcr.pickAndRecognize(source: source);
+      if (!context.mounted) return;
+      if (date != null) {
+        setState(() => _expiryDate = date);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'MHD erkannt: ${DateFormat('dd.MM.yyyy').format(date)}'),
+            action: SnackBarAction(
+              label: 'Korrigieren',
+              onPressed: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: date,
+                  firstDate:
+                      DateTime.now().subtract(const Duration(days: 30)),
+                  lastDate: DateTime.now().add(const Duration(days: 3650)),
+                );
+                if (d != null && mounted) setState(() => _expiryDate = d);
+              },
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Kein Datum erkannt — bitte manuell eingeben')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('OCR-Fehler: $e')),
+      );
+    }
+  }
+
   String _fmtQty(double q) =>
       q == q.truncateToDouble() ? q.toInt().toString() : q.toStringAsFixed(1);
 
@@ -2211,35 +2346,48 @@ class _AddStockSheetState extends ConsumerState<AddStockSheet> {
               final label = widget.item.expiryType == 'useBy'
                   ? 'Verbrauchsdatum'
                   : 'MHD';
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today),
-                title: Text(_expiryDate == null
-                    ? '$label (optional)'
-                    : '$label: ${DateFormat('dd.MM.yyyy').format(_expiryDate!)}'),
-                subtitle: isDaysAfterPurchase
-                    ? Text(
-                        'Auto-berechnet (${widget.item.shelfLifeDays} Tage nach Kauf)',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      )
-                    : null,
-                trailing: _expiryDate != null
-                    ? IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => setState(() => _expiryDate = null),
-                      )
-                    : null,
-                onTap: () async {
-                  final d = await showDatePicker(
-                    context: context,
-                    initialDate: _expiryDate ??
-                        DateTime.now().add(const Duration(days: 7)),
-                    firstDate:
-                        DateTime.now().subtract(const Duration(days: 30)),
-                    lastDate: DateTime.now().add(const Duration(days: 3650)),
-                  );
-                  if (d != null) setState(() => _expiryDate = d);
-                },
+              return Row(
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today),
+                      title: Text(_expiryDate == null
+                          ? '$label (optional)'
+                          : '$label: ${DateFormat('dd.MM.yyyy').format(_expiryDate!)}'),
+                      subtitle: isDaysAfterPurchase
+                          ? Text(
+                              'Auto-berechnet (${widget.item.shelfLifeDays} Tage nach Kauf)',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            )
+                          : null,
+                      trailing: _expiryDate != null
+                          ? IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => setState(() => _expiryDate = null),
+                            )
+                          : null,
+                      onTap: () async {
+                        final d = await showDatePicker(
+                          context: context,
+                          initialDate: _expiryDate ??
+                              DateTime.now().add(const Duration(days: 7)),
+                          firstDate: DateTime.now()
+                              .subtract(const Duration(days: 30)),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 3650)),
+                        );
+                        if (d != null) setState(() => _expiryDate = d);
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.document_scanner_outlined,
+                        size: 20),
+                    tooltip: 'MHD per Kamera scannen',
+                    onPressed: () => _scanExpiryDate(context),
+                  ),
+                ],
               );
             }),
             const SizedBox(height: 8),
