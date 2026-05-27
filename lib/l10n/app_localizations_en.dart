@@ -277,6 +277,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickActionQuickDeduct => 'Quick Deduct';
 
   @override
+  String get quickActionQuickStock => 'Quick Stock In';
+
+  @override
   String get quickActionAddTask => 'Task';
 
   @override

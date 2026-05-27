@@ -11,6 +11,7 @@ import '../providers/items_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/tasks_provider.dart';
 import '../providers/vault_provider.dart';
+import '../screens/items/item_detail_screen.dart';
 import '../utils/unit_deduct_utils.dart';
 
 /// Overflow menu actions shared across all main-branch AppBars.
@@ -209,6 +210,7 @@ class _MobileShell extends ConsumerWidget {
         onScanToAdd: () => _handleScan(context, ref),
         onScanToConsume: () => _handleConsumeWithScan(context, ref),
         onQuickDeduct: () => _handleQuickDeduct(context, ref),
+        onQuickStock: () => _handleQuickStock(context, ref),
       ),
     );
   }
@@ -371,6 +373,31 @@ class _MobileShell extends ConsumerWidget {
       _offerDiaryEntry(context, item, logicalQty, sel.unit);
     }
   }
+
+  Future<void> _handleQuickStock(BuildContext context, WidgetRef ref) async {
+    final ean = await context.push<String>('/scan');
+    if (ean == null || ean.isEmpty || !context.mounted) return;
+    final dao = ref.read(itemsDaoProvider);
+    final item = await dao?.itemByEan(ean);
+    if (!context.mounted) return;
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kein Artikel mit diesem Barcode gefunden')),
+      );
+      return;
+    }
+    final booked = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => AddStockSheet(item: item),
+    );
+    if (booked == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.name} eingelagert')),
+      );
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -436,11 +463,13 @@ class _QuickActionsSheet extends ConsumerWidget {
   final VoidCallback onScanToAdd;
   final VoidCallback onScanToConsume;
   final VoidCallback onQuickDeduct;
+  final VoidCallback onQuickStock;
   const _QuickActionsSheet({
     required this.actions,
     required this.onScanToAdd,
     required this.onScanToConsume,
     required this.onQuickDeduct,
+    required this.onQuickStock,
   });
 
   @override
@@ -485,6 +514,8 @@ class _QuickActionsSheet extends ConsumerWidget {
                     onScanToConsume();
                   } else if (a == QuickAction.quickDeduct) {
                     onQuickDeduct();
+                  } else if (a == QuickAction.quickStock) {
+                    onQuickStock();
                   } else {
                     _navigate(context, a);
                   }
@@ -508,6 +539,7 @@ class _QuickActionsSheet extends ConsumerWidget {
       case QuickAction.addInventory:
       case QuickAction.consumeInventory:
       case QuickAction.quickDeduct:
+      case QuickAction.quickStock:
       case QuickAction.scanBarcode:
         break;
     }

@@ -614,6 +614,12 @@ abstract class AppLocalizations {
   /// **'Schnellausbuchen'**
   String get quickActionQuickDeduct;
 
+  /// No description provided for @quickActionQuickStock.
+  ///
+  /// In de, this message translates to:
+  /// **'Schnelleinbuchen'**
+  String get quickActionQuickStock;
+
   /// No description provided for @quickActionAddTask.
   ///
   /// In de, this message translates to:
