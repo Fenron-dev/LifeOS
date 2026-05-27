@@ -786,6 +786,16 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
           .watch();
 
+  /// Streams purchase events with a price for a single item (newest first).
+  Stream<List<ItemEvent>> watchPurchaseHistory(String itemId) =>
+      (select(itemEvents)
+            ..where((e) =>
+                e.itemId.equals(itemId) &
+                e.type.equals('purchase') &
+                e.price.isNotNull())
+            ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
+          .watch();
+
   // ── Item States ────────────────────────────────────────────────────────────
 
   Future<void> upsertItemState(ItemStatesCompanion entry) =>

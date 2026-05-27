@@ -153,6 +153,8 @@ class _ItemDetailBody extends ConsumerWidget {
             statesAsync: statesAsync,
           ),
           const SizedBox(height: 12),
+          _PriceHistorySection(item: item),
+          const SizedBox(height: 12),
           _EventsSection(item: item),
           const SizedBox(height: 12),
           _RelationsSection(item: item),
@@ -1393,6 +1395,199 @@ class _StateChip extends StatelessWidget {
 }
 
 // ── Events section ──────────────────────────────────────────────────────────
+
+// ── Price history section ─────────────────────────────────────────────────────
+
+final _purchaseHistoryProvider =
+    StreamProvider.family<List<ItemEvent>, String>((ref, itemId) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return const Stream.empty();
+  return db.watchPurchaseHistory(itemId);
+});
+
+class _PriceHistorySection extends ConsumerWidget {
+  final Item item;
+  const _PriceHistorySection({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyAsync = ref.watch(_purchaseHistoryProvider(item.id));
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return historyAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (events) {
+        if (events.isEmpty) return const SizedBox.shrink();
+
+        final prices = events.map((e) => e.price!).toList();
+        final minPrice = prices.reduce((a, b) => a < b ? a : b);
+        final maxPrice = prices.reduce((a, b) => a > b ? a : b);
+        final avgPrice =
+            prices.fold(0.0, (s, p) => s + p) / prices.length;
+        final lastPrice = prices.first;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('Preishistorie', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                Text('${events.length}×',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Summary row
+            Row(
+              children: [
+                _PriceStat(label: 'Letzter', price: lastPrice, highlight: true),
+                const SizedBox(width: 16),
+                _PriceStat(label: 'Minimum', price: minPrice),
+                const SizedBox(width: 16),
+                _PriceStat(label: 'Durchschnitt', price: avgPrice),
+                const SizedBox(width: 16),
+                _PriceStat(label: 'Maximum', price: maxPrice),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // History table (last 5 entries)
+            ...events.take(5).map((e) => _PurchaseRow(event: e)),
+            if (events.length > 5) ...[
+              const SizedBox(height: 4),
+              TextButton(
+                style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact),
+                onPressed: () => _showFullHistory(context, events),
+                child: Text('Alle ${events.length} Käufe anzeigen'),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  void _showFullHistory(BuildContext context, List<ItemEvent> events) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        expand: false,
+        builder: (_, ctrl) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  Text('Alle Käufe',
+                      style: Theme.of(ctx).textTheme.titleMedium),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                controller: ctrl,
+                children: events.map((e) => _PurchaseRow(event: e)).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PriceStat extends StatelessWidget {
+  final String label;
+  final double price;
+  final bool highlight;
+
+  const _PriceStat(
+      {required this.label, required this.price, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 10,
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w500)),
+        Text(
+          '${price.toStringAsFixed(2)} €',
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+              color: highlight ? cs.primary : cs.onSurface),
+        ),
+      ],
+    );
+  }
+}
+
+class _PurchaseRow extends StatelessWidget {
+  final ItemEvent event;
+  const _PurchaseRow({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fmtDate = DateFormat('dd.MM.yy').format(event.createdAt);
+    final qtyStr = event.quantity != null
+        ? '${event.quantity!.truncate() == event.quantity ? event.quantity!.toInt() : event.quantity!.toStringAsFixed(1)} ${event.unit ?? ''}'
+        : '';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      child: Row(
+        children: [
+          Icon(Icons.add_shopping_cart_outlined,
+              size: 14, color: cs.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(fmtDate,
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+          if (qtyStr.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(qtyStr,
+                style:
+                    TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+          ],
+          if (event.store != null && event.store!.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(event.store!,
+                  style: TextStyle(
+                      fontSize: 12, color: cs.onSurfaceVariant),
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ] else
+            const Spacer(),
+          Text(
+            '${event.price!.toStringAsFixed(2)} €',
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600, color: cs.primary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Events section ────────────────────────────────────────────────────────────
 
 class _EventsSection extends ConsumerWidget {
   final Item item;
