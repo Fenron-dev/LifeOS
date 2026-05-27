@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/allergen_detector.dart';
 import '../../core/product_types.dart';
 import '../../db/database.dart';
 import '../../health/widgets/diary_entry_sheet.dart';
@@ -675,10 +676,64 @@ class _NutritionCardState extends ConsumerState<_NutritionCard> {
                       ?.copyWith(color: theme.colorScheme.outline)),
               const SizedBox(height: 4),
               Text(item.ingredientsText!, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 8),
+              _AllergenChips(ingredientsText: item.ingredientsText!),
             ],
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Allergen chips ────────────────────────────────────────────────────────────
+
+class _AllergenChips extends StatelessWidget {
+  final String ingredientsText;
+  const _AllergenChips({required this.ingredientsText});
+
+  @override
+  Widget build(BuildContext context) {
+    final allergens = AllergenDetector.detect(ingredientsText);
+    if (allergens.isEmpty) return const SizedBox.shrink();
+
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                size: 14, color: cs.error),
+            const SizedBox(width: 4),
+            Text('Allergene',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: cs.error)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: allergens
+              .map((a) => Chip(
+                    label: Text(a.labelDe,
+                        style: TextStyle(
+                            fontSize: 11, color: cs.onErrorContainer)),
+                    backgroundColor:
+                        cs.errorContainer.withValues(alpha: 0.7),
+                    side: BorderSide(
+                        color: cs.error.withValues(alpha: 0.4),
+                        width: 0.5),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ))
+              .toList(),
+        ),
+      ],
     );
   }
 }
