@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="12dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="LifeOS"
+        android:textSize="10sp"
+        android:textColor="#AA7C4DFF"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_expiry_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Ablaufende Artikel"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#B71C1C" />
+
+    <TextView
+        android:id="@+id/widget_expiry_items"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:text="—"
+        android:textSize="11sp"
+        android:textColor="#616161"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:background="#20000000" />
+
+    <TextView
+        android:id="@+id/widget_task_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Aufgaben"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#1565C0" />
+
+    <TextView
+        android:id="@+id/widget_task_items"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:text="—"
+        android:textSize="11sp"
+        android:textColor="#616161"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+</LinearLayout>

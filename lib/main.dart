@@ -9,6 +9,7 @@ import 'core/vault_manager.dart';
 import 'core/vault_metadata.dart';
 import 'db/sql_cipher_loader.dart';
 import 'services/notification_service.dart';
+import 'providers/home_widget_provider.dart';
 import 'providers/inventory_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/vault_provider.dart';
@@ -82,8 +83,9 @@ class _LifeOSAppState extends ConsumerState<LifeOSApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final settings = ref.watch(settingsProvider).valueOrNull;
-    // Keep the expiry-notification scheduler alive as long as the app runs.
+    // Keep side-effect providers alive as long as the app runs.
     ref.watch(expiryNotificationSchedulerProvider);
+    ref.watch(homeWidgetUpdaterProvider);
 
     return MaterialApp.router(
       title: 'LifeOS',
