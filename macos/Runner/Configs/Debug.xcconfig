@@ -1,0 +1,5 @@
+#include "../../Flutter/Flutter-Debug.xcconfig"
+#include "Warnings.xcconfig"
+// Strip extended attributes (resource forks) before codesigning – fixes
+// "detritus not allowed" error on macOS Sequoia with system Swift dylibs.
+OTHER_CODE_SIGN_FLAGS = --deep

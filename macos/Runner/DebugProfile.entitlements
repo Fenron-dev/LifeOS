@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Required for Flutter JIT in Debug/Profile mode -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<!-- Sandbox: all file/network access goes through entitlements below -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Sync server: listen on local network -->
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<!-- Sync client: connect to local network peers -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Vault: read/write user-chosen folder (via NSOpenPanel / NSSavePanel) -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- Downloads folder access for backup exports -->
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
+	<!-- Camera access (barcode scanner / OCR) -->
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<!-- Notifications -->
+	<key>com.apple.security.personal-information.calendars</key>
+	<false/>
+</dict>
+</plist>

@@ -15,6 +15,7 @@ dart run build_runner build --delete-conflicting-outputs
 
 # Run
 flutter run -d linux          # Desktop (Linux)
+flutter run -d macos          # Desktop (macOS)
 flutter run                   # Auto-detect (Android/emulator)
 
 # Code generation (after schema changes in lib/db/database.dart)
@@ -22,6 +23,8 @@ dart run build_runner build --delete-conflicting-outputs
 
 # Build
 flutter build linux --release
+flutter build macos --release --no-tree-shake-icons --enable-experiment=native-assets
+flutter build windows --release --no-tree-shake-icons   # requires Windows machine
 flutter build apk --release
 
 # Run single test
