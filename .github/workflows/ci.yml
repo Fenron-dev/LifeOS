@@ -105,7 +105,8 @@ jobs:
             libgstreamer1.0-dev \
             libgstreamer-plugins-base1.0-dev \
             gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good
+            gstreamer1.0-plugins-good \
+            libsecret-1-dev
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -210,7 +211,12 @@ jobs:
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build Windows debug bundle
+        # _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS suppresses the
+        # MSVC C2338 hard error from audioplayers_windows / local_auth_windows
+        # which still use <experimental/coroutine> with the /await flag.
         run: flutter build windows --debug --no-tree-shake-icons
+        env:
+          CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
 
       - name: Package Windows bundle
         run: |
