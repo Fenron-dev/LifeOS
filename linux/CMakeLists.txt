@@ -126,3 +126,18 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Install application icons (hicolor icon theme, for .deb/.rpm/system install).
+foreach(icon_size 16 32 48 64 128 256 512)
+  install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/icons/hicolor/${icon_size}x${icon_size}/apps/lifeos.png"
+    DESTINATION "share/icons/hicolor/${icon_size}x${icon_size}/apps"
+    COMPONENT Runtime
+  )
+endforeach()
+
+# Install .desktop file for application menu entry.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/lifeos.desktop"
+  DESTINATION "share/applications"
+  COMPONENT Runtime
+)

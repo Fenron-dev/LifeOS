@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=LifeOS
+Comment=Household & Life Management System
+Exec=lifeos
+Icon=lifeos
+Type=Application
+Categories=Utility;HouseAndFamilyManagement;
+StartupNotify=true
+StartupWMClass=lifeos

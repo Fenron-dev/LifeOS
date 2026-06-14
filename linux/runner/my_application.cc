@@ -1,6 +1,7 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
@@ -53,6 +54,26 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+
+  // Set application window icon from bundled PNG.
+  {
+    g_autoptr(GError) icon_error = nullptr;
+    // Resolve icon path relative to the executable so it works in both
+    // development (build/linux/…/runner) and installed bundle layouts.
+    g_autofree gchar* exe_dir =
+        g_path_get_dirname(g_get_prgname());
+    g_autofree gchar* icon_path =
+        g_build_filename(exe_dir, "data", "flutter_assets", "assets",
+                         "icons", "lifeos_icon_1024.png", nullptr);
+    GdkPixbuf* icon = gdk_pixbuf_new_from_file(icon_path, &icon_error);
+    if (icon) {
+      gtk_window_set_icon(window, icon);
+      g_object_unref(icon);
+    } else {
+      // Fallback: use system icon name if bundled icon not found.
+      gtk_window_set_icon_name(window, "lifeos");
+    }
+  }
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

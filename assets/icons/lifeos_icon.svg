@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background gradient: deep purple → indigo -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5C35CC"/>
+      <stop offset="100%" stop-color="#2D3AB0"/>
+    </linearGradient>
+    <!-- Subtle inner glow for house -->
+    <linearGradient id="houseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E8E4FF"/>
+    </linearGradient>
+    <!-- Leaf gradient: teal-green -->
+    <linearGradient id="leafGrad" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#26C6DA"/>
+      <stop offset="100%" stop-color="#66BB6A"/>
+    </linearGradient>
+    <!-- Soft drop shadow filter -->
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="116%">
+      <feDropShadow dx="0" dy="8" stdDeviation="18" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- ── Background ── -->
+  <rect width="1024" height="1024" rx="200" ry="200" fill="url(#bgGrad)"/>
+
+  <!-- Subtle background dot pattern for depth -->
+  <circle cx="180" cy="180" r="160" fill="rgba(255,255,255,0.04)"/>
+  <circle cx="844" cy="844" r="200" fill="rgba(255,255,255,0.04)"/>
+  <circle cx="844" cy="180" r="120" fill="rgba(255,255,255,0.03)"/>
+
+  <!-- ── House (white silhouette, centered, with drop shadow) ── -->
+  <g filter="url(#shadow)">
+    <!-- Roof / triangle -->
+    <polygon
+      points="512,168  150,486  874,486"
+      fill="url(#houseGrad)"
+    />
+    <!-- Chimney left -->
+    <rect x="352" y="215" width="76" height="120" rx="10" fill="url(#houseGrad)"/>
+    <!-- Wall body -->
+    <rect x="196" y="474" width="632" height="380" rx="12" fill="url(#houseGrad)"/>
+  </g>
+
+  <!-- ── Door (arch, background colour = cut-out effect) ── -->
+  <rect x="434" y="638" width="156" height="216" rx="78" fill="#5C35CC"/>
+  <rect x="434" y="716" width="156" height="138" fill="#5C35CC"/>
+
+  <!-- ── Windows ── -->
+  <!-- Left window -->
+  <rect x="250" y="540" width="134" height="118" rx="18" fill="#5C35CC"/>
+  <!-- Left window crossbars -->
+  <line x1="317" y1="540" x2="317" y2="658" stroke="rgba(255,255,255,0.25)" stroke-width="8" stroke-linecap="round"/>
+  <line x1="250" y1="600" x2="384" y2="600" stroke="rgba(255,255,255,0.25)" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Right window -->
+  <rect x="640" y="540" width="134" height="118" rx="18" fill="#5C35CC"/>
+  <!-- Right window crossbars -->
+  <line x1="707" y1="540" x2="707" y2="658" stroke="rgba(255,255,255,0.25)" stroke-width="8" stroke-linecap="round"/>
+  <line x1="640" y1="600" x2="774" y2="600" stroke="rgba(255,255,255,0.25)" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- ── Plant / leaf accent (inside house, above door) ── -->
+  <!-- Stem -->
+  <rect x="506" y="552" width="12" height="72" rx="6" fill="url(#leafGrad)"/>
+  <!-- Left leaf -->
+  <ellipse cx="480" cy="548" rx="36" ry="22" fill="url(#leafGrad)"
+           transform="rotate(-35, 480, 548)"/>
+  <!-- Right leaf -->
+  <ellipse cx="544" cy="548" rx="36" ry="22" fill="url(#leafGrad)"
+           transform="rotate(35, 544, 548)"/>
+  <!-- Top leaf (main) -->
+  <ellipse cx="512" cy="516" rx="28" ry="40" fill="url(#leafGrad)"/>
+  <!-- Leaf vein hint -->
+  <line x1="512" y1="490" x2="512" y2="552" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- ── Door knob ── -->
+  <circle cx="574" cy="758" r="9" fill="rgba(255,255,255,0.6)"/>
+
+  <!-- ── Chimney accent dot (warm color = "life" indicator) ── -->
+  <circle cx="390" cy="210" r="22" fill="#FFD740"/>
+  <circle cx="390" cy="210" r="14" fill="#FFEA80"/>
+
+</svg>
