@@ -101,7 +101,11 @@ jobs:
             pkg-config \
             libblkid-dev \
             liblzma-dev \
-            libstdc++-12-dev
+            libstdc++-12-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -133,4 +137,91 @@ jobs:
         with:
           name: lifeos-linux-debug-${{ github.run_number }}
           path: lifeos-linux-debug.tar.gz
+          retention-days: 3
+
+  # ── macOS Desktop ──────────────────────────────────────────────────────────
+  build-macos:
+    name: Build macOS Desktop
+    runs-on: macos-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.x'
+          channel: stable
+          cache: true
+
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate Drift code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd macos
+          pod install --repo-update
+          cd ..
+
+      - name: Build macOS debug bundle
+        run: flutter build macos --debug --no-tree-shake-icons --enable-experiment=native-assets
+
+      - name: Package macOS app
+        run: |
+          cd build/macos/Build/Products/Debug
+          zip -r ../../../../../lifeos-macos-debug.zip lifeos.app
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: lifeos-macos-debug-${{ github.run_number }}
+          path: lifeos-macos-debug.zip
+          retention-days: 3
+
+  # ── Windows Desktop ────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows Desktop
+    runs-on: windows-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.x'
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate Drift code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Windows debug bundle
+        run: flutter build windows --debug --no-tree-shake-icons
+
+      - name: Package Windows bundle
+        run: |
+          Compress-Archive -Path build\windows\x64\runner\Debug\* `
+            -DestinationPath lifeos-windows-debug.zip
+        shell: pwsh
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: lifeos-windows-debug-${{ github.run_number }}
+          path: lifeos-windows-debug.zip
           retention-days: 3
