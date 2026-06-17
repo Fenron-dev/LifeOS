@@ -439,7 +439,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Strip macOS extended attributes (resource forks / Finder info) from the\n# app bundle before codesigning. Required on macOS Sequoia where system\n# Swift dylibs carry xattrs that cause codesign to fail.\n/usr/bin/xattr -cr \"${CODESIGNING_FOLDER_PATH}\"\n";
+			shellScript = "# Strip macOS extended attributes (resource forks / Finder info) from the\n# app bundle before codesigning. Required on macOS Sequoia where system\n# Swift dylibs carry xattrs that cause codesign to fail.\n# Use BUILT_PRODUCTS_DIR/WRAPPER_NAME for reliability across build phases.\nTARGET_APP=\"${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}\"\nif [ -d \"$TARGET_APP\" ]; then\n  /usr/bin/xattr -cr \"$TARGET_APP\" 2>/dev/null || true\nfi\n# Also strip from the entire DerivedData build products to catch nested dylibs\n/usr/bin/find \"${BUILT_PRODUCTS_DIR}\" \\( -name '*.dylib' -o -name '*.framework' \\) -exec /usr/bin/xattr -cr {} \\; 2>/dev/null || true\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

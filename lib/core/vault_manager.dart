@@ -75,13 +75,16 @@ class VaultManager {
   /// Returns the vault name: last path segment.
   static String vaultName(String vaultPath) => p.basename(vaultPath);
 
-  /// Default vault location (Documents/LifeOS on desktop, app-docs on mobile).
+  /// Default vault location.
+  ///
+  /// - Android / iOS / macOS: app sandbox container (always writable).
+  /// - Linux / Windows: ~/Documents/lifeos-haushalt (no sandbox).
   static Future<String> defaultVaultPath() async {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
       final dir = await getApplicationDocumentsDirectory();
       return p.join(dir.path, 'lifeos-vault');
     }
-    // Desktop: ~/Documents/lifeos-haushalt
+    // Linux / Windows: user's Documents folder.
     final home = Platform.environment['HOME'] ??
         Platform.environment['USERPROFILE'] ??
         (await getApplicationDocumentsDirectory()).path;

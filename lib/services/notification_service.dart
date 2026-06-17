@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
@@ -45,17 +47,40 @@ class NotificationService {
 
   static Future<void> initialize() async {
     if (_initialized) return;
+
+    // Desktop platforms (Linux, Windows) don't need notification init.
+    // macOS: skip blocking init here — permission dialog is deferred so the
+    // Flutter window renders first (avoids black-screen-before-runApp issue).
+    if (Platform.isLinux || Platform.isWindows) {
+      _initialized = true;
+      return;
+    }
+
     tz_data.initializeTimeZones();
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const darwin = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+    // On macOS: don't request permissions here — dialog is shown later via
+    // requestMacOSPermission() so it appears over rendered UI, not black screen.
+    final darwin = DarwinInitializationSettings(
+      requestAlertPermission: !Platform.isMacOS,
+      requestBadgePermission: !Platform.isMacOS,
+      requestSoundPermission: !Platform.isMacOS,
     );
     await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: darwin),
+      InitializationSettings(
+        android: android,
+        iOS: Platform.isIOS ? darwin : null,
+        macOS: Platform.isMacOS ? darwin : null,
+      ),
     );
     _initialized = true;
+  }
+
+  /// Requests macOS notification permission explicitly (call after runApp).
+  static Future<void> requestMacOSPermission() async {
+    if (!Platform.isMacOS) return;
+    await _plugin.resolvePlatformSpecificImplementation<
+        MacOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   /// Shows an instant notification. Used for in-app alerts.

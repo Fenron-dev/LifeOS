@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -20,7 +21,9 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SqlCipherLoader.registerOpenOverride();
-  await NotificationService.initialize();
+  // Don't block runApp() on notification init — on macOS the permission dialog
+  // would appear before any Flutter widgets are painted (black screen).
+  unawaited(NotificationService.initialize().catchError((_) {}));
   runApp(const ProviderScope(child: LifeOSApp()));
 }
 
@@ -36,6 +39,13 @@ class _LifeOSAppState extends ConsumerState<LifeOSApp> {
   void initState() {
     super.initState();
     _tryAutoOpenLastVault();
+    // Request macOS notification permission after the first frame so the
+    // dialog appears over a rendered UI, not over a black screen.
+    if (Platform.isMacOS) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        NotificationService.requestMacOSPermission();
+      });
+    }
   }
 
   Future<void> _tryAutoOpenLastVault() async {
