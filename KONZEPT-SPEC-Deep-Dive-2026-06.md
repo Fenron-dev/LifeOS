@@ -255,9 +255,152 @@ SPRINT_E.md-Doku (#15).
 
 ---
 
+## Teil 6b — Einheiten-System & Bestandsbuchung (Nutzer-Befund Juni 2026) 🔴
+
+> Symptom (vom Nutzer gemeldet): „Kaufe Stück/Packung, verbrauche in Gramm. Beim
+> Tagebuch-Eintrag wird viel zu viel ausgebucht, obwohl die Mengen im Gericht stimmen."
+> Zweites Symptom: „Einkauf erfassen dauert ewig → ich mache es nicht mehr."
+
+### U1 · Kernbug: Angeforderte Menge wird bei der Ausbuch-Vorbelegung ignoriert
+
+`inventory_deduct_sheet.dart` → `makeRow()`: Die Tagebuch-/Rezeptmenge (z. B. 125 g)
+wird **nie über die Umrechnungstabelle in die Bestandseinheit konvertiert**. Stattdessen
+läuft `_heuristicQty()`:
+
+- Bestandseinheit „Stück"/„Packung" (kein Gewicht) + `servingSizeG == null`
+  → Fallback = **1.0**, egal ob 10 g oder 400 g geloggt wurden.
+- In `buildDeductUnitOptions(diaryMode: true)` wird daraus `defaultQty = fallback / factor`.
+  Beispiel: Bestand „Stück", Umrechnung 1 Stück = 500 g, `consumeUnit = 'g'`
+  → vorbelegt werden `1.0 / (1/500)` = **500 g** — statt der geloggten 125 g!
+
+Das ist exakt das gemeldete „viel zu viel". Besonders tückisch: Die korrekte Zahl
+steht als Text daneben („Tagebuch: 125 g"), fließt aber nicht in die Vorbelegung ein.
+Die passende Hilfsfunktion `unitToGrams()` existiert in `unit_deduct_utils.dart`,
+wird im Deduct-Flow aber **nirgends aufgerufen**.
+
+**Fix:** Vorbelegung = angeforderte Menge, konvertiert in die gewählte Options-Einheit:
+`prefill(option) = requestedQty × gramsPerRequestedUnit / gramsPerOptionUnit`
+(via `unitToGrams(unit, conversions)`; Fallback auf Heuristik nur wenn keine
+Umrechnungskette existiert — dann aber mit deutlicher Warnung in der UI statt
+stiller Falschbuchung).
+
+### U2 · `_computeServings` ignoriert Stück-Zutaten
+
+Bei Gerichten wird das Gesamtgewicht pro Portion nur über `convertWeightVol` summiert —
+Zutaten in „Stück" (Eier!) fallen still aus der Summe. Beispiel: Gericht = 2 Eier +
+100 g Mehl → Systemgewicht 100 g statt ~220 g → geloggte 200 g ⇒ „2 Portionen"
+statt 0,9 ⇒ **alle Zutaten doppelt ausgebucht**.
+**Fix:** `unitToGrams(ing.unit, conversions)` statt nur `convertWeightVol` verwenden.
+
+### U3 · Rezept-Kochen bucht komplett ohne Umrechnung aus (schwerster Fall)
+
+`recipe_detail_screen.dart` → `_CookRecipeSheet._cook()`:
+`needed = ing.quantity * _scale` wird **direkt** gegen `entry.quantity` gebucht —
+Gramm gegen Stück, ohne jede Konvertierung. Zutat „125 g", Bestand „2 Stück (à 500 g)"
+→ es werden 125 „Stück-Einheiten" abgezogen = Bestand komplett vernichtet.
+**Fix:** Gleiche Konvertierungsroutine wie U1 vor der FIFO-Schleife; Einheiten-Mismatch
+ohne Umrechnungsweg → Zeile im Sheet markieren statt still falsch buchen.
+
+### U4 · Datenmodell: drei konkurrierende Mechanismen, keiner vollständig
+
+| Mechanismus | Zweck heute | Problem |
+|---|---|---|
+| `purchaseUnit`/`purchaseQty` (Item) | Nur Packungsanzahl in der Einkaufsliste | Fließt NICHT in Umrechnungen ein |
+| `consumeQty`/`consumeUnit` (Item) | Default im Deduct-Sheet | Nur Vorauswahl, keine Mengenlogik |
+| `unit_conversions` (global + je Item) | Generische Faktoren | Muss manuell je Artikel gepflegt werden |
+
+Der Nutzer-Wunsch „pro Artikel hinterlegen: Kaufeinheit + Inhalt" braucht **eine**
+zentrale Stelle:
+
+**Konzept „Packungs-Definition am Artikel":**
+```
+Item:
+  purchaseUnit        = 'Packung'   (existiert)
+  packageContentQty   = 500         (NEU)
+  packageContentUnit  = 'g'         (NEU)
+```
+- Wirkt als **implizite Item-Umrechnung** `1 Packung = 500 g` in ALLEN
+  Konvertierungspfaden (Deduct-Sheet, Rezept-Kochen, Servings-Berechnung,
+  Einkaufslisten-Packungsanzahl) — eine zentrale Funktion
+  `resolveConversions(item)` liefert implizite + explizite Umrechnungen gemeinsam.
+- Artikelformular: ein Block „Ich kaufe in … / Eine Einheit enthält …" ersetzt
+  das verstreute Pflegen von unit_conversions je Artikel.
+- Beim Einbuchen in `purchaseUnit`, beim Ausbuchen in beliebiger Einheit —
+  die Kette Packung→g→kg ist immer auflösbar.
+- Migration: bestehende Item-Conversions bleiben gültig (explizit schlägt implizit).
+
+### U5 · Pflicht-Tests für das Einheiten-System
+
+Umrechnungsmatrix als Unit-Tests (g↔kg↔Stück↔Packung↔Portion, mit/ohne Conversion,
+diaryMode true/false, Meals mit gemischten Einheiten) — **bevor** die Fixes gebaut
+werden, damit die Fälle des Nutzers reproduzierbar abgesichert sind. Das ist die
+wichtigste Kernlogik der App und hat heute null Tests.
+
+---
+
+## Teil 6c — Einkaufserfassung beschleunigen (Nutzer-Befund Juni 2026) 🟠
+
+**Ist-Zustand:** Pro Artikel: Schnellaktion öffnen → „Schnelleinbuchen" → Scanner →
+AddStockSheet (Menge, Einheit, Preis, MHD, Lagerort, Shop, Zustand, Behälter) →
+Speichern → **Scanner ist zu, von vorn**. Bei 30 Artikeln: 30 × (5–8 Taps + Scan)
+≈ 5–10 Minuten reine Bedienarbeit. Konsequenz beim Nutzer: Erfassung unterbleibt →
+App-Nutzen kollabiert.
+
+Gute Grundlagen existieren bereits (Location-/MHD-/Einheiten-Prefill, Smart Tara,
+OCR) — das Problem ist der **fehlende Batch-Modus**.
+
+### E1 · Kassenbon-Modus (Batch-Scan-Loop) — wichtigste Maßnahme
+
+Neuer Flow „Einkauf erfassen":
+1. Scanner bleibt **dauerhaft offen**; jeder Scan piept und legt eine Zeile in einer
+   Session-Liste an (Artikel, 1 × purchaseUnit, Default-Lagerort, Auto-MHD aus
+   shelfLifeDays). Mehrfach-Scan desselben Artikels ⇒ Menge +1.
+2. Unbekannter EAN ⇒ Zeile „Neu anlegen?" (wird ans Ende gestellt, blockiert nicht).
+3. Liste unter dem Scanner live sichtbar; Tap auf Zeile öffnet Mini-Editor
+   (Menge/Preis/MHD) — optional, nie erzwungen.
+4. Ein einziges „Alle einbuchen" am Ende schreibt alle purchase-Events in einer
+   Transaktion; Undo-Snackbar.
+
+Ergebnis: 30 Artikel ≈ 30 Scans + 1 Tap statt ~200 Taps.
+
+### E2 · Direktbuchung mit Undo (Einzel-Scan)
+
+Wenn Artikel-Stammdaten vollständig sind (purchaseUnit, Default-Lagerort,
+shelfLifeDays), das AddStockSheet **überspringen**: Scan bucht sofort
+„1 Packung, MHD auto", SnackBar „Eingebucht — Bearbeiten | Rückgängig".
+Als Setting „Direktbuchung" (Standard an, wenn Stammdaten komplett).
+
+### E3 · Einkaufsliste = Einbuch-Vorlage
+
+Nach dem Einkauf: Einkaufsliste öffnen → „Einkauf abschließen" → alle abgehakten
+Positionen werden als Batch eingebucht (Menge aus der Liste, Packungsanzahl via U4).
+Deckt den Fall „ohne Scanner, Liste war eh gepflegt" ab und verbindet zwei
+existierende Welten.
+
+### E4 · Später: Kassenbon-OCR
+
+Foto vom Bon → Zeilenerkennung (ML Kit ist schon eingebunden) → Matching gegen
+Artikelnamen/Preise → Vorschlagsliste zum Bestätigen. Größerer Aufwand, erst nach
+E1–E3 sinnvoll.
+
+---
+
 ## Teil 7 — Empfohlene Umsetzungs-Phasen
 
-### Phase S — „Sync reparieren & absichern" (höchste Priorität)
+### Phase U — „Einheiten & Buchung reparieren" (VOR allem anderen)
+> Nutzer-O-Ton: Falsche Ausbuchung + langsame Erfassung machen die App unbrauchbar.
+> Das ist der Kern-Loop der App — vor Sync, vor allem anderen.
+
+1. U5: Umrechnungs-Testmatrix schreiben (Ist-Bugs als Failing Tests)
+2. U4: Packungs-Definition am Artikel (packageContentQty/Unit) + `resolveConversions()`
+3. U1: Deduct-Sheet-Vorbelegung = konvertierte Tagebuchmenge
+4. U2: `_computeServings` mit `unitToGrams` (Stück-Zutaten)
+5. U3: Rezept-Kochen mit Konvertierung + Mismatch-Warnung
+6. E1: Kassenbon-Modus (Batch-Scan-Loop)
+7. E2: Direktbuchung mit Undo
+8. E3: Einkaufsliste → Batch-Einbuchen
+
+### Phase S — „Sync reparieren & absichern"
 > Ohne diese Phase ist Phase-5-Sync ein Sicherheitsrisiko ohne Funktionsnutzen.
 
 1. F4: `rebuildItemStates()` implementieren (+ Tests)
