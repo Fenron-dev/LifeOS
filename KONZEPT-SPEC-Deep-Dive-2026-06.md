@@ -492,6 +492,199 @@ Diese Ideen nutzen fast ausschließlich **Daten, die die App heute schon sammelt
 **Sofort-Kandidaten** (bester Nutzen/Aufwand): Mindestbestand lernen, Auto-Backup,
 Wochen-Report, Budget, Reste einlagern — alle „Klein" und auf vorhandenen Daten.
 
+### Integrationspläne (für die spätere Umsetzung)
+
+> Schema-Sequenz: Phase U belegt **v42** (packageContentQty/Unit). Die Features hier
+> nutzen **v43** (ein gemeinsamer Bump für alle neuen Spalten dieser Runde:
+> `items.warrantyMonths`). Alles andere kommt ohne Schema-Änderung aus.
+> Settings-Erweiterungen folgen dem bestehenden Muster in
+> `settings_provider.dart` (`AppSettingsData` + SharedPreferences-Keys + Setter).
+
+#### F1 · Vorratsreichweite („reicht noch ~X Tage")
+
+**Datenbasis:** `item_events` mit `type='consumption'` (quantity, unit, createdAt) —
+vollständig vorhanden.
+
+1. **`lib/utils/consumption_stats.dart` (neu):**
+   ```dart
+   /// Verbrauchsrate in Bestandseinheit/Tag über [window] (Default 60 Tage).
+   /// Null wenn < 3 consumption-Events im Fenster (zu wenig Signal).
+   double? dailyConsumptionRate(List<ItemEvent> events, {Duration window});
+   /// Reichweite in Tagen: currentStock / rate. Null wenn rate null/0.
+   double? daysOfStockLeft(double currentStock, double? rate);
+   ```
+2. **DB:** `Future<List<ItemEvent>> consumptionEventsSince(String itemId, DateTime since)`
+   — einfacher select auf item_events (Index aus Issue #6 nutzen).
+3. **Provider:** `stockReachProvider = FutureProvider.family<double?, String>` —
+   kombiniert `itemStockMapProvider` + Events; cachen, nicht streamen (teuer).
+4. **UI:** Badge im Inventar-Listitem („~12 T"), Abschnitt im Item-Detail
+   (`_StockSection`), Warnfarbe < 7 Tage. Dashboard-Karte „Geht bald aus"
+   (Reichweite < 7 T und kein Einkaufslisten-Eintrag) unter der StapleWarningCard.
+5. **Tests:** Ratenberechnung mit synthetischen Events (gleichmäßig, Burst, leer).
+
+#### F2 · „Was kann ich kochen?"
+
+**Datenbasis:** `recipe_ingredients.itemId` (nullable Verknüpfung), `item_states`
+(Bestand), `inventory_entries.expiryDate`.
+
+1. **DB:** `Future<List<RecipeMatch>> matchRecipesAgainstStock()` in einem neuen
+   `lib/db/daos/recipe_match_dao.dart` (erster DAO — Startpunkt für A2):
+   je Rezept: verknüpfte Zutaten zählen, davon „auf Lager" (Bestand ≥ benötigte
+   Menge via `convertQty` aus Phase U — **Abhängigkeit!**), Anteil berechnen.
+   `RecipeMatch(recipe, totalLinked, inStock, missingItems, expiringCount)`.
+2. **Ranking:** `expiringCount` desc (MHD ≤ 7 T unter den Zutaten), dann
+   `inStock/totalLinked` desc. Rezepte ohne verknüpfte Zutaten ausblenden.
+3. **UI:** Neuer Tab/Filter-Chip „Kochbar" im Rezepte-Screen + Dashboard-Karte
+   „Rette dein MHD: 3 Rezepte mit ablaufenden Zutaten". Fehlende Zutaten je
+   Karte als Chips mit „+ Einkaufsliste"-Aktion (nutzt insertCustomShoppingItem).
+4. **Performance:** Ein Query-Durchlauf mit Joins statt N+1; bei > 200 Rezepten
+   als FutureProvider mit Pull-to-Refresh statt Stream.
+
+#### F3 · Mindestbestand lernen
+
+**Datenbasis:** wie F1 + `item_events type='purchase'` (Einkaufsintervall).
+
+1. **`consumption_stats.dart`:** `double? suggestedMinStock(rate, avgDaysBetweenPurchases)`
+   = Rate × Intervall × 1,2 (20 % Puffer), gerundet auf sinnvolle Schrittweite.
+2. **UI (kein Automatismus!):** Im Artikelformular neben dem minStock-Feld ein
+   Hinweis-Chip „Vorschlag: 2,5 kg (aus deinem Verbrauch)" → Tap übernimmt.
+   Zusätzlich Sammel-Screen unter Einstellungen → „Mindestbestände prüfen":
+   Liste aller Items mit Abweichung Vorschlag vs. gesetzt > 50 %, je Zeile
+   „Übernehmen".
+3. **Kein Schema nötig** — reine Berechnung + bestehendes Feld.
+
+#### F4 · TDEE & Gewichtsprognose
+
+**Datenbasis:** `body_weight_logs` (weightKg, loggedAt), `dailyNutritionTotals`
+(kcal/Tag), `user_profile` (targetWeightKg vorhanden in stats_table).
+
+1. **`lib/health/utils/tdee_estimator.dart` (neu):**
+   ```dart
+   /// TDEE aus Energiebilanz: Ø kcal-Aufnahme − (ΔGewicht × 7700 kcal/kg ÷ Tage).
+   /// Fenster 21–28 Tage; null bei < 14 Tagen Daten oder Logging-Lücken > 40 %.
+   TdeeEstimate? estimateTdee(List<({DateTime day, double kcal})> intake,
+       List<BodyWeightLog> weights);
+   /// Lineare Trend-Extrapolation auf targetWeightKg → erwartetes Datum.
+   DateTime? projectedGoalDate(List<BodyWeightLog> weights, double targetKg);
+   ```
+   Gewichtsglättung: 7-Tage-EMA gegen Tagesschwankungen.
+2. **Provider:** `tdeeProvider = FutureProvider<TdeeEstimate?>` im Health-Modul.
+3. **UI:** Karte im Stats-Tab: „Dein Erhaltungsbedarf: ~2.340 kcal · Defizit-Ø:
+   −310 kcal/Tag · Ziel 82 kg erreicht ≈ 14. Sep". Im Gewichts-Chart
+   (fl_chart, vorhanden) Trendlinie als gestrichelte Serie ergänzen.
+4. **Tests:** Estimator mit synthetischen Verläufen (konstant, linear, verrauscht,
+   Lücken) — reine Dart-Logik, gut testbar.
+
+#### F5 · Auto-Backup
+
+**Datenbasis/Bausteine:** `BackupService.createBackup()` vorhanden.
+
+1. **Settings (Muster settings_provider):** `autoBackupEnabled` (bool),
+   `autoBackupIntervalDays` (1/7/30), `autoBackupDir` (String?),
+   `autoBackupKeepCount` (int, Default 5), `lastAutoBackupAt` (DateTime?).
+2. **`lib/services/auto_backup_service.dart` (neu):** `runIfDue()` — prüft
+   Intervall gegen lastAutoBackupAt, erstellt Backup, löscht älteste über
+   keepCount (Dateiname-Pattern `lifeos-backup-*.zip` im Zielordner), aktualisiert
+   Timestamp. **Ausschlüsse:** `cache/` und `exports/` (siehe S8-Finding) —
+   dafür `createBackup` um Parameter `excludeDirs` erweitern.
+3. **Trigger:** Desktop: beim App-Start + alle 6 h via `Timer.periodic` in einem
+   Side-Effect-Provider (Muster expiryNotificationScheduler). Android: beim
+   App-Start (kein Background-Job nötig für v1).
+4. **UI:** Settings-Sektion „Automatisches Backup" mit Ordnerwahl
+   (file_picker `getDirectoryPath`), Status „Zuletzt: …".
+
+#### F6 · Inventur-Modus
+
+**Datenbasis:** `locations` (hierarchisch), `item_states.locationId`,
+stocktake-Flow in `inventoryOpsProvider.stocktake()` — alles vorhanden.
+
+1. **UI `lib/screens/inventory/stocktake_screen.dart` (neu):** Lagerort wählen →
+   Liste aller Entries dort, je Zeile Ist-Menge groß, daneben Stepper/Feld;
+   „Stimmt"-Haken übernimmt unverändert, Korrektur ruft `stocktake()` auf.
+   Fortschritt „12/30 geprüft" oben; ungeprüfte zuerst.
+2. **Route:** `/haushalt/stocktake` + Einstieg im Inventar-Menü und als
+   Schnellaktion.
+3. **Kein Schema nötig** — stocktake-Events existieren; „geprüft am" ergibt sich
+   aus dem letzten stocktake-Event je Entry.
+
+#### F7 · Wochen-Report Health
+
+**Datenbasis:** dailyNutritionTotals, body_weight_logs, workouts, user_profile-Ziele.
+
+1. **`lib/health/utils/weekly_report.dart` (neu):** `WeeklyReport.compute(...)` —
+   Ø kcal, Protein-Zielquote (Tage ≥ proteinTargetG / 7), Gewichts-Delta
+   (EMA Wochenanfang vs. -ende), Workout-Anzahl, Wasser-Ø.
+2. **UI:** Karte oben im Stats-Tab („Deine Woche"), expandierbar.
+3. **Push (optional, Stufe 2):** So 19:00 via NotificationService.zonedSchedule —
+   Settings-Toggle `weeklyReportNotification`.
+
+#### F8 · Lebensmittel-Budget
+
+**Datenbasis:** `item_events type='purchase'` mit `price` — vorhanden (Preishistorie
+nutzt sie schon).
+
+1. **Settings:** `monthlyGroceryBudget` (double?, null = aus).
+2. **DB:** `Future<double> purchaseSumForRange(DateTime from, DateTime to)` —
+   SUM(price) über purchase-Events (Achtung: price ist Gesamtpreis des Kaufs,
+   Semantik dokumentieren).
+3. **UI:** Dashboard-Karte mit Fortschrittsbalken „427 € / 600 € · Monat zu 71 %
+   vorbei" (Balken vs. Monatsfortschritt = sofort ablesbar ob über Plan);
+   Tap → bestehende Jahresstatistik. Farbwechsel bei Budget-Überschreitung.
+
+#### F9 · Garantie-Tracking
+
+**Schema v43:** `items.warrantyMonths` (int nullable).
+
+1. **Formular:** Feld „Garantie (Monate)" im Geräte-Abschnitt des item_form
+   (nur für Nicht-Lebensmittel-Kategorien anzeigen).
+2. **Ableitung:** Garantieende = ältestes purchase-Event + warrantyMonths
+   (Fallback: item.createdAt). Helper in DB:
+   `Future<DateTime?> warrantyEndForItem(String itemId)`.
+3. **UI:** Zeile im Item-Detail („Garantie bis 12.03.2027 · noch 8 Monate",
+   rot < 60 Tage); Dashboard-/Aufgaben-Anbindung: beim Unterschreiten von
+   60 Tagen einmalig Task erzeugen („Garantie X läuft ab — Belege prüfen") —
+   Wiederverwendung des Task-Systems statt neuem Notification-Kanal.
+   Rechnung anhängen: entity_photos existiert bereits am Item-Detail.
+
+#### F10 · Reste einlagern nach Kochen
+
+**Datenbasis:** `prepared_dishes` (Tabelle + watchPreparedDishes vorhanden!).
+
+1. **`_CookRecipeSheet` (nach U3-Fix):** Nach erfolgreichem Ausbuchen Dialog
+   „Reste übrig?" → Portionsanzahl-Stepper → `insertPreparedDishe(...)` mit
+   `name = recipe.title`, `portions`, `expiresAt = now + 3 Tage` (editierbar),
+   `recipeId`-Verknüpfung.
+2. **Kreis schließen:** Prepared Dishes erscheinen bereits im Expiry-Flow —
+   beim Verzehr über das Tagebuch (`source='meal'`) prepared_dish als Quelle
+   anbieten (Nährwerte aus dem Rezept ÷ Portionen).
+
+#### F11 · Android App Shortcuts
+
+1. **Package:** `quick_actions` (^1.1.x, offizielles Flutter-Plugin).
+2. **`main.dart`/eigener Service:** Shortcuts registrieren: „Einkauf erfassen"
+   (→ Kassenbon-Modus aus E1), „Scannen", „Tagebuch". Callback navigiert via
+   Router; auf Desktop no-op.
+
+#### F12 · Daten-Hygiene-Check
+
+1. **`lib/services/data_health_service.dart` (neu):** drei Queries —
+   EAN-Duplikate (GROUP BY ean HAVING COUNT>1), Events ohne Item (LEFT JOIN
+   items IS NULL), recipe_ingredients mit itemId auf gelöschtes Item.
+2. **UI:** Settings → „Daten prüfen": Befundliste mit Aktionen
+   (Duplikat zusammenführen = Events/Entries auf Ziel-Item umhängen +
+   Quell-Item trashen; Waisen löschen).
+
+#### F13 · Desktop Drag & Drop
+
+1. **Package:** `desktop_drop` (^0.4.x).
+2. **Item-Detail:** `DropTarget` um die Foto-Sektion — abgelegte Bilddateien
+   laufen durch denselben Pfad wie der image_picker-Import (inkl.
+   MIME-Validierung aus Issue #10 — **Abhängigkeit**, erst #10 fixen).
+
+**Empfohlene Reihenfolge innerhalb 6d:** F5 → F3 → F8 → F7 → F10 (alle klein,
+sofortiger Nutzen) → F1 → F4 → F2 (Mittel, bauen auf Phase U auf) → F6 → F9 →
+F11–F13. F2 setzt Phase U (convertQty) voraus, F13 setzt Issue #10 voraus.
+
 ---
 
 ## Teil 7 — Empfohlene Umsetzungs-Phasen
@@ -539,8 +732,14 @@ Wochen-Report, Budget, Reste einlagern — alle „Klein" und auf vorhandenen Da
 ### Phase F — „Features"
 1. Meal-Plan → Einkaufsliste
 2. Abfall-Auswertung
-3. A3: Automation-Trigger-Engine
-4. mDNS, CSV-Import, weitere P2/P3 nach Bedarf
+3. Quick Wins aus Teil 6d: F5 Auto-Backup → F3 Mindestbestand lernen →
+   F8 Budget → F7 Wochen-Report → F10 Reste einlagern
+4. A3: Automation-Trigger-Engine
+5. Datengetriebene Features: F1 Vorratsreichweite → F4 TDEE-Prognose →
+   F2 „Was kann ich kochen?" (setzt Phase U voraus)
+6. mDNS, CSV-Import, F6/F9/F11–F13, weitere P2/P3 nach Bedarf
+
+> Detaillierte Integrationspläne zu allen F-Nummern: Teil 6d.
 
 ---
 
