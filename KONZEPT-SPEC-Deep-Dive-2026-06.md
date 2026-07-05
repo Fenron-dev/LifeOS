@@ -336,6 +336,89 @@ diaryMode true/false, Meals mit gemischten Einheiten) — **bevor** die Fixes ge
 werden, damit die Fälle des Nutzers reproduzierbar abgesichert sind. Das ist die
 wichtigste Kernlogik der App und hat heute null Tests.
 
+### U6 · Umsetzungsleitfaden Phase U (Datei für Datei)
+
+**Schritt 0 — Failing Tests (`test/utils/unit_deduct_utils_test.dart`, neu):**
+```
+unitToGrams:
+  'g' → 1.0 · 'kg' → 1000 · 'Stück' + [Stück→g, f=500] → 500
+  'Packung' + [g→Packung, f=0.002] → 500 (Reverse-Pfad)
+Prefill-Matrix (der gemeldete Fall):
+  requested (125, 'g'), Bestand 'Stück', Conv 1 Stück = 500 g
+  → Option 'Stück': prefill 0.25 · Option 'g': prefill 125   // heute: 1 bzw. 500!
+Servings gemischt:
+  Gericht = 2 Eier ('Stück', Conv Ei→60 g) + 100 g Mehl; geloggt 220 g
+  → servings ≈ 1.0   // heute: 2.2, weil Eier ignoriert
+Rezept-Kochen:
+  Zutat (125, 'g'), Entry (2, 'Stück', Conv 500 g)
+  → deduct 0.25 Stück   // heute: 125 „Stück"
+```
+
+**Schritt 1 — Schema v42 (`lib/db/tables/items_table.dart` + `database.dart`):**
+```dart
+/// Inhalt einer Kaufeinheit: 1 [purchaseUnit] = packageContentQty [packageContentUnit]
+RealColumn get packageContentQty => real().nullable()();
+TextColumn get packageContentUnit => text().nullable()();
+// Migration: if (from < 42) addColumn ×2 — kein Datenumbau nötig.
+```
+
+**Schritt 2 — Zentrale Auflösung (`lib/utils/unit_deduct_utils.dart`):**
+```dart
+/// Explizite Item-Conversions + implizite Packungs-Conversion + globale — in
+/// dieser Prioritätsreihenfolge. EINZIGER Einstiegspunkt für alle Buchungspfade.
+List<UnitConversion> resolveConversions({
+  required Item? item,
+  required List<UnitConversion> itemConvs,
+  required List<UnitConversion> globalConvs,
+}) {
+  final implicit = <UnitConversion>[];
+  if (item?.purchaseUnit != null &&
+      item?.packageContentQty != null &&
+      item?.packageContentUnit != null) {
+    implicit.add(/* purchaseUnit → packageContentUnit, factor: packageContentQty */);
+  }
+  return [...itemConvs, ...implicit, ...globalConvs];
+}
+
+/// Konvertiert (qty, from) → to über die Gramm-Brücke. Null = kein Pfad.
+double? convertQty(double qty, String from, String to, List<UnitConversion> convs) {
+  final fg = unitToGrams(from, convs); final tg = unitToGrams(to, convs);
+  if (fg == null || tg == null || tg == 0) return null;
+  return qty * fg / tg;
+}
+```
+
+**Schritt 3 — U1-Fix (`inventory_deduct_sheet.dart` → `makeRow`):**
+`buildDeductUnitOptions` bekommt statt `fallbackQty` die Parameter
+`requestedQty`/`requestedUnit`; Prefill je Option =
+`convertQty(requestedQty, requestedUnit, option.unit, convs)`.
+Nur wenn `convertQty` null liefert → alte Heuristik + oranges Warn-Badge
+„Einheit nicht umrechenbar — Menge prüfen" an der Zeile.
+
+**Schritt 4 — U2-Fix (`_computeServings`):**
+`convertWeightVol(ing.qty, ing.unit, 'g')` ersetzen durch
+`ing.qty * (unitToGrams(ing.unit, convsFürZutat) ?? 0)`; Zutaten ohne
+Gramm-Pfad zählen weiterhin nicht, werden aber gezählt und als Hinweis
+angezeigt („2 Zutaten ohne Gewichtsangabe").
+
+**Schritt 5 — U3-Fix (`recipe_detail_screen.dart` → `_CookRecipeSheet._cook`):**
+Vor der FIFO-Schleife: `needed = convertQty(ing.quantity * _scale, ing.unit,
+entry.unit, convs)`; null → Zeile im Sheet rot markieren, Checkbox
+deaktivieren (statt still falsch buchen). Sheet zeigt je Zeile die
+umgerechnete Abbuchung als Vorschau („125 g = 0,25 Pck.").
+
+**Schritt 6 — Formular (`item_form_screen.dart`):**
+Block „Einkauf & Inhalt": `Ich kaufe in [Packung ▼] · 1 Packung enthält
+[500] [g ▼]` — ersetzt für den Normalfall das manuelle Anlegen von
+unit_conversions. Bestehende Conversions bleiben gültig (explizit > implizit).
+
+**Schritt 7 — E1 Kassenbon-Modus (neu `lib/screens/scanner/purchase_session_screen.dart`):**
+Scanner-Widget oben (mobile_scanner, `detectionSpeed: normal`, kein Auto-Pop),
+Session-Liste darunter (`StateNotifier<List<SessionRow>>`). Scan-Handler:
+EAN → Item-Lookup → Zeile hinzufügen/hochzählen (Prefills wie AddStockSheet).
+„Alle einbuchen" → `inventoryOps.purchase()` je Zeile in einer Transaktion.
+Einstieg: neue Schnellaktion „Einkauf erfassen" + Button in der Einkaufsliste.
+
 ---
 
 ## Teil 6c — Einkaufserfassung beschleunigen (Nutzer-Befund Juni 2026) 🟠
@@ -382,6 +465,32 @@ existierende Welten.
 Foto vom Bon → Zeilenerkennung (ML Kit ist schon eingebunden) → Matching gegen
 Artikelnamen/Preise → Vorschlagsliste zum Bestätigen. Größerer Aufwand, erst nach
 E1–E3 sinnvoll.
+
+---
+
+## Teil 6d — Feature-Ideen, zweite Runde 🟢
+
+Diese Ideen nutzen fast ausschließlich **Daten, die die App heute schon sammelt**
+(Event-Log, Preise, Gewichts-/Ernährungslogs) — hoher Nutzen bei moderatem Aufwand:
+
+| Feature | Beschreibung | Nutzen | Aufwand | Prio |
+|---|---|---|---|---|
+| **Vorratsreichweite** | Verbrauchsrate aus consumption-Events je Artikel → „Kaffee reicht noch ~12 Tage"; Badge im Inventar, Warnung vor der Einkaufsliste | Hoch | Mittel | P1 |
+| **„Was kann ich kochen?"** | Rezepte gegen aktuellen Bestand matchen; Sortierung: ablaufende Zutaten zuerst („Rette dein MHD"). Verbindet Inventar + Rezepte + Abfallvermeidung | Hoch | Mittel | P1 |
+| **Mindestbestand lernen** | Vorschlag für minStockQuantity aus Verbrauchsrate × Einkaufsintervall statt manueller Pflege | Hoch | Klein | P1 |
+| **TDEE & Gewichtsprognose** | Aus kcal-Logs + Gewichtsverlauf den tatsächlichen Erhaltungsbedarf schätzen; Trendlinie + „Ziel erreicht in ~X Wochen" | Hoch (Health-Ziel) | Mittel | P1 |
+| **Auto-Backup** | Zeitgesteuertes ZIP-Backup (täglich/wöchentlich) in wählbaren Ordner, Aufbewahrung N Stück; nutzt vorhandenen BackupService | Hoch | Klein | P1 |
+| **Inventur-Modus** | Geführter Rundgang je Lagerort: Bestand bestätigen/korrigieren (nutzt vorhandene stocktake-Events); danach „Bestand geprüft am …" | Mittel | Mittel | P2 |
+| **Wochen-Report Health** | Karte/Push So-Abend: Ø kcal, Protein-Zielquote, Gewichts-Delta, Workouts — Motivations-Loop | Mittel | Klein | P2 |
+| **Lebensmittel-Budget** | Monatsbudget definieren; Ist aus purchase-Events (Preise existieren); Fortschrittsbalken im Dashboard | Mittel | Klein | P2 |
+| **Garantie-Tracking** | `warrantyMonths` an Geräten + Kaufdatum aus Events → Erinnerung vor Ablauf; Rechnung als entity_photo anhängen | Mittel | Klein | P2 |
+| **Reste einlagern nach Kochen** | Im Kochen-Sheet: „Reste als Gericht einlagern" → prepared_dishes-Eintrag mit MHD (Tabelle existiert bereits!) | Mittel | Klein | P2 |
+| **Android App Shortcuts** | Long-Press aufs Icon → „Einkauf erfassen" / „Tagebuch" / „Scannen" direkt | Klein | Klein | P3 |
+| **Daten-Hygiene-Check** | Settings-Tool: Duplikate (gleicher EAN/ähnlicher Name), verwaiste Events, Zutaten ohne Artikel-Link finden | Klein | Klein | P3 |
+| **Desktop Drag & Drop** | Fotos/Rechnungen per Drag & Drop auf Artikel ziehen (desktop_drop-Package) | Klein | Klein | P3 |
+
+**Sofort-Kandidaten** (bester Nutzen/Aufwand): Mindestbestand lernen, Auto-Backup,
+Wochen-Report, Budget, Reste einlagern — alle „Klein" und auf vorhandenen Daten.
 
 ---
 
