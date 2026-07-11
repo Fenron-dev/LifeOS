@@ -17,6 +17,7 @@ import '../../providers/units_provider.dart';
 import '../../providers/categories_provider.dart';
 import '../../providers/shops_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../utils/consumption_stats.dart';
 import '../../screens/settings/unit_conversions_screen.dart';
 import '../../services/open_food_facts_service.dart';
 import 'off_import_dialog.dart';
@@ -940,6 +941,46 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                   ],
                 );
               }),
+              // F3: min-stock suggestion learned from the item's own
+              // consumption rate × purchase interval (+20 % buffer).
+              if (widget.item != null)
+                Consumer(builder: (context, ref, _) {
+                  final db = ref.watch(databaseProvider);
+                  if (db == null) return const SizedBox.shrink();
+                  return StreamBuilder(
+                    stream: db.watchEventsForItem(widget.item!.id),
+                    builder: (context, snap) {
+                      final events = snap.data ?? const <ItemEvent>[];
+                      final suggestion = suggestedMinStock(
+                        dailyConsumptionRate(events),
+                        avgDaysBetweenPurchases(events),
+                      );
+                      if (suggestion == null) return const SizedBox.shrink();
+                      final current = double.tryParse(_minStockQtyCtrl.text
+                          .trim()
+                          .replaceAll(',', '.'));
+                      if (current != null &&
+                          (current - suggestion).abs() < 0.001) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: ActionChip(
+                            avatar: const Icon(Icons.auto_awesome, size: 16),
+                            label: Text(
+                                'Vorschlag: ${suggestion % 1 == 0 ? suggestion.toStringAsFixed(0) : suggestion.toStringAsFixed(1)} (aus deinem Verbrauch)'),
+                            onPressed: () => setState(() =>
+                                _minStockQtyCtrl.text = suggestion % 1 == 0
+                                    ? suggestion.toStringAsFixed(0)
+                                    : suggestion.toStringAsFixed(1)),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
               const SizedBox(height: 8),
               Consumer(builder: (context, ref, _) {
                 final shops = ref.watch(allShopsProvider).valueOrNull ?? [];

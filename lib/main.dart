@@ -10,6 +10,7 @@ import 'core/vault_manager.dart';
 import 'core/vault_metadata.dart';
 import 'db/sql_cipher_loader.dart';
 import 'services/notification_service.dart';
+import 'providers/auto_backup_provider.dart';
 import 'providers/home_widget_provider.dart';
 import 'providers/inventory_provider.dart';
 import 'providers/sync_provider.dart';
@@ -98,6 +99,7 @@ class _LifeOSAppState extends ConsumerState<LifeOSApp> {
     ref.watch(expiryNotificationSchedulerProvider);
     ref.watch(homeWidgetUpdaterProvider);
     ref.watch(syncServerProvider); // starts shelf server when enabled (Desktop)
+    ref.watch(autoBackupProvider); // runs due auto-backups (all platforms)
 
     return MaterialApp.router(
       title: 'LifeOS',

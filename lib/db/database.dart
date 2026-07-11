@@ -2994,6 +2994,19 @@ extension BodyPhotosDao on AppDatabase {
       (update(entityPhotos)..where((p) => p.id.equals(id)))
           .write(EntityPhotosCompanion(caption: Value(caption)));
 
+  /// Sum of purchase-event prices in [from, to) — for the budget card.
+  /// `price` is the total price of the purchase (not per unit).
+  Future<double> purchaseSumForRange(DateTime from, DateTime to) async {
+    final rows = await (select(itemEvents)
+          ..where((e) =>
+              e.type.equals('purchase') &
+              e.price.isNotNull() &
+              e.createdAt.isBiggerOrEqualValue(from) &
+              e.createdAt.isSmallerThanValue(to)))
+        .get();
+    return rows.fold<double>(0, (sum, e) => sum + (e.price ?? 0));
+  }
+
   // ── Sync ──────────────────────────────────────────────────────────────────
 
   /// Returns all item events created after [since], optionally excluding

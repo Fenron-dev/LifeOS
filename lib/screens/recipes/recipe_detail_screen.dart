@@ -1,6 +1,8 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../db/database.dart';
 import '../../health/widgets/diary_entry_sheet.dart';
@@ -706,6 +708,11 @@ class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
     }
 
     if (!context.mounted) return;
+
+    // F10: offer to store leftovers as a prepared dish (fridge/freezer).
+    await _offerLeftovers(context, db);
+
+    if (!context.mounted) return;
     Navigator.of(context).pop();
     final skippedNote =
         skipped > 0 ? ' · $skipped ohne Umrechnung übersprungen' : '';
@@ -718,6 +725,73 @@ class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
         ),
       ),
     );
+  }
+
+  /// Asks whether portions are left over and stores them as a prepared dish
+  /// (appears in the expiry flow and can be consumed via the diary).
+  Future<void> _offerLeftovers(BuildContext context, AppDatabase db) async {
+    var portions = 1;
+    var frozen = false;
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('Reste übrig?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(child: Text('Portionen einlagern:')),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline),
+                    onPressed: portions > 1
+                        ? () => setDlg(() => portions--)
+                        : null,
+                  ),
+                  Text('$portions',
+                      style: Theme.of(ctx).textTheme.titleMedium),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () => setDlg(() => portions++),
+                  ),
+                ],
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Eingefroren'),
+                subtitle: Text(frozen
+                    ? 'Haltbar ~3 Monate'
+                    : 'Kühlschrank — haltbar ~3 Tage'),
+                value: frozen,
+                onChanged: (v) => setDlg(() => frozen = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Keine Reste')),
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Einlagern')),
+          ],
+        ),
+      ),
+    );
+    if (save != true) return;
+    final now = DateTime.now();
+    await db.insertPreparedDishe(PreparedDishesCompanion.insert(
+      id: const Uuid().v4(),
+      recipeId: drift.Value(widget.recipe.id),
+      name: widget.recipe.name,
+      portions: drift.Value(portions),
+      state: drift.Value(frozen ? 'frozen' : 'thawed'),
+      frozenAt: drift.Value(frozen ? now : null),
+      expiresAt: drift.Value(frozen
+          ? now.add(const Duration(days: 90))
+          : now.add(const Duration(days: 3))),
+    ));
   }
 
   @override

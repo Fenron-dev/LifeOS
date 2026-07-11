@@ -12,6 +12,7 @@ import '../../health/widgets/health_factor_bar.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/meal_plan_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/tasks_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../widgets/adaptive_shell.dart';
@@ -71,6 +72,7 @@ class _StartScreenState extends ConsumerState<StartScreen>
           SizedBox(height: 12),
           _TodayHealthCard(),
           SizedBox(height: 12),
+          _BudgetCard(),
           _JahresstatistikCard(),
           SizedBox(height: 12),
           _RemindersCard(),
@@ -283,6 +285,97 @@ class _HealthStatTile extends StatelessWidget {
 }
 
 // ── Jahresstatistik ───────────────────────────────────────────────────────────
+
+// ── Budget-Karte (F8) ────────────────────────────────────────────────────────
+
+final _monthPurchaseSumProvider = FutureProvider<double>((ref) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return 0;
+  final now = DateTime.now();
+  return db.purchaseSumForRange(
+      DateTime(now.year, now.month, 1), DateTime(now.year, now.month + 1, 1));
+});
+
+/// Monatsbudget vs. Ist aus purchase-Events. Nur sichtbar wenn ein Budget
+/// gesetzt ist (Einstellungen → Lebensmittel-Budget).
+class _BudgetCard extends ConsumerWidget {
+  const _BudgetCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final budget =
+        ref.watch(settingsProvider).valueOrNull?.monthlyGroceryBudget;
+    if (budget == null || budget <= 0) return const SizedBox.shrink();
+
+    final spent = ref.watch(_monthPurchaseSumProvider).valueOrNull ?? 0;
+    final now = DateTime.now();
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final monthProgress = now.day / daysInMonth;
+    final spendProgress = (spent / budget).clamp(0.0, 1.0);
+    final over = spent > budget;
+    // Warnfarbe schon wenn die Ausgaben dem Monat davonlaufen.
+    final ahead = spendProgress > monthProgress + 0.1;
+
+    final cs = Theme.of(context).colorScheme;
+    final euroFmt =
+        NumberFormat.currency(locale: 'de_DE', symbol: '€', decimalDigits: 0);
+
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.savings_outlined, color: cs.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Lebensmittel-Budget',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const Spacer(),
+                    Text(
+                      '${euroFmt.format(spent)} / ${euroFmt.format(budget)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: over ? cs.error : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: spendProgress,
+                    minHeight: 8,
+                    color: over
+                        ? cs.error
+                        : ahead
+                            ? cs.tertiary
+                            : cs.primary,
+                    backgroundColor: cs.surfaceContainerHighest,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  over
+                      ? 'Budget um ${euroFmt.format(spent - budget)} überschritten'
+                      : 'Monat zu ${(monthProgress * 100).round()} % vorbei · '
+                          '${euroFmt.format(budget - spent)} übrig',
+                  style:
+                      TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
 
 class _JahresstatistikCard extends ConsumerWidget {
   const _JahresstatistikCard();

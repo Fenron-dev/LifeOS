@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../db/database.dart';
 import '../providers/nutrition_provider.dart';
+import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
 import '../providers/workouts_provider.dart';
+import '../utils/weekly_report.dart';
 
 // ── Period selector ───────────────────────────────────────────────────────────
 
@@ -70,6 +73,10 @@ class _StatsTabState extends ConsumerState<StatsTab> {
         ),
         const SizedBox(height: 20),
 
+        // ── Deine Woche (F7) ───────────────────────────────────────────────
+        const _WeeklyReportCard(),
+        const SizedBox(height: 16),
+
         // ── Weight trend ───────────────────────────────────────────────────
         _StatCard(
           icon: Icons.monitor_weight_outlined,
@@ -106,6 +113,104 @@ class _StatsTabState extends ConsumerState<StatsTab> {
           period: _period,
           cs: cs,
         ),
+      ],
+    );
+  }
+}
+
+// ── Deine Woche (F7) ─────────────────────────────────────────────────────────
+
+class _WeeklyReportCard extends ConsumerWidget {
+  const _WeeklyReportCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart = today.subtract(const Duration(days: 6));
+
+    final dailyTotals = <DailyNutritionTotals?>[
+      for (var i = 0; i < 7; i++)
+        ref
+            .watch(dailyTotalsProvider(weekStart.add(Duration(days: i))))
+            .valueOrNull,
+    ];
+    final proteinTarget =
+        ref.watch(userProfileProvider).valueOrNull?.proteinTargetG;
+    final weightLogs = (ref.watch(weightLogsProvider(30)).valueOrNull ?? [])
+        .where((l) => !l.loggedAt.isBefore(weekStart))
+        .toList();
+    final workouts = (ref.watch(workoutsProvider).valueOrNull ?? [])
+        .where((w) => !w.startedAt.isBefore(weekStart))
+        .length;
+
+    final report = WeeklyReport.compute(
+      dailyTotals: dailyTotals,
+      proteinTargetG: proteinTarget,
+      weightLogsInWeek: weightLogs,
+      workoutCount: workouts,
+    );
+    if (report.isEmpty) return const SizedBox.shrink();
+
+    final cs = Theme.of(context).colorScheme;
+    String fmtDelta(double d) =>
+        '${d >= 0 ? '+' : ''}${d.toStringAsFixed(1)} kg';
+
+    return _StatCard(
+      icon: Icons.calendar_view_week_outlined,
+      title: 'Deine Woche',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _WeekStat(
+                label: 'Ø kcal (${report.daysLogged} Tage)',
+                value: report.daysLogged == 0
+                    ? '—'
+                    : report.avgKcal.toStringAsFixed(0),
+              ),
+              if (report.hasProteinTarget)
+                _WeekStat(
+                  label: 'Protein-Ziel',
+                  value: '${report.proteinTargetHits}/${report.daysLogged}',
+                ),
+              _WeekStat(
+                label: 'Gewicht',
+                value: report.weightDeltaKg != null
+                    ? fmtDelta(report.weightDeltaKg!)
+                    : '—',
+              ),
+              _WeekStat(label: 'Workouts', value: '${report.workoutCount}'),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Letzte 7 Tage',
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeekStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _WeekStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: Theme.of(context).textTheme.titleMedium),
+        Text(label,
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
       ],
     );
   }

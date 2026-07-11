@@ -13,6 +13,47 @@ import '../../providers/vault_provider.dart';
 import '../../services/backup_service.dart';
 import '../../services/data_export_service.dart';
 
+Future<void> _editBudget(
+    BuildContext context, WidgetRef ref, AppSettingsData settings) async {
+  final ctrl = TextEditingController(
+      text: settings.monthlyGroceryBudget?.toStringAsFixed(0) ?? '');
+  final result = await showDialog<({bool save, double? value})>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Lebensmittel-Budget'),
+      content: TextField(
+        controller: ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: '€ pro Monat',
+          hintText: 'z. B. 600',
+          prefixIcon: Icon(Icons.euro),
+          helperText: 'Leer lassen zum Deaktivieren',
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(ctx).pop((save: false, value: null)),
+            child: const Text('Abbrechen')),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop((
+            save: true,
+            value: double.tryParse(ctrl.text.trim().replaceAll(',', '.')),
+          )),
+          child: const Text('Speichern'),
+        ),
+      ],
+    ),
+  );
+  ctrl.dispose();
+  if (result != null && result.save) {
+    await ref
+        .read(settingsProvider.notifier)
+        .setMonthlyGroceryBudget(result.value);
+  }
+}
+
 Future<void> _showQuickActionsConfig(BuildContext context, WidgetRef ref) async {
   final settings = ref.read(settingsProvider).valueOrNull;
   if (settings == null) return;
@@ -196,6 +237,35 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _restoreBackup(context, ref, vaultPath),
           ),
+          settingsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (settings) => Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.backup_table_outlined),
+                  title: const Text('Automatisches Backup'),
+                  subtitle: Text(
+                      'Nach Zeitplan in „${vaultPath != null ? '${vaultPath.split('/').last}-backups' : '<Vault>-backups'}" — behält die 5 neuesten'),
+                  value: settings.autoBackupEnabled,
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .setAutoBackupEnabled(v),
+                ),
+                if (settings.autoBackupEnabled)
+                  _CountSettingTile(
+                    icon: Icons.schedule_outlined,
+                    title: 'Backup-Intervall',
+                    subtitle: 'Tage zwischen automatischen Backups',
+                    value: settings.autoBackupIntervalDays,
+                    options: const [1, 7, 30],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .setAutoBackupIntervalDays(v),
+                  ),
+              ],
+            ),
+          ),
           const Divider(),
           const ListTile(
             leading: Icon(Icons.import_export_outlined),
@@ -230,6 +300,19 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Aktionen im zentralen Button'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _showQuickActionsConfig(context, ref),
+          ),
+          settingsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (settings) => ListTile(
+              leading: const Icon(Icons.savings_outlined),
+              title: const Text('Lebensmittel-Budget'),
+              subtitle: Text(settings.monthlyGroceryBudget != null
+                  ? '${settings.monthlyGroceryBudget!.toStringAsFixed(0)} € pro Monat'
+                  : 'Nicht gesetzt — Dashboard-Karte ausgeblendet'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _editBudget(context, ref, settings),
+            ),
           ),
           settingsAsync.when(
             loading: () => const SizedBox.shrink(),

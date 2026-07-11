@@ -4,6 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 
 class BackupService {
+  /// Vault subfolders excluded from backups: cache/ is disposable
+  /// (thumbnails), exports/ contains previous backups (backup-in-backup).
+  static const _excludedDirs = {'cache', 'exports'};
+
   /// Creates a zip backup of [vaultPath] and writes it to [destDir].
   /// Returns the created [File].
   static Future<File> createBackup(String vaultPath, String destDir) async {
@@ -17,6 +21,8 @@ class BackupService {
     await for (final entity in vaultDir.list(recursive: true)) {
       if (entity is File) {
         final relativePath = p.relative(entity.path, from: vaultPath);
+        final topDir = p.split(relativePath).first;
+        if (_excludedDirs.contains(topDir)) continue;
         encoder.addFile(entity, relativePath);
       }
     }

@@ -81,6 +81,15 @@ class AppSettingsData {
   /// AddStockSheet. Undo via SnackBar.
   final bool quickStockDirect;
 
+  /// Automatic backups into `<vault>-backups` (retention: 5 newest).
+  final bool autoBackupEnabled;
+
+  /// Days between automatic backups (1 / 7 / 30).
+  final int autoBackupIntervalDays;
+
+  /// Monthly grocery budget in € — null disables the dashboard budget card.
+  final double? monthlyGroceryBudget;
+
   static const defaultQuickActions = [
     QuickAction.addInventory,
     QuickAction.consumeInventory,
@@ -102,6 +111,9 @@ class AppSettingsData {
     this.waterReminderToHour = 22,
     this.waterReminderIntervalMinutes = 120,
     this.quickStockDirect = false,
+    this.autoBackupEnabled = false,
+    this.autoBackupIntervalDays = 7,
+    this.monthlyGroceryBudget,
   });
 
   AppSettingsData copyWith({
@@ -118,6 +130,9 @@ class AppSettingsData {
     int? waterReminderToHour,
     int? waterReminderIntervalMinutes,
     bool? quickStockDirect,
+    bool? autoBackupEnabled,
+    int? autoBackupIntervalDays,
+    double? Function()? monthlyGroceryBudget,
   }) =>
       AppSettingsData(
         themeMode: themeMode ?? this.themeMode,
@@ -135,6 +150,12 @@ class AppSettingsData {
         waterReminderIntervalMinutes:
             waterReminderIntervalMinutes ?? this.waterReminderIntervalMinutes,
         quickStockDirect: quickStockDirect ?? this.quickStockDirect,
+        autoBackupEnabled: autoBackupEnabled ?? this.autoBackupEnabled,
+        autoBackupIntervalDays:
+            autoBackupIntervalDays ?? this.autoBackupIntervalDays,
+        monthlyGroceryBudget: monthlyGroceryBudget != null
+            ? monthlyGroceryBudget()
+            : this.monthlyGroceryBudget,
       );
 }
 
@@ -184,6 +205,13 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
         120;
     final quickStockDirect =
         (await db.getSetting('quick_stock_direct') ?? 'false') == 'true';
+    final autoBackupEnabled =
+        (await db.getSetting('auto_backup_enabled') ?? 'false') == 'true';
+    final autoBackupIntervalDays =
+        int.tryParse(await db.getSetting('auto_backup_interval_days') ?? '') ??
+            7;
+    final monthlyGroceryBudget =
+        double.tryParse(await db.getSetting('monthly_grocery_budget') ?? '');
 
     return AppSettingsData(
       themeMode: switch (themeRaw) {
@@ -203,7 +231,37 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
       waterReminderToHour: waterReminderToHour,
       waterReminderIntervalMinutes: waterReminderIntervalMinutes,
       quickStockDirect: quickStockDirect,
+      autoBackupEnabled: autoBackupEnabled,
+      autoBackupIntervalDays: autoBackupIntervalDays,
+      monthlyGroceryBudget: monthlyGroceryBudget,
     );
+  }
+
+  Future<void> setMonthlyGroceryBudget(double? budget) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('monthly_grocery_budget', budget?.toString() ?? '');
+    state = AsyncData(
+        (state.valueOrNull ?? const AppSettingsData())
+            .copyWith(monthlyGroceryBudget: () => budget));
+  }
+
+  Future<void> setAutoBackupEnabled(bool enabled) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('auto_backup_enabled', enabled ? 'true' : 'false');
+    state = AsyncData(
+        state.valueOrNull?.copyWith(autoBackupEnabled: enabled) ??
+            AppSettingsData(autoBackupEnabled: enabled));
+  }
+
+  Future<void> setAutoBackupIntervalDays(int days) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('auto_backup_interval_days', '$days');
+    state = AsyncData(
+        state.valueOrNull?.copyWith(autoBackupIntervalDays: days) ??
+            AppSettingsData(autoBackupIntervalDays: days));
   }
 
   Future<void> setQuickStockDirect(bool enabled) async {
