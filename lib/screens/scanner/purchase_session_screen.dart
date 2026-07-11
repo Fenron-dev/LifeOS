@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../db/database.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../services/open_food_facts_service.dart';
 
 /// One scanned position in the current purchase session.
 class _SessionRow {
@@ -18,6 +19,12 @@ class _SessionRow {
   DateTime? expiryDate;
   String? locationId;
   double? price;
+
+  /// OpenFoodFacts result for unknown EANs — shown in the row so the user
+  /// immediately sees WHAT was scanned, before the item exists locally.
+  String? offName;
+  String? offBrand;
+  bool offLookupDone = false;
 
   _SessionRow({
     required this.ean,
@@ -186,7 +193,21 @@ class _PurchaseSessionScreenState
       // this EAN meanwhile.
       if (_rows.any((r) => r.ean == ean)) return;
       if (item == null) {
-        setState(() => _rows.add(_SessionRow(ean: ean)));
+        final row = _SessionRow(ean: ean);
+        setState(() => _rows.add(row));
+        // Unknown locally → immediately try OpenFoodFacts so the row shows
+        // the product name instead of a bare number. Non-blocking.
+        OpenFoodFactsService.lookup(ean).then((p) {
+          if (!mounted) return;
+          setState(() {
+            row.offName = p?.name;
+            row.offBrand = p?.brand;
+            row.offLookupDone = true;
+          });
+        }).catchError((_) {
+          if (!mounted) return;
+          setState(() => row.offLookupDone = true);
+        });
         return;
       }
       setState(() => _rows.add(_SessionRow(
@@ -354,11 +375,24 @@ class _PurchaseSessionScreenState
                     itemBuilder: (context, i) {
                       final row = _rows[_rows.length - 1 - i]; // newest first
                       if (row.item == null) {
+                        final offTitle = row.offName != null
+                            ? '${row.offName}'
+                                '${row.offBrand != null ? ' · ${row.offBrand}' : ''}'
+                            : null;
                         return ListTile(
-                          leading: Icon(Icons.help_outline, color: cs.error),
-                          title: Text('Unbekannt: ${row.ean}'),
-                          subtitle:
-                              const Text('Artikel ist noch nicht angelegt'),
+                          leading: Icon(
+                            offTitle != null
+                                ? Icons.travel_explore_outlined
+                                : Icons.help_outline,
+                            color: offTitle != null ? cs.primary : cs.error,
+                          ),
+                          title: Text(offTitle ?? 'Unbekannt: ${row.ean}',
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(!row.offLookupDone
+                              ? 'Suche in OpenFoodFacts …'
+                              : offTitle != null
+                                  ? 'Gefunden — Artikel noch nicht angelegt'
+                                  : 'Nicht in OpenFoodFacts — manuell anlegen'),
                           trailing: FilledButton.tonal(
                             onPressed: () => _createUnknownItem(row),
                             child: const Text('Anlegen'),
