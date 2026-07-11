@@ -15,14 +15,50 @@ import '../../services/data_export_service.dart';
 
 Future<void> _editBudget(
     BuildContext context, WidgetRef ref, AppSettingsData settings) async {
-  final ctrl = TextEditingController(
-      text: settings.monthlyGroceryBudget?.toStringAsFixed(0) ?? '');
   final result = await showDialog<({bool save, double? value})>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (_) =>
+        _BudgetDialog(initialValue: settings.monthlyGroceryBudget),
+  );
+  if (result != null && result.save) {
+    await ref
+        .read(settingsProvider.notifier)
+        .setMonthlyGroceryBudget(result.value);
+  }
+}
+
+/// Owns its TextEditingController — disposal via State.dispose() so it never
+/// happens while the dialog's TextField is still attached.
+class _BudgetDialog extends StatefulWidget {
+  final double? initialValue;
+  const _BudgetDialog({required this.initialValue});
+
+  @override
+  State<_BudgetDialog> createState() => _BudgetDialogState();
+}
+
+class _BudgetDialogState extends State<_BudgetDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+        text: widget.initialValue?.toStringAsFixed(0) ?? '');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       title: const Text('Lebensmittel-Budget'),
       content: TextField(
-        controller: ctrl,
+        controller: _ctrl,
         autofocus: true,
         decoration: const InputDecoration(
           labelText: '€ pro Monat',
@@ -34,23 +70,18 @@ Future<void> _editBudget(
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(ctx).pop((save: false, value: null)),
+            onPressed: () =>
+                Navigator.of(context).pop((save: false, value: null)),
             child: const Text('Abbrechen')),
         FilledButton(
-          onPressed: () => Navigator.of(ctx).pop((
+          onPressed: () => Navigator.of(context).pop((
             save: true,
-            value: double.tryParse(ctrl.text.trim().replaceAll(',', '.')),
+            value: double.tryParse(_ctrl.text.trim().replaceAll(',', '.')),
           )),
           child: const Text('Speichern'),
         ),
       ],
-    ),
-  );
-  ctrl.dispose();
-  if (result != null && result.save) {
-    await ref
-        .read(settingsProvider.notifier)
-        .setMonthlyGroceryBudget(result.value);
+    );
   }
 }
 

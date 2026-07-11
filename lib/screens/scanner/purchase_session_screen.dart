@@ -29,6 +29,98 @@ class _SessionRow {
         price = null;
 }
 
+/// Price/MHD editor for one session row. Owns its TextEditingController so
+/// disposal happens with the dialog's State — never while the TextField is
+/// still attached (fixes `_dependents.isEmpty` assertion on close).
+class _RowEditDialog extends StatefulWidget {
+  final String title;
+  final double? initialPrice;
+  final DateTime? initialExpiry;
+  const _RowEditDialog({
+    required this.title,
+    required this.initialPrice,
+    required this.initialExpiry,
+  });
+
+  @override
+  State<_RowEditDialog> createState() => _RowEditDialogState();
+}
+
+class _RowEditDialogState extends State<_RowEditDialog> {
+  late final TextEditingController _priceCtrl;
+  DateTime? _expiry;
+
+  @override
+  void initState() {
+    super.initState();
+    _priceCtrl = TextEditingController(
+        text: widget.initialPrice?.toStringAsFixed(2) ?? '');
+    _expiry = widget.initialExpiry;
+  }
+
+  @override
+  void dispose() {
+    _priceCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _priceCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Preis (€, gesamt)',
+              prefixIcon: Icon(Icons.euro),
+            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.event_outlined),
+            title: Text(_expiry != null
+                ? 'MHD: ${DateFormat('dd.MM.yyyy').format(_expiry!)}'
+                : 'Kein MHD'),
+            trailing: _expiry != null
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(() => _expiry = null),
+                  )
+                : null,
+            onTap: () async {
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _expiry ?? DateTime.now(),
+                firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                lastDate: DateTime.now().add(const Duration(days: 3650)),
+              );
+              if (d != null) setState(() => _expiry = d);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Abbrechen')),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop((
+            price:
+                double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')),
+            expiry: _expiry,
+          )),
+          child: const Text('Übernehmen'),
+        ),
+      ],
+    );
+  }
+}
+
 /// Kassenbon-Modus: scanner stays open, every scan adds/increments a session
 /// row with smart defaults. One "Alle einbuchen" books everything at the end.
 class PurchaseSessionScreen extends ConsumerStatefulWidget {
@@ -114,73 +206,20 @@ class _PurchaseSessionScreenState
   }
 
   Future<void> _editRow(_SessionRow row) async {
-    final priceCtrl = TextEditingController(
-        text: row.price != null ? row.price!.toStringAsFixed(2) : '');
-    var expiry = row.expiryDate;
-    final saved = await showDialog<bool>(
+    final result = await showDialog<({double? price, DateTime? expiry})>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
-          title: Text(row.item?.name ?? row.ean,
-              maxLines: 1, overflow: TextOverflow.ellipsis),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: priceCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Preis (€, gesamt)',
-                  prefixIcon: Icon(Icons.euro),
-                ),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.event_outlined),
-                title: Text(expiry != null
-                    ? 'MHD: ${DateFormat('dd.MM.yyyy').format(expiry!)}'
-                    : 'Kein MHD'),
-                trailing: expiry != null
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => setDlg(() => expiry = null),
-                      )
-                    : null,
-                onTap: () async {
-                  final d = await showDatePicker(
-                    context: ctx,
-                    initialDate: expiry ?? DateTime.now(),
-                    firstDate: DateTime.now()
-                        .subtract(const Duration(days: 30)),
-                    lastDate:
-                        DateTime.now().add(const Duration(days: 3650)),
-                  );
-                  if (d != null) setDlg(() => expiry = d);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Abbrechen')),
-            FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Übernehmen')),
-          ],
-        ),
+      builder: (_) => _RowEditDialog(
+        title: row.item?.name ?? row.ean,
+        initialPrice: row.price,
+        initialExpiry: row.expiryDate,
       ),
     );
-    if (saved == true && mounted) {
+    if (result != null && mounted) {
       setState(() {
-        row.price =
-            double.tryParse(priceCtrl.text.trim().replaceAll(',', '.'));
-        row.expiryDate = expiry;
+        row.price = result.price;
+        row.expiryDate = result.expiry;
       });
     }
-    priceCtrl.dispose();
   }
 
   Future<void> _bookAll() async {
