@@ -140,6 +140,14 @@ class _PurchaseSessionScreenState
   final Map<String, DateTime> _lastScan = {}; // ean → time (re-scan cooldown)
   bool _saving = false;
 
+  /// True while the item form is pushed — blocks scanner events and prevents
+  /// a second push of the same route (Navigator key-reservation assertion).
+  bool _navigating = false;
+
+  /// EANs whose DB lookup is still running — prevents duplicate rows when
+  /// the scanner fires again for the same code during the async gap.
+  final Set<String> _pendingLookups = {};
+
   @override
   void dispose() {
     _ctrl.dispose();
@@ -150,7 +158,8 @@ class _PurchaseSessionScreenState
     final ean = capture.barcodes
         .map((b) => b.rawValue)
         .firstWhere((v) => v != null && v.isNotEmpty, orElse: () => null);
-    if (ean == null || _saving) return;
+    if (ean == null || _saving || _navigating) return;
+    if (_pendingLookups.contains(ean)) return;
 
     // Cooldown: the same code within 2 s is the same physical scan.
     final now = DateTime.now();
@@ -161,64 +170,89 @@ class _PurchaseSessionScreenState
     HapticFeedback.mediumImpact();
     SystemSound.play(SystemSoundType.click);
 
-    // Same article again → increment quantity.
+    // Same article again → increment quantity (unknown rows stay single).
     final existing = _rows.where((r) => r.ean == ean).firstOrNull;
     if (existing != null) {
-      setState(() => existing.qty += 1);
+      if (existing.item != null) setState(() => existing.qty += 1);
       return;
     }
 
-    final db = ref.read(databaseProvider);
-    final item = await db?.itemByEan(ean);
-    if (!mounted) return;
-    if (item == null) {
-      setState(() => _rows.add(_SessionRow(ean: ean)));
-      return;
+    _pendingLookups.add(ean);
+    try {
+      final db = ref.read(databaseProvider);
+      final item = await db?.itemByEan(ean);
+      if (!mounted) return;
+      // Re-check after the async gap — a parallel detection may have added
+      // this EAN meanwhile.
+      if (_rows.any((r) => r.ean == ean)) return;
+      if (item == null) {
+        setState(() => _rows.add(_SessionRow(ean: ean)));
+        return;
+      }
+      setState(() => _rows.add(_SessionRow(
+            ean: ean,
+            item: item,
+            unit: item.purchaseUnit ?? item.stockUnit ?? 'Stück',
+            expiryDate: (item.expiryType == 'daysAfterPurchase' &&
+                    item.shelfLifeDays != null)
+                ? DateTime.now().add(Duration(days: item.shelfLifeDays!))
+                : null,
+            locationId: item.defaultLocationId,
+          )));
+    } finally {
+      _pendingLookups.remove(ean);
     }
-    setState(() => _rows.add(_SessionRow(
-          ean: ean,
-          item: item,
-          unit: item.purchaseUnit ?? item.stockUnit ?? 'Stück',
-          expiryDate: (item.expiryType == 'daysAfterPurchase' &&
-                  item.shelfLifeDays != null)
-              ? DateTime.now().add(Duration(days: item.shelfLifeDays!))
-              : null,
-          locationId: item.defaultLocationId,
-        )));
   }
 
   Future<void> _createUnknownItem(_SessionRow row) async {
-    await context.push('/haushalt/item/new', extra: row.ean);
-    // Back from the form: re-check whether the item exists now.
-    final db = ref.read(databaseProvider);
-    final item = await db?.itemByEan(row.ean);
-    if (!mounted || item == null) return;
-    setState(() {
-      row.item = item;
-      row.unit = item.purchaseUnit ?? item.stockUnit ?? 'Stück';
-      row.locationId = item.defaultLocationId;
-      if (item.expiryType == 'daysAfterPurchase' &&
-          item.shelfLifeDays != null) {
-        row.expiryDate =
-            DateTime.now().add(Duration(days: item.shelfLifeDays!));
-      }
-    });
+    if (_navigating) return; // double-tap guard
+    _navigating = true;
+    // Stop the camera while the form is open: no background detections, no
+    // re-fire of the same barcode when this screen becomes visible again.
+    await _ctrl.stop();
+    try {
+      if (!mounted) return;
+      await context.push('/haushalt/item/new', extra: row.ean);
+      // Back from the form: re-check whether the item exists now.
+      final db = ref.read(databaseProvider);
+      final item = await db?.itemByEan(row.ean);
+      if (!mounted || item == null) return;
+      setState(() {
+        row.item = item;
+        row.unit = item.purchaseUnit ?? item.stockUnit ?? 'Stück';
+        row.locationId = item.defaultLocationId;
+        if (item.expiryType == 'daysAfterPurchase' &&
+            item.shelfLifeDays != null) {
+          row.expiryDate =
+              DateTime.now().add(Duration(days: item.shelfLifeDays!));
+        }
+      });
+    } finally {
+      _navigating = false;
+      if (mounted) await _ctrl.start();
+    }
   }
 
   Future<void> _editRow(_SessionRow row) async {
-    final result = await showDialog<({double? price, DateTime? expiry})>(
-      context: context,
-      builder: (_) => _RowEditDialog(
-        title: row.item?.name ?? row.ean,
-        initialPrice: row.price,
-        initialExpiry: row.expiryDate,
-      ),
-    );
-    if (result != null && mounted) {
-      setState(() {
-        row.price = result.price;
-        row.expiryDate = result.expiry;
-      });
+    if (_navigating) return;
+    _navigating = true; // no scans while the edit dialog is open
+    try {
+      final result = await showDialog<({double? price, DateTime? expiry})>(
+        context: context,
+        builder: (_) => _RowEditDialog(
+          title: row.item?.name ?? row.ean,
+          initialPrice: row.price,
+          initialExpiry: row.expiryDate,
+        ),
+      );
+      if (result != null && mounted) {
+        setState(() {
+          row.price = result.price;
+          row.expiryDate = result.expiry;
+        });
+      }
+    } finally {
+      _navigating = false;
     }
   }
 
