@@ -88,6 +88,63 @@ double? factorToInventory({
   return null;
 }
 
+/// Implicit conversion from the item's package definition:
+/// 1 [purchaseUnit] = purchaseQty × [stockUnit] (e.g. 1 Packung = 500 g).
+/// Empty when the definition is incomplete or degenerate.
+List<UnitConversion> implicitConversions(Item? item) {
+  if (item == null ||
+      item.purchaseUnit == null ||
+      item.stockUnit == null ||
+      item.purchaseQty == null ||
+      item.purchaseQty! <= 0 ||
+      item.purchaseUnit!.toLowerCase().trim() ==
+          item.stockUnit!.toLowerCase().trim()) {
+    return const [];
+  }
+  return [
+    UnitConversion(
+      id: 'implicit-${item.id}',
+      fromUnit: item.purchaseUnit!,
+      toUnit: item.stockUnit!,
+      factor: item.purchaseQty!,
+      scope: 'item',
+      scopeId: item.id,
+      notes: null,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+    ),
+  ];
+}
+
+/// Merges explicit item conversions, the implicit package definition and
+/// global conversions — in that priority order. Single entry point for all
+/// booking paths (deduct sheet, recipe cooking, servings calculation).
+List<UnitConversion> resolveConversions({
+  required Item? item,
+  required List<UnitConversion> itemConvs,
+  required List<UnitConversion> globalConvs,
+}) =>
+    [...itemConvs, ...implicitConversions(item), ...globalConvs];
+
+/// Converts [qty] from unit [from] to unit [to].
+/// Tries the direct/one-hop conversion chain first, then the gram bridge.
+/// Returns null when no conversion path exists — callers must handle this
+/// explicitly instead of booking a wrong quantity.
+double? convertQty(
+    double qty, String from, String to, List<UnitConversion> conversions) {
+  if (from.toLowerCase().trim() == to.toLowerCase().trim()) return qty;
+  final f = factorToInventory(
+    logicalToUnit: from,
+    logicalFactor: 1.0,
+    inventoryUnit: to,
+    allConversions: conversions,
+  );
+  if (f != null) return qty * f;
+  final fromG = unitToGrams(from, conversions);
+  final toG = unitToGrams(to, conversions);
+  if (fromG == null || toG == null || toG == 0) return null;
+  return qty * fromG / toG;
+}
+
 /// Returns the gram weight of 1 [unit] given [conversions].
 /// Returns null if no gram-equivalent is found.
 double? unitToGrams(String unit, List<UnitConversion> conversions) {
@@ -125,9 +182,10 @@ double? unitToGrams(String unit, List<UnitConversion> conversions) {
 /// Always includes the raw [inventoryUnit] (factor = 1).
 ///
 /// When [diaryMode] is true (inventory deduction from a diary entry),
-/// each option's [defaultQty] is derived from [fallbackQty] via
-/// `fallbackQty / factor` — so the pre-filled quantity reflects the actual
-/// logged amount (e.g. 3 Portions, not 1).
+/// each option's [defaultQty] is the actually requested amount
+/// ([requestedQty] in [requestedUnit]) converted into the option's unit —
+/// so logging 125 g prefills 125 g / 0.25 Packung, never the package size.
+/// [fallbackQty] (heuristic) is only used when no conversion path exists.
 ///
 /// When [diaryMode] is false (quick-consume flows), the old behaviour is
 /// preserved: [consumeUnit]/[consumeQty] supply the default for the logical
@@ -139,6 +197,8 @@ List<UnitDeductOption> buildDeductUnitOptions({
   String? consumeUnit,
   required double fallbackQty,
   bool diaryMode = false,
+  double? requestedQty,
+  String? requestedUnit,
 }) {
   final invLo = inventoryUnit.toLowerCase().trim();
   final options = <UnitDeductOption>[];
@@ -146,6 +206,11 @@ List<UnitDeductOption> buildDeductUnitOptions({
 
   double defQtyFor(String u, double factor) {
     if (diaryMode) {
+      if (requestedQty != null && requestedUnit != null) {
+        final converted =
+            convertQty(requestedQty, requestedUnit, u, conversions);
+        if (converted != null) return converted.clamp(0.01, 9999.0);
+      }
       return factor > 0 ? (fallbackQty / factor).clamp(0.01, 999.0) : fallbackQty;
     }
     if (consumeUnit?.toLowerCase().trim() == u.toLowerCase().trim()) {

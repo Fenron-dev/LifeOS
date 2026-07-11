@@ -564,6 +564,23 @@ class AppDatabase extends _$AppDatabase {
         }
       });
 
+  /// Undo for freshly booked purchases: removes entries, states AND the
+  /// purchase events — so an accidental booking leaves no trace in the
+  /// price history or budget statistics.
+  Future<void> undoPurchases(List<String> entryIds) =>
+      transaction(() async {
+        for (final id in entryIds) {
+          await (delete(itemStates)
+                ..where((s) => s.inventoryEntryId.equals(id)))
+              .go();
+          await (delete(inventoryEntries)..where((e) => e.id.equals(id))).go();
+          await (delete(itemEvents)
+                ..where((e) =>
+                    e.inventoryEntryId.equals(id) & e.type.equals('purchase')))
+              .go();
+        }
+      });
+
   /// Returns all inventory entries for an item, sorted by expiry date (FIFO:
   /// consume soonest-expiring first; entries without expiry date come last).
   Future<List<InventoryEntry>> inventoryEntriesForItem(String itemId) =>

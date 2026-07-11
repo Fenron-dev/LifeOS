@@ -141,7 +141,8 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
   }
 
   /// Record a purchase: create/update InventoryEntry + insert event + upsert state.
-  Future<void> purchase({
+  /// Returns the created inventory entry id (for undo flows).
+  Future<String> purchase({
     required String itemId,
     required double quantity,
     required String unit,
@@ -197,6 +198,7 @@ class InventoryOpsNotifier extends AsyncNotifier<void> {
         lastEventAt: now,
       ));
     });
+    return entryId;
   }
 
   /// Record consumption: update InventoryEntry quantity + insert event + upsert/delete state.

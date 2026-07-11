@@ -117,6 +117,7 @@
   "quickActionConsumeInventory": "Ausbuchen",
   "quickActionQuickDeduct": "Schnellausbuchen",
   "quickActionQuickStock": "Schnelleinbuchen",
+  "quickActionPurchaseSession": "Einkauf erfassen",
   "quickActionAddTask": "Aufgabe",
   "quickActionAddWishlist": "Wunschliste",
   "quickActionAddRecipe": "Rezept",

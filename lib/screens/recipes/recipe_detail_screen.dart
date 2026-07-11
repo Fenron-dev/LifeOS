@@ -8,6 +8,7 @@ import '../../health/widgets/food_search_sheet.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/recipes_provider.dart';
 import '../../providers/vault_provider.dart';
+import '../../utils/unit_deduct_utils.dart';
 import '../../widgets/entity_photo_section.dart';
 
 final _recipeCostProvider = FutureProvider.family<double?, String>((ref, recipeId) async {
@@ -589,6 +590,14 @@ class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
   late Map<String, bool> _deduct; // ingredientId → selected for deduction
   bool _loading = false;
 
+  /// ingredientId → (stock unit, factor: 1 ingredient-unit = factor stock-units)
+  /// for the conversion preview. Only filled when units differ.
+  Map<String, ({String unit, double factor})> _convPreview = {};
+
+  /// Ingredients whose unit cannot be converted to the stock unit — deduction
+  /// is disabled for these instead of silently booking a wrong amount.
+  Set<String> _noConversionPath = {};
+
   @override
   void initState() {
     super.initState();
@@ -597,6 +606,42 @@ class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
       for (final ing in widget.ingredients)
         if (ing.itemId != null) ing.id: true,
     };
+    _loadConversionPreviews();
+  }
+
+  Future<void> _loadConversionPreviews() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    final globalConvs = await db.watchConversionsGlobal().first;
+    final preview = <String, ({String unit, double factor})>{};
+    final noPath = <String>{};
+    for (final ing in widget.ingredients) {
+      if (ing.itemId == null) continue;
+      final entries = await db.inventoryEntriesForItem(ing.itemId!);
+      if (entries.isEmpty) continue;
+      final entryUnit = entries.first.unit;
+      if (entryUnit.toLowerCase().trim() == ing.unit.toLowerCase().trim()) {
+        continue; // same unit — nothing to convert
+      }
+      final item = await db.itemById(ing.itemId!);
+      final itemConvs = await db.watchConversionsForItem(ing.itemId!).first;
+      final convs = resolveConversions(
+          item: item, itemConvs: itemConvs, globalConvs: globalConvs);
+      final f = convertQty(1.0, ing.unit, entryUnit, convs);
+      if (f == null) {
+        noPath.add(ing.id);
+      } else {
+        preview[ing.id] = (unit: entryUnit, factor: f);
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _convPreview = preview;
+      _noConversionPath = noPath;
+      for (final id in noPath) {
+        _deduct[id] = false;
+      }
+    });
   }
 
   double get _scale =>
@@ -614,17 +659,31 @@ class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
       return;
     }
 
+    final globalConvs = await db.watchConversionsGlobal().first;
     int deducted = 0;
+    int skipped = 0;
     for (final ing in widget.ingredients) {
       if (ing.itemId == null) continue;
       if (!(_deduct[ing.id] ?? false)) continue;
 
-      final needed = ing.quantity * _scale;
+      final item = await db.itemById(ing.itemId!);
+      final itemConvs = await db.watchConversionsForItem(ing.itemId!).first;
+      final convs = resolveConversions(
+          item: item, itemConvs: itemConvs, globalConvs: globalConvs);
+
       final entries = await db.inventoryEntriesForItem(ing.itemId!);
-      double remaining = needed;
+      double remaining = ing.quantity * _scale; // in ing.unit
+      var touched = false;
       for (final entry in entries) {
         if (remaining <= 0) break;
-        final take = remaining <= entry.quantity ? remaining : entry.quantity;
+        // Convert the still-needed amount into this entry's stock unit —
+        // never book raw ingredient units against a different stock unit.
+        final neededInEntryUnit =
+            convertQty(remaining, ing.unit, entry.unit, convs);
+        if (neededInEntryUnit == null || neededInEntryUnit <= 0) continue;
+        final take = neededInEntryUnit <= entry.quantity
+            ? neededInEntryUnit
+            : entry.quantity;
         final leftInEntry = entry.quantity - take;
         await ops.consume(
           itemId: ing.itemId!,
@@ -634,19 +693,28 @@ class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
           remainingQuantity: leftInEntry,
           consumptionReason: 'recipe_cook',
         );
-        remaining -= take;
+        // Track the rest in the ingredient's unit for the next entry.
+        final takenInIngUnit = convertQty(take, entry.unit, ing.unit, convs);
+        remaining -= takenInIngUnit ?? remaining;
+        touched = true;
       }
-      deducted++;
+      if (touched) {
+        deducted++;
+      } else if (entries.isNotEmpty) {
+        skipped++;
+      }
     }
 
     if (!context.mounted) return;
     Navigator.of(context).pop();
+    final skippedNote =
+        skipped > 0 ? ' · $skipped ohne Umrechnung übersprungen' : '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           deducted > 0
-              ? '${widget.recipe.name} gekocht – $deducted Zutaten ausgebucht'
-              : '${widget.recipe.name} als gekocht markiert',
+              ? '${widget.recipe.name} gekocht – $deducted Zutaten ausgebucht$skippedNote'
+              : '${widget.recipe.name} als gekocht markiert$skippedNote',
         ),
       ),
     );
@@ -742,11 +810,20 @@ class _CookRecipeSheetState extends ConsumerState<_CookRecipeSheet> {
                   for (final ing in linkedIngs)
                     CheckboxListTile(
                       value: _deduct[ing.id] ?? false,
-                      onChanged: (v) =>
-                          setState(() => _deduct[ing.id] = v ?? false),
+                      onChanged: _noConversionPath.contains(ing.id)
+                          ? null
+                          : (v) =>
+                              setState(() => _deduct[ing.id] = v ?? false),
                       title: Text(ing.name),
-                      subtitle: Text(
-                          '${_fmtQty(ing.quantity * _scale)} ${ing.unit}'),
+                      subtitle: _noConversionPath.contains(ing.id)
+                          ? Text(
+                              '⚠ ${ing.unit} → Bestandseinheit nicht '
+                              'umrechenbar — Packungsangabe am Artikel pflegen',
+                              style: TextStyle(color: cs.error),
+                            )
+                          : Text(
+                              '${_fmtQty(ing.quantity * _scale)} ${ing.unit}'
+                              '${_convPreview[ing.id] != null ? ' = ${_fmtQty(ing.quantity * _scale * _convPreview[ing.id]!.factor)} ${_convPreview[ing.id]!.unit}' : ''}'),
                       dense: true,
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,

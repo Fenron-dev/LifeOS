@@ -391,6 +391,37 @@ class _MobileShell extends ConsumerWidget {
       );
       return;
     }
+
+    // Direktbuchung: book 1 × Kaufeinheit with the item's defaults, undo via
+    // SnackBar — skips the AddStockSheet entirely (setting "Direktbuchung").
+    final direct =
+        ref.read(settingsProvider).valueOrNull?.quickStockDirect ?? false;
+    if (direct) {
+      final unit = item.purchaseUnit ?? item.stockUnit ?? 'Stück';
+      final expiry = (item.expiryType == 'daysAfterPurchase' &&
+              item.shelfLifeDays != null)
+          ? DateTime.now().add(Duration(days: item.shelfLifeDays!))
+          : null;
+      final entryId = await ref.read(inventoryOpsProvider.notifier).purchase(
+            itemId: item.id,
+            quantity: 1,
+            unit: unit,
+            locationId: item.defaultLocationId,
+            expiryDate: expiry,
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Eingebucht: 1 $unit ${item.name}'),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Rückgängig',
+          onPressed: () =>
+              ref.read(itemsDaoProvider)?.undoPurchases([entryId]),
+        ),
+      ));
+      return;
+    }
+
     final booked = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -540,6 +571,8 @@ class _QuickActionsSheet extends ConsumerWidget {
         context.push('/wishlist');
       case QuickAction.addRecipe:
         context.push('/haushalt/recipe/new');
+      case QuickAction.purchaseSession:
+        context.push('/purchase-session');
       // scanner-first actions handled before _navigate is called
       case QuickAction.addInventory:
       case QuickAction.consumeInventory:

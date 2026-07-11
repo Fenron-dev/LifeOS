@@ -87,6 +87,12 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
     final shoppingMode = ref.watch(_shoppingModeProvider);
 
     final appBarActions = [
+      if (shoppingMode)
+        IconButton(
+          icon: const Icon(Icons.done_all),
+          tooltip: 'Einkauf abschließen — Abgehaktes einbuchen',
+          onPressed: () => _completePurchase(context),
+        ),
       IconButton(
         icon: Icon(shoppingMode ? Icons.shopping_cart : Icons.shopping_cart_outlined),
         tooltip: shoppingMode ? 'Einkaufsmodus beenden' : 'Einkaufsmodus',
@@ -378,6 +384,82 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
         preselectedShopId: preselectedShopId,
       ),
     );
+  }
+
+  /// E3: books all checked custom items that are linked to an inventory item
+  /// (1 × quantity in purchase unit, auto-MHD, default location), then removes
+  /// them from the list. Unlinked checked items are only removed.
+  Future<void> _completePurchase(BuildContext context) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    final custom = await db.watchCustomShoppingItems().first;
+    final checked = custom.where((c) => c.checked).toList();
+    if (!context.mounted) return;
+    if (checked.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Nichts abgehakt — erst Positionen abhaken')),
+      );
+      return;
+    }
+    final unlinked = checked.where((c) => c.itemId == null).length;
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Einkauf abschließen?'),
+            content: Text(
+              '${checked.length} abgehakte Positionen werden eingebucht und '
+              'von der Liste entfernt.'
+              '${unlinked > 0 ? '\n\n$unlinked davon ohne Artikel-Verknüpfung — diese werden nur entfernt.' : ''}',
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Abbrechen')),
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Einbuchen')),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok || !context.mounted) return;
+
+    final ops = ref.read(inventoryOpsProvider.notifier);
+    final entryIds = <String>[];
+    var booked = 0;
+    for (final c in checked) {
+      if (c.itemId != null) {
+        final item = await db.itemById(c.itemId!);
+        if (item != null) {
+          final unit = c.unit ?? item.purchaseUnit ?? item.stockUnit ?? 'Stück';
+          final expiry = (item.expiryType == 'daysAfterPurchase' &&
+                  item.shelfLifeDays != null)
+              ? DateTime.now().add(Duration(days: item.shelfLifeDays!))
+              : null;
+          entryIds.add(await ops.purchase(
+            itemId: item.id,
+            quantity: c.quantity ?? 1,
+            unit: unit,
+            locationId: item.defaultLocationId,
+            expiryDate: expiry,
+          ));
+          booked++;
+        }
+      }
+      await db.deleteCustomShoppingItem(c.id);
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$booked Positionen eingebucht'),
+      duration: const Duration(seconds: 6),
+      action: entryIds.isEmpty
+          ? null
+          : SnackBarAction(
+              label: 'Rückgängig',
+              onPressed: () => db.undoPurchases(entryIds),
+            ),
+    ));
   }
 
   Future<void> _scanToAdd(BuildContext context) async {

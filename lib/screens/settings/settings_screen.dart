@@ -231,6 +231,21 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _showQuickActionsConfig(context, ref),
           ),
+          settingsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (settings) => SwitchListTile(
+              secondary: const Icon(Icons.bolt_outlined),
+              title: const Text('Direktbuchung beim Schnelleinbuchen'),
+              subtitle: const Text(
+                  'Scan bucht sofort 1 × Kaufeinheit mit Standardwerten — '
+                  'Rückgängig über die Snackbar'),
+              value: settings.quickStockDirect,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .setQuickStockDirect(v),
+            ),
+          ),
           const Divider(),
           // Theme
           settingsAsync.when(

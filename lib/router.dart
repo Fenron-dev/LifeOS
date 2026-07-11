@@ -12,6 +12,7 @@ import 'screens/inventory/groups_screen.dart';
 import 'screens/items/item_detail_screen.dart';
 import 'screens/items/item_form_screen.dart';
 import 'screens/scanner/barcode_scanner_screen.dart';
+import 'screens/scanner/purchase_session_screen.dart';
 import 'screens/recipes/recipes_screen.dart';
 import 'screens/recipes/recipe_detail_screen.dart';
 import 'screens/recipes/recipe_form_screen.dart';
@@ -56,6 +57,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/scan',
         builder: (context, state) => const BarcodeScannerScreen(),
+      ),
+
+      // Kassenbon-Modus: batch purchase capture (scanner stays open)
+      GoRoute(
+        path: '/purchase-session',
+        builder: (context, state) => const PurchaseSessionScreen(),
       ),
 
       // ── Wishlist & Settings: full-screen push routes (not in shell nav) ──

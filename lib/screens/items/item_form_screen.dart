@@ -977,7 +977,7 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                   child: TextFormField(
                     controller: _purchaseUnitCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'Kaufeinheit',
+                      labelText: 'Ich kaufe in',
                       helperText: 'z. B. „Packung", „Karton"',
                       prefixIcon: Icon(Icons.shopping_bag_outlined),
                     ),
@@ -989,9 +989,11 @@ class _ItemFormScreenState extends ConsumerState<_ItemFormBody> {
                   flex: 2,
                   child: TextFormField(
                     controller: _purchaseQtyCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Stück/Einheit',
-                      helperText: 'z. B. 10',
+                    decoration: InputDecoration(
+                      labelText: 'Inhalt',
+                      helperText: _stockUnit != null
+                          ? '1 Kaufeinheit = ? $_stockUnit'
+                          : 'Menge je Kaufeinheit',
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),

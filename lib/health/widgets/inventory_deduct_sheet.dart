@@ -18,6 +18,10 @@ class _DeductRow {
   final String? itemId;
   final double requestedQty;
   final String requestedUnit;
+
+  /// True when the requested unit has no conversion path to the inventory
+  /// unit — the prefill is then only a heuristic and needs manual checking.
+  final bool conversionMissing;
   List<InventoryEntry> inventoryEntries;
   InventoryEntry? selectedEntry;
   bool skip;
@@ -34,6 +38,7 @@ class _DeductRow {
     required this.itemId,
     required this.requestedQty,
     required this.requestedUnit,
+    this.conversionMissing = false,
     this.inventoryEntries = const [],
     this.selectedEntry,
     this.skip = false,
@@ -101,11 +106,14 @@ class _InventoryDeductSheetState
   ///
   /// - Non-weight units (Portion, Stück, etc.): [quantityG] stores the count directly.
   /// - Weight/volume units (g, ml, …): derive servings from the logged grams
-  ///   relative to the total ingredient weight per serving.
+  ///   relative to the total ingredient weight per serving. Piece-based
+  ///   ingredients (Eier, …) count via their conversion (unitToGrams) —
+  ///   previously they were silently dropped, inflating the serving count.
   static double _computeServings({
     required double quantityG,
     required String displayUnit,
-    required List<({double qty, String unit})> ingredientQuantities,
+    required List<({double qty, String unit, List<UnitConversion> convs})>
+        ingredientQuantities,
     int? recipeServings,
   }) {
     if (quantityG <= 0) return 1.0;
@@ -116,8 +124,8 @@ class _InventoryDeductSheetState
     // Weight-based logging: compute total ingredient weight per recipe serving.
     double totalGPerRecipe = 0;
     for (final ing in ingredientQuantities) {
-      final g = convertWeightVol(ing.qty, ing.unit, 'g');
-      if (g != null) totalGPerRecipe += g;
+      final gPerUnit = unitToGrams(ing.unit, ing.convs);
+      if (gPerUnit != null) totalGPerRecipe += ing.qty * gPerUnit;
     }
     if (totalGPerRecipe <= 0) return quantityG;
     final servingSizeG = recipeServings != null && recipeServings > 0
@@ -153,12 +161,18 @@ class _InventoryDeductSheetState
 
     final log = widget.log;
     final rows = <_DeductRow>[];
+    final globalConvs = await db.watchConversionsGlobal().first;
 
-    Future<List<UnitConversion>> loadConvs(String? itemId) async {
-      if (itemId == null) return [];
-      final item = await db.watchConversionsForItem(itemId).first;
-      final global = await db.watchConversionsGlobal().first;
-      return [...item, ...global];
+    // Item + resolved conversions per itemId (explicit > implicit > global).
+    final convCache = <String, (Item?, List<UnitConversion>)>{};
+    Future<(Item?, List<UnitConversion>)> itemAndConvs(String itemId) async {
+      final cached = convCache[itemId];
+      if (cached != null) return cached;
+      final item = await db.itemById(itemId);
+      final itemConvs = await db.watchConversionsForItem(itemId).first;
+      final resolved = resolveConversions(
+          item: item, itemConvs: itemConvs, globalConvs: globalConvs);
+      return convCache[itemId] = (item, resolved);
     }
 
     Future<_DeductRow> makeRow({
@@ -169,15 +183,20 @@ class _InventoryDeductSheetState
       required String unit,
       required List<InventoryEntry> entries,
       required Item? item,
+      required List<UnitConversion> convs,
     }) async {
       final inventoryUnit = entries.isNotEmpty ? entries.first.unit : unit;
-      final convs = await loadConvs(itemId);
 
       final fallback = _heuristicQty(
         quantityG: qty,
         inventoryUnit: inventoryUnit,
         servingSizeG: item?.servingSizeG,
       );
+
+      // No conversion path from the requested unit to the stock unit means the
+      // prefill is only a guess — flag the row so the user checks it.
+      final conversionMissing = entries.isNotEmpty &&
+          convertQty(qty, unit, inventoryUnit, convs) == null;
 
       final unitOptions = buildDeductUnitOptions(
         inventoryUnit: inventoryUnit,
@@ -186,16 +205,23 @@ class _InventoryDeductSheetState
         consumeUnit: item?.consumeUnit,
         fallbackQty: fallback,
         diaryMode: true,
+        requestedQty: qty,
+        requestedUnit: unit,
       );
 
-      // Pre-select the option matching item.consumeUnit (if it exists)
+      // Pre-select the option matching the requested unit; fall back to the
+      // item's consumeUnit, then to the raw inventory unit.
+      final reqLo = unit.toLowerCase().trim();
       final cu = item?.consumeUnit?.toLowerCase().trim();
-      final selected = cu != null
-          ? unitOptions.firstWhere(
-              (o) => o.unit.toLowerCase().trim() == cu,
-              orElse: () => unitOptions.first,
-            )
-          : unitOptions.first;
+      final selected = unitOptions.firstWhere(
+        (o) => o.unit.toLowerCase().trim() == reqLo,
+        orElse: () => cu != null
+            ? unitOptions.firstWhere(
+                (o) => o.unit.toLowerCase().trim() == cu,
+                orElse: () => unitOptions.first,
+              )
+            : unitOptions.first,
+      );
 
       return _DeductRow(
         label: label,
@@ -203,6 +229,7 @@ class _InventoryDeductSheetState
         itemId: itemId,
         requestedQty: qty,
         requestedUnit: unit,
+        conversionMissing: conversionMissing,
         inventoryEntries: entries,
         selectedEntry: entries.isNotEmpty ? entries.first : null,
         skip: entries.isEmpty,
@@ -213,17 +240,23 @@ class _InventoryDeductSheetState
 
     if (log.source == 'meal' && log.itemId != null) {
       final ings = await db.ingredientsForMeal(log.itemId!);
+      final servIngs =
+          <({double qty, String unit, List<UnitConversion> convs})>[];
+      for (final ing in ings) {
+        final convs = ing.itemId != null
+            ? (await itemAndConvs(ing.itemId!)).$2
+            : globalConvs;
+        servIngs.add((qty: ing.quantity, unit: ing.unit, convs: convs));
+      }
       final servings = _computeServings(
         quantityG: log.quantityG,
         displayUnit: log.displayUnit,
-        ingredientQuantities: ings
-            .map((i) => (qty: i.quantity, unit: i.unit))
-            .toList(),
+        ingredientQuantities: servIngs,
       );
       for (final ing in ings) {
         if (ing.itemId == null) continue;
         final entries = await db.inventoryEntriesForItem(ing.itemId!);
-        final item = await db.itemById(ing.itemId!);
+        final (item, convs) = await itemAndConvs(ing.itemId!);
         rows.add(await makeRow(
           label: ing.name,
           itemId: ing.itemId,
@@ -231,6 +264,7 @@ class _InventoryDeductSheetState
           unit: ing.unit,
           entries: entries,
           item: item,
+          convs: convs,
         ));
       }
     } else if (log.source == 'recipe' && log.itemId != null) {
@@ -240,18 +274,24 @@ class _InventoryDeductSheetState
       // Divide by recipe.servings to get per-serving amount, then multiply by
       // how many servings the user consumed.
       final recipeServings = (recipe?.servings ?? 1).toDouble();
+      final servIngs =
+          <({double qty, String unit, List<UnitConversion> convs})>[];
+      for (final ing in ings) {
+        final convs = ing.itemId != null
+            ? (await itemAndConvs(ing.itemId!)).$2
+            : globalConvs;
+        servIngs.add((qty: ing.quantity, unit: ing.unit, convs: convs));
+      }
       final servings = _computeServings(
         quantityG: log.quantityG,
         displayUnit: log.displayUnit,
-        ingredientQuantities: ings
-            .map((i) => (qty: i.quantity, unit: i.unit))
-            .toList(),
+        ingredientQuantities: servIngs,
         recipeServings: recipe?.servings,
       );
       for (final ing in ings) {
         if (ing.itemId == null) continue;
         final entries = await db.inventoryEntriesForItem(ing.itemId!);
-        final item = await db.itemById(ing.itemId!);
+        final (item, convs) = await itemAndConvs(ing.itemId!);
         rows.add(await makeRow(
           label: ing.name,
           itemId: ing.itemId,
@@ -259,11 +299,12 @@ class _InventoryDeductSheetState
           unit: ing.unit,
           entries: entries,
           item: item,
+          convs: convs,
         ));
       }
     } else if (log.itemId != null) {
-      final item = await db.itemById(log.itemId!);
       final entries = await db.inventoryEntriesForItem(log.itemId!);
+      final (item, convs) = await itemAndConvs(log.itemId!);
       if (item != null) {
         rows.add(await makeRow(
           label: item.name,
@@ -273,6 +314,7 @@ class _InventoryDeductSheetState
           unit: log.displayUnit,
           entries: entries,
           item: item,
+          convs: convs,
         ));
       }
     }
@@ -541,10 +583,19 @@ class _RowTileState extends State<_RowTile> {
                   style: TextStyle(
                       fontSize: 12, color: cs.onSurfaceVariant))
               : Text(
-                  'Tagebuch: ${_fmtQty(row.requestedQty)} ${row.requestedUnit}'
-                  '  ·  Bestand: ${_fmtQty(currentQty)} $inventoryUnit',
+                  row.conversionMissing
+                      ? '⚠ ${row.requestedUnit} → $inventoryUnit nicht '
+                          'umrechenbar — Menge prüfen!'
+                      : 'Tagebuch: ${_fmtQty(row.requestedQty)} ${row.requestedUnit}'
+                          '  ·  Bestand: ${_fmtQty(currentQty)} $inventoryUnit',
                   style: TextStyle(
-                      fontSize: 12, color: cs.onSurfaceVariant),
+                    fontSize: 12,
+                    color: row.conversionMissing
+                        ? cs.error
+                        : cs.onSurfaceVariant,
+                    fontWeight:
+                        row.conversionMissing ? FontWeight.w600 : null,
+                  ),
                 ),
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,

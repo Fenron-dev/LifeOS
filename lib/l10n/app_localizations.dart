@@ -620,6 +620,12 @@ abstract class AppLocalizations {
   /// **'Schnelleinbuchen'**
   String get quickActionQuickStock;
 
+  /// No description provided for @quickActionPurchaseSession.
+  ///
+  /// In de, this message translates to:
+  /// **'Einkauf erfassen'**
+  String get quickActionPurchaseSession;
+
   /// No description provided for @quickActionAddTask.
   ///
   /// In de, this message translates to:

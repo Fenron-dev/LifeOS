@@ -103,6 +103,7 @@
   "quickActionConsumeInventory": "Stock Out",
   "quickActionQuickDeduct": "Quick Deduct",
   "quickActionQuickStock": "Quick Stock In",
+  "quickActionPurchaseSession": "Record Purchase",
   "quickActionAddTask": "Task",
   "quickActionAddWishlist": "Wish",
   "quickActionAddRecipe": "Recipe",

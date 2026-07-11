@@ -16,6 +16,7 @@ enum QuickAction {
   consumeInventory,
   quickDeduct,
   quickStock,
+  purchaseSession,
   addTask,
   addWishlist,
   addRecipe,
@@ -29,6 +30,7 @@ extension QuickActionX on QuickAction {
         QuickAction.consumeInventory => l10n.quickActionConsumeInventory,
         QuickAction.quickDeduct => l10n.quickActionQuickDeduct,
         QuickAction.quickStock => l10n.quickActionQuickStock,
+        QuickAction.purchaseSession => l10n.quickActionPurchaseSession,
         QuickAction.addTask => l10n.quickActionAddTask,
         QuickAction.addWishlist => l10n.quickActionAddWishlist,
         QuickAction.addRecipe => l10n.quickActionAddRecipe,
@@ -39,6 +41,7 @@ extension QuickActionX on QuickAction {
         QuickAction.consumeInventory => Icons.remove_shopping_cart,
         QuickAction.quickDeduct => Icons.bolt,
         QuickAction.quickStock => Icons.add_circle_outline,
+        QuickAction.purchaseSession => Icons.receipt_long_outlined,
         QuickAction.addTask => Icons.add_task,
         QuickAction.addWishlist => Icons.favorite_border,
         QuickAction.addRecipe => Icons.menu_book_outlined,
@@ -73,6 +76,11 @@ class AppSettingsData {
   /// Interval between water reminders in minutes.
   final int waterReminderIntervalMinutes;
 
+  /// When true, "Schnelleinbuchen" books directly with the item's defaults
+  /// (1 × Kaufeinheit, Standard-Lagerort, Auto-MHD) instead of opening the
+  /// AddStockSheet. Undo via SnackBar.
+  final bool quickStockDirect;
+
   static const defaultQuickActions = [
     QuickAction.addInventory,
     QuickAction.consumeInventory,
@@ -93,6 +101,7 @@ class AppSettingsData {
     this.waterReminderFromHour = 8,
     this.waterReminderToHour = 22,
     this.waterReminderIntervalMinutes = 120,
+    this.quickStockDirect = false,
   });
 
   AppSettingsData copyWith({
@@ -108,6 +117,7 @@ class AppSettingsData {
     int? waterReminderFromHour,
     int? waterReminderToHour,
     int? waterReminderIntervalMinutes,
+    bool? quickStockDirect,
   }) =>
       AppSettingsData(
         themeMode: themeMode ?? this.themeMode,
@@ -124,6 +134,7 @@ class AppSettingsData {
         waterReminderToHour: waterReminderToHour ?? this.waterReminderToHour,
         waterReminderIntervalMinutes:
             waterReminderIntervalMinutes ?? this.waterReminderIntervalMinutes,
+        quickStockDirect: quickStockDirect ?? this.quickStockDirect,
       );
 }
 
@@ -171,6 +182,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
     final waterReminderIntervalMinutes = int.tryParse(
             await db.getSetting('water_reminder_interval_minutes') ?? '') ??
         120;
+    final quickStockDirect =
+        (await db.getSetting('quick_stock_direct') ?? 'false') == 'true';
 
     return AppSettingsData(
       themeMode: switch (themeRaw) {
@@ -189,7 +202,17 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsData> {
       waterReminderFromHour: waterReminderFromHour,
       waterReminderToHour: waterReminderToHour,
       waterReminderIntervalMinutes: waterReminderIntervalMinutes,
+      quickStockDirect: quickStockDirect,
     );
+  }
+
+  Future<void> setQuickStockDirect(bool enabled) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    await db.setSetting('quick_stock_direct', enabled ? 'true' : 'false');
+    state = AsyncData(
+        state.valueOrNull?.copyWith(quickStockDirect: enabled) ??
+            AppSettingsData(quickStockDirect: enabled));
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
