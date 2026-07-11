@@ -212,7 +212,9 @@ class _PurchaseSessionScreenState
     await _ctrl.stop();
     try {
       if (!mounted) return;
-      await context.push('/haushalt/item/new', extra: row.ean);
+      // Child route of /purchase-session — NOT the shell-nested item form
+      // (would collide with the preserved haushalt branch stack).
+      await context.push('/purchase-session/item-new', extra: row.ean);
       // Back from the form: re-check whether the item exists now.
       final db = ref.read(databaseProvider);
       final item = await db?.itemByEan(row.ean);

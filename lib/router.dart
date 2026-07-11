@@ -63,6 +63,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/purchase-session',
         builder: (context, state) => const PurchaseSessionScreen(),
+        routes: [
+          // Item creation as a CHILD of this root-level route. Pushing the
+          // shell-nested /haushalt/item/new from here collides with the
+          // preserved haushalt branch stack (duplicate page keys →
+          // Navigator '!_keyReservation.contains(key)' assertion).
+          GoRoute(
+            path: 'item-new',
+            builder: (context, state) => ItemFormScreen(
+              prefillEan: state.extra as String?,
+            ),
+          ),
+        ],
       ),
 
       // ── Wishlist & Settings: full-screen push routes (not in shell nav) ──
