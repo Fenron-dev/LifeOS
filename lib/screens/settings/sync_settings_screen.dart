@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../providers/sync_provider.dart';
 import '../../services/sync_client.dart';
@@ -104,6 +106,7 @@ class _ServerSection extends ConsumerWidget {
           ),
           if (settings.enabled) ...[
             _IpAddressTile(port: settings.port),
+            _PairingQrTile(port: settings.port, psk: settings.psk),
             ListTile(
               leading: const Icon(Icons.vpn_key_outlined),
               title: const Text('PSK (Schlüssel)'),
@@ -182,6 +185,51 @@ class _IpAddressTile extends StatelessWidget {
           leading: const Icon(Icons.wifi_outlined),
           title: const Text('Server-Adresse'),
           subtitle: Text(subtitle),
+        );
+      },
+    );
+  }
+}
+
+/// QR pairing (Desktop): encodes `lifeos-sync://<ip>:<port>#<psk>` — the
+/// Android client scans it and fills URL + PSK in one step.
+class _PairingQrTile extends StatelessWidget {
+  final int port;
+  final String psk;
+  const _PairingQrTile({required this.port, required this.psk});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<String>>(
+      future: getLocalIpAddresses(),
+      builder: (context, snap) {
+        final ips = snap.data ?? [];
+        if (ips.isEmpty) return const SizedBox.shrink();
+        final payload = 'lifeos-sync://${ips.first}:$port#$psk';
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            children: [
+              // White quiet zone so the code scans in dark mode too.
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(12),
+                child: QrImageView(
+                  data: payload,
+                  version: QrVersions.auto,
+                  size: 180,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Auf Android: Synchronisation → „QR scannen"',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -269,12 +317,51 @@ class _ClientSectionState extends ConsumerState<_ClientSection> {
                     label: const Text('Testen'),
                     onPressed: () => _ping(context),
                   ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.qr_code_scanner, size: 18),
+                    label: const Text('QR scannen'),
+                    onPressed: () => _scanPairingQr(context),
+                  ),
                 ],
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  /// Scans the desktop pairing QR (`lifeos-sync://ip:port#psk`) and fills
+  /// URL + PSK in one step, then saves.
+  Future<void> _scanPairingQr(BuildContext context) async {
+    final scanned = await GoRouter.of(context).push<String>('/scan');
+    if (scanned == null || !mounted) return;
+    if (!scanned.startsWith('lifeos-sync://')) {
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        const SnackBar(
+            content: Text('Kein LifeOS-Pairing-Code — QR vom Desktop scannen')),
+      );
+      return;
+    }
+    final uri = Uri.tryParse(scanned);
+    if (uri == null || uri.host.isEmpty || uri.fragment.isEmpty) {
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        const SnackBar(content: Text('Pairing-Code unlesbar')),
+      );
+      return;
+    }
+    final url = 'http://${uri.host}:${uri.hasPort ? uri.port : 7070}';
+    setState(() {
+      _urlCtrl.text = url;
+      _pskCtrl.text = uri.fragment;
+    });
+    await ref
+        .read(syncClientSettingsProvider.notifier)
+        .save(serverUrl: url, psk: uri.fragment);
+    if (!mounted) return;
+    ScaffoldMessenger.of(this.context).showSnackBar(
+      const SnackBar(content: Text('Gekoppelt — Verbindung gespeichert')),
     );
   }
 

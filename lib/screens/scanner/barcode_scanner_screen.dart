@@ -26,11 +26,13 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   void _onDetect(BarcodeCapture capture) {
     if (_detected) return;
     // Checksum-invalid EAN-8/13 reads are almost always camera misreads —
-    // keep scanning instead of returning garbage (#3).
-    final value = capture.barcodes
-        .map((b) => b.rawValue)
-        .firstWhere((v) => v != null && isAcceptableEan(v),
-            orElse: () => null);
+    // keep scanning instead of returning garbage (#3). Sync-pairing QR codes
+    // (lifeos-sync://…) pass through for the settings pairing flow.
+    final value = capture.barcodes.map((b) => b.rawValue).firstWhere(
+        (v) =>
+            v != null &&
+            (isAcceptableEan(v) || v.startsWith('lifeos-sync://')),
+        orElse: () => null);
     if (value == null) return;
     _detected = true;
     Navigator.pop(context, value);
