@@ -4,7 +4,6 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../services/secret_storage.dart';
@@ -19,24 +18,16 @@ const _kServerPort = 'sync_server_port';
 // PSKs live in SecretStorage (Keychain/Keystore/libsecret) — S2. The literal
 // values double as the legacy SharedPreferences keys for one-time migration.
 const _kServerPsk = 'sync_server_psk';
-const _kDeviceId = 'sync_device_id';
 const _kClientUrl = 'sync_client_url';
 const _kClientPsk = 'sync_client_psk';
 
 /// Cursor for the master-data exchange, stored per vault in the DB.
 const _kMasterSyncCursor = 'sync_master_cursor';
 
-// ── Device ID ─────────────────────────────────────────────────────────────────
-
-final syncDeviceIdProvider = FutureProvider<String>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  var id = prefs.getString(_kDeviceId);
-  if (id == null) {
-    id = const Uuid().v4();
-    await prefs.setString(_kDeviceId, id);
-  }
-  return id;
-});
+// Device-ID: bewusst KEIN eigener Provider — Events werden mit
+// deviceIdProvider (vault_provider, Prefs-Key 'device_id') geschrieben.
+// Ein zweiter Schlüssel hier führte dazu, dass der Push-Filter
+// (e.deviceId == eigene ID) nie ein Event fand → Bestand synchronisierte nie.
 
 // ── Server settings ───────────────────────────────────────────────────────────
 
@@ -119,7 +110,7 @@ final syncServerProvider = Provider<SyncServer?>((ref) {
   }
   final settings = ref.watch(syncServerSettingsProvider).valueOrNull;
   final db = ref.watch(databaseProvider);
-  final deviceId = ref.watch(syncDeviceIdProvider).valueOrNull;
+  final deviceId = ref.watch(deviceIdProvider).valueOrNull;
   if (settings == null || !settings.enabled || db == null || deviceId == null) {
     return null;
   }
@@ -215,7 +206,7 @@ class SyncOpsNotifier extends AsyncNotifier<SyncResult?> {
   Future<SyncResult> _run() async {
     final db = ref.read(databaseProvider);
     if (db == null) return const SyncResult(error: 'Kein Vault geöffnet');
-    final deviceId = await ref.read(syncDeviceIdProvider.future);
+    final deviceId = await ref.read(deviceIdProvider.future);
     final clientSettings =
         await ref.read(syncClientSettingsProvider.future);
     if (!clientSettings.isConfigured) {

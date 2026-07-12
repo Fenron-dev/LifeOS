@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../providers/sync_provider.dart';
+import '../../providers/vault_provider.dart';
 import '../../services/sync_client.dart';
 
 class SyncSettingsScreen extends ConsumerStatefulWidget {
@@ -375,7 +376,7 @@ class _ClientSectionState extends ConsumerState<_ClientSection> {
       return;
     }
     final deviceId =
-        await ref.read(syncDeviceIdProvider.future);
+        await ref.read(deviceIdProvider.future);
     final client = SyncClient(
         serverUrl: url, psk: psk, deviceId: deviceId);
     final error = await client.ping();
