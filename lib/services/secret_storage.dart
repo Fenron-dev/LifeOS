@@ -9,10 +9,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SecretStorage {
   SecretStorage._();
 
-  // Defaults are fine on all platforms: Android Keystore, iOS/macOS Keychain,
-  // Linux libsecret. Newer flutter_secure_storage versions auto-migrate from
-  // the legacy EncryptedSharedPreferences backend on first access.
-  static const _storage = FlutterSecureStorage();
+  // Android Keystore, iOS Keychain, Linux libsecret — defaults are fine.
+  // macOS: the data-protection keychain (default since v9) requires the
+  // keychain-access-groups entitlement, which needs a paid dev certificate —
+  // ad-hoc-signed local builds fail with errSecMissingEntitlement (-34018).
+  // The classic login keychain works without it and is equally encrypted.
+  static const _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+  );
 
   /// Reads a secret, optionally migrating from a legacy SharedPreferences key.
   static Future<String?> read(

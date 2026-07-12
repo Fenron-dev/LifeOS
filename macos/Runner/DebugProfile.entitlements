@@ -23,8 +23,5 @@
 	<!-- Camera access (barcode scanner / OCR) -->
 	<key>com.apple.security.device.camera</key>
 	<true/>
-	<!-- Notifications -->
-	<key>com.apple.security.personal-information.calendars</key>
-	<false/>
 </dict>
 </plist>

@@ -15,7 +15,12 @@ import 'package:path/path.dart' as p;
 ///  - Decryption happens in memory only – no cleartext is ever written to disk.
 class PhotoEncryptionService {
   static const _keyStorageKey = 'lifeos_photo_key_v1';
-  static const _storage = FlutterSecureStorage();
+  // macOS: login keychain instead of data-protection keychain — the latter
+  // needs the keychain-access-groups entitlement (paid dev cert), otherwise
+  // every call fails with errSecMissingEntitlement (-34018).
+  static const _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+  );
 
   static final _algo = AesGcm.with256bits();
 
