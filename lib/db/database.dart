@@ -3016,148 +3016,127 @@ extension BodyPhotosDao on AppDatabase {
 /// Sync-Fundament (Phase S): Event-Austausch, Projektion-Rebuild und
 /// Stammdaten-Abgleich. Extension — Nutzer brauchen den database.dart-Import.
 extension SyncDao on AppDatabase {
-  /// Returns all item events created after [since], optionally excluding
-  /// events from [excludeDeviceId] (the requesting device's own events).
-  Future<List<ItemEvent>> getItemEventsSince(
-    DateTime since, {
-    String? excludeDeviceId,
-  }) {
-    final query = select(itemEvents)
-      ..where((e) => e.createdAt.isBiggerThanValue(since));
-    if (excludeDeviceId != null) {
-      query.where((e) => e.deviceId.equals(excludeDeviceId).not());
+  /// All user tables that take part in the full sync, in FK-dependency order
+  /// (parents first). Excluded on purpose:
+  ///   - app_settings: device-local (theme, sync URL/PSK, cursors)
+  ///   - item_states: projection, rebuilt from inventory_entries after import
+  ///   - body_photos / entity_photos: the binary files don't sync, so their
+  ///     metadata would only produce broken references
+  static const syncTableNames = <String>[
+    'units', 'unit_conversions', 'locations', 'shops',
+    'tag_definitions', 'category_definitions', 'product_type_definitions',
+    'item_templates', 'template_fields', 'meal_types',
+    'meal_type_assignments',
+    'items', 'inventory_entries', 'item_events',
+    'item_tags', 'item_relations', 'item_property_values',
+    'item_groups', 'item_group_members', 'custom_shopping_items',
+    'recipes', 'recipe_ingredients', 'recipe_steps', 'recipe_tags',
+    'standard_meals', 'standard_meal_ingredients',
+    'prepared_dishes', 'meal_relations', 'meal_plan_entries',
+    'tasks', 'wish_list_entries', 'automation_rules',
+    'user_profile', 'body_weight_logs', 'body_measurements',
+    'nutrition_logs', 'water_logs',
+    'exercises', 'workouts', 'workout_sets',
+    'workout_plans', 'workout_plan_exercises',
+  ];
+
+  /// Tables carrying `updated_at` → last-write-wins on conflict. Every other
+  /// synced table is insert-or-ignore (new rows appear, existing local rows
+  /// are never clobbered — no data loss).
+  static const _lwwTables = <String>{
+    'items', 'inventory_entries', 'recipes', 'tasks', 'user_profile',
+  };
+
+  /// Dumps every synced table as raw rows for transport.
+  Future<Map<String, List<Map<String, Object?>>>> exportForSync() async {
+    final out = <String, List<Map<String, Object?>>>{};
+    for (final table in syncTableNames) {
+      try {
+        final rows = await customSelect('SELECT * FROM $table').get();
+        out[table] = rows.map((r) => r.data).toList();
+      } catch (_) {/* table missing in an older schema — skip */}
     }
-    query.orderBy([(e) => OrderingTerm.asc(e.createdAt)]);
-    return query.get();
+    return out;
   }
 
-  /// Marks pushed events as synced so the next push skips them (F1).
-  Future<void> markEventsSynced(List<String> eventIds) async {
-    if (eventIds.isEmpty) return;
-    final now = DateTime.now();
-    await transaction(() async {
-      for (final id in eventIds) {
-        await (update(itemEvents)..where((e) => e.id.equals(id))).write(
-          ItemEventsCompanion(
-            syncStatus: const Value('synced'),
-            syncedAt: Value(now),
-          ),
-        );
-      }
-    });
-  }
-
-  /// Ingests events from a sync peer: inserts them append-only (existing IDs
-  /// are never overwritten — S5) AND applies their effect to the inventory in
-  /// the same transaction (F2).
-  ///
-  /// Insert and apply are interleaved because item_events.inventory_entry_id
-  /// carries a foreign key — a pulled purchase event must materialize its
-  /// inventory entry BEFORE the event row can be inserted.
-  ///
-  /// Events for locally unknown items are dropped (master data syncs first;
-  /// remaining orphans are rare — e.g. item deleted on this device).
-  /// Returns the number of newly ingested events.
-  Future<int> ingestForeignEvents(List<ItemEventsCompanion> events) async {
-    if (events.isEmpty) return 0;
-    var inserted = 0;
-    final affectedItems = <String>{};
-    final sorted = [...events]..sort((a, b) {
-        final at = a.createdAt.present
-            ? a.createdAt.value
-            : DateTime.fromMillisecondsSinceEpoch(0);
-        final bt = b.createdAt.present
-            ? b.createdAt.value
-            : DateTime.fromMillisecondsSinceEpoch(0);
-        return at.compareTo(bt);
-      });
-
-    await transaction(() async {
-      for (final e in sorted) {
-        final exists = await (select(itemEvents)
-              ..where((x) => x.id.equals(e.id.value))
-              ..limit(1))
-            .getSingleOrNull();
-        if (exists != null) continue;
-
-        final item = await itemById(e.itemId.value);
-        if (item == null) continue; // FK on item_id would fail
-
-        final type = e.type.value;
-        final qty = e.quantity.present ? e.quantity.value : null;
-        final entryId =
-            e.inventoryEntryId.present ? e.inventoryEntryId.value : null;
-        var entry = entryId == null
-            ? null
-            : await (select(inventoryEntries)
-                  ..where((x) => x.id.equals(entryId)))
-                .getSingleOrNull();
-
-        // Purchase materializes its entry BEFORE the event insert (FK).
-        if (type == 'purchase' &&
-            entryId != null &&
-            entry == null &&
-            qty != null) {
-          await into(inventoryEntries).insert(
-            InventoryEntriesCompanion.insert(
-              id: entryId,
-              itemId: e.itemId.value,
-              quantity: qty,
-              unit: e.unit.present ? (e.unit.value ?? 'Stück') : 'Stück',
-            ),
-            mode: InsertMode.insertOrIgnore,
-          );
-          entry = await (select(inventoryEntries)
-                ..where((x) => x.id.equals(entryId)))
-              .getSingleOrNull();
-          affectedItems.add(item.id);
-        }
-
-        // Insert the event — null the entry ref when the entry is unknown
-        // here, so the FK never fails and the log entry still survives.
-        final toInsert = (entryId != null && entry == null)
-            ? e.copyWith(inventoryEntryId: const Value(null))
-            : e;
-        await into(itemEvents)
-            .insert(toInsert, mode: InsertMode.insertOrIgnore);
-        inserted++;
-
-        // Apply consumption/stocktake to the entry.
-        if ((type == 'consumption' || type == 'stocktake') &&
-            entry != null &&
-            qty != null) {
-          final newQty = type == 'stocktake'
-              ? qty
-              : (entry.quantity - qty).clamp(0.0, double.infinity);
-          if (newQty <= 0) {
-            await (delete(itemStates)
-                  ..where((s) => s.inventoryEntryId.equals(entry!.id)))
-                .go();
-            await (delete(inventoryEntries)
-                  ..where((x) => x.id.equals(entry!.id)))
-                .go();
-          } else {
-            await (update(inventoryEntries)
-                  ..where((x) => x.id.equals(entry!.id)))
-                .write(InventoryEntriesCompanion(
-              quantity: Value(newQty),
-              updatedAt: Value(DateTime.now()),
-            ));
+  /// Applies a peer's full dump. LWW for [_lwwTables] (by updated_at),
+  /// insert-or-ignore for the rest. FK checks are disabled during the import
+  /// because a peer may reference a row that arrives in the same batch.
+  /// item_states is rebuilt from the synced inventory_entries afterwards.
+  /// Returns the number of applied rows.
+  Future<int> importFromSync(Map<String, dynamic> data) async {
+    var applied = 0;
+    await customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await transaction(() async {
+        for (final table in syncTableNames) {
+          final rows = data[table];
+          if (rows is! List) continue;
+          final lww = _lwwTables.contains(table);
+          for (final raw in rows) {
+            if (raw is! Map) continue;
+            final row = raw.map((k, v) => MapEntry(k.toString(), v));
+            if (await _applySyncRow(table, row, lww)) applied++;
           }
-          affectedItems.add(item.id);
         }
-        // Other event types (state_change, relocation, opened, …) only touch
-        // entry metadata — the projection rebuild below covers visible state.
-      }
-
-      for (final itemId in affectedItems) {
-        await _rebuildStatesForItem(itemId);
-      }
-    });
-    return inserted;
+      });
+      // Projection is derived, not synced — rebuild from the fresh entries.
+      await rebuildItemStates();
+    } finally {
+      await customStatement('PRAGMA foreign_keys = ON');
+    }
+    return applied;
   }
 
-  /// Rebuilds the item_states projection from inventory_entries (F4).
+  /// Upserts one row with LWW / insert-or-ignore semantics.
+  /// Returns true when a write happened. Column names are validated against
+  /// an identifier pattern (defence-in-depth against a crafted payload).
+  Future<bool> _applySyncRow(
+      String table, Map<String, Object?> row, bool lww) async {
+    final keys = row.keys
+        .where((k) => RegExp(r'^[a-z_][a-z0-9_]*$').hasMatch(k))
+        .toList();
+    if (keys.isEmpty) return false;
+
+    final pkCols = await _primaryKeyColumns(table);
+    if (pkCols.isEmpty || !pkCols.every(row.containsKey)) return false;
+
+    final whereSql = pkCols.map((c) => '$c = ?').join(' AND ');
+    final existing = await customSelect(
+      'SELECT * FROM $table WHERE $whereSql LIMIT 1',
+      variables: pkCols.map((c) => Variable(row[c]!)).toList(),
+    ).getSingleOrNull();
+
+    if (existing != null) {
+      if (!lww) return false; // keep local row
+      final incomingTs = row['updated_at'];
+      final localTs = existing.data['updated_at'];
+      if (incomingTs is int && localTs is int && incomingTs <= localTs) {
+        return false; // local is newer or equal
+      }
+    }
+
+    final cols = keys.join(', ');
+    final placeholders = keys.map((_) => '?').join(', ');
+    await customStatement(
+      'INSERT OR REPLACE INTO $table ($cols) VALUES ($placeholders)',
+      keys.map((k) => row[k]).toList(),
+    );
+    return true;
+  }
+
+  Future<List<String>> _primaryKeyColumns(String table) async {
+    final cached = _syncPkCache[table];
+    if (cached != null) return cached;
+    final info = await customSelect('PRAGMA table_info($table)').get();
+    final pks = info.where((r) => ((r.data['pk'] as int?) ?? 0) > 0).toList()
+      ..sort((a, b) => (a.data['pk'] as int).compareTo(b.data['pk'] as int));
+    final cols = pks.map((r) => r.data['name'] as String).toList();
+    _syncPkCache[table] = cols;
+    return cols;
+  }
+
+  /// Rebuilds the item_states projection from inventory_entries.
   /// [itemIds] limits the rebuild; null rebuilds everything (repair tool).
   Future<int> rebuildItemStates({Set<String>? itemIds}) async {
     var rebuilt = 0;
@@ -3168,7 +3147,6 @@ extension SyncDao on AppDatabase {
         await _rebuildStatesForItem(id);
         rebuilt++;
       }
-      // Remove orphaned states (entry no longer exists).
       await customStatement(
           'DELETE FROM item_states WHERE inventory_entry_id NOT IN '
           '(SELECT id FROM inventory_entries)');
@@ -3200,102 +3178,8 @@ extension SyncDao on AppDatabase {
       );
     }
   }
-
-  /// Returns the timestamp of the most recent event from a foreign device,
-  /// or epoch if no foreign events exist. Used as the `since` cursor.
-  Future<DateTime> lastSyncedAt({required String localDeviceId}) async {
-    final result = await (select(itemEvents)
-          ..where((e) => e.deviceId.equals(localDeviceId).not())
-          ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
-          ..limit(1))
-        .getSingleOrNull();
-    return result?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-  }
-
-  // ── Sync: Stammdaten (F3) ─────────────────────────────────────────────────
-
-  /// Master data changed since [since] — items by updatedAt, locations/shops
-  /// by createdAt (create-only sync, they carry no updatedAt).
-  Future<Map<String, List<Map<String, dynamic>>>> masterDataSince(
-      DateTime since) async {
-    final changedItems = await (select(items)
-          ..where((i) => i.updatedAt.isBiggerThanValue(since)))
-        .get();
-    final newLocations = await (select(locations)
-          ..where((l) => l.createdAt.isBiggerThanValue(since)))
-        .get();
-    final newShops = await (select(shops)
-          ..where((s) => s.createdAt.isBiggerThanValue(since)))
-        .get();
-    return {
-      'items': changedItems.map((i) => i.toJson()).toList(),
-      'locations': newLocations.map((l) => l.toJson()).toList(),
-      'shops': newShops.map((s) => s.toJson()).toList(),
-    };
-  }
-
-  /// Applies master data from a peer: locations/shops insert-or-ignore,
-  /// items last-write-wins on updatedAt. Invalid rows are skipped.
-  Future<int> applyMasterData(Map<String, dynamic> data) async {
-    var applied = 0;
-    await transaction(() async {
-      for (final raw in (data['locations'] as List? ?? const [])) {
-        try {
-          final loc = Location.fromJson(raw as Map<String, dynamic>);
-          await into(locations)
-              .insert(loc, mode: InsertMode.insertOrIgnore);
-          applied++;
-        } catch (_) {/* skip malformed row */}
-      }
-      for (final raw in (data['shops'] as List? ?? const [])) {
-        try {
-          final shop = Shop.fromJson(raw as Map<String, dynamic>);
-          await into(shops).insert(shop, mode: InsertMode.insertOrIgnore);
-          applied++;
-        } catch (_) {/* skip malformed row */}
-      }
-      for (final raw in (data['items'] as List? ?? const [])) {
-        try {
-          final incoming = Item.fromJson(raw as Map<String, dynamic>);
-          final existing = await itemById(incoming.id);
-          if (existing != null &&
-              !incoming.updatedAt.isAfter(existing.updatedAt)) {
-            continue; // local version is newer or same — LWW
-          }
-          // Foreign references that don't exist here would violate FKs.
-          final safe = incoming.copyWith(
-            defaultLocationId: Value(await _locationExists(
-                    incoming.defaultLocationId)
-                ? incoming.defaultLocationId
-                : null),
-            preferredShopId: Value(
-                await _shopExists(incoming.preferredShopId)
-                    ? incoming.preferredShopId
-                    : null),
-            containerItemId: Value(incoming.containerItemId != null &&
-                    await itemById(incoming.containerItemId!) != null
-                ? incoming.containerItemId
-                : null),
-          );
-          await into(items).insertOnConflictUpdate(safe);
-          applied++;
-        } catch (_) {/* skip malformed row */}
-      }
-    });
-    return applied;
-  }
-
-  Future<bool> _locationExists(String? id) async {
-    if (id == null) return false;
-    return await (select(locations)..where((l) => l.id.equals(id)))
-            .getSingleOrNull() !=
-        null;
-  }
-
-  Future<bool> _shopExists(String? id) async {
-    if (id == null) return false;
-    return await (select(shops)..where((s) => s.id.equals(id)))
-            .getSingleOrNull() !=
-        null;
-  }
 }
+
+/// Per-table primary-key cache for the sync upsert (extensions can't hold
+/// state, so it lives at library scope).
+final _syncPkCache = <String, List<String>>{};

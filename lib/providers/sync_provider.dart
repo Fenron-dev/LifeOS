@@ -21,9 +21,6 @@ const _kServerPsk = 'sync_server_psk';
 const _kClientUrl = 'sync_client_url';
 const _kClientPsk = 'sync_client_psk';
 
-/// Cursor for the master-data exchange, stored per vault in the DB.
-const _kMasterSyncCursor = 'sync_master_cursor';
-
 // Device-ID: bewusst KEIN eigener Provider — Events werden mit
 // deviceIdProvider (vault_provider, Prefs-Key 'device_id') geschrieben.
 // Ein zweiter Schlüssel hier führte dazu, dass der Push-Filter
@@ -171,19 +168,11 @@ class SyncClientSettingsNotifier
 
 /// Result of a sync run.
 class SyncResult {
-  final int pushed;
-  final int pulled;
-  final int masterPushed;
-  final int masterPulled;
+  final int pushed; // rows the server applied from our push
+  final int pulled; // rows we applied from the server's dump
   final String? error;
 
-  const SyncResult({
-    this.pushed = 0,
-    this.pulled = 0,
-    this.masterPushed = 0,
-    this.masterPulled = 0,
-    this.error,
-  });
+  const SyncResult({this.pushed = 0, this.pulled = 0, this.error});
   bool get success => error == null;
 }
 
@@ -193,8 +182,6 @@ final syncOpsProvider =
 class SyncOpsNotifier extends AsyncNotifier<SyncResult?> {
   @override
   Future<SyncResult?> build() async => null;
-
-  AppDatabase get _db => ref.read(databaseProvider)!;
 
   Future<SyncResult> sync() async {
     state = const AsyncLoading();
@@ -225,43 +212,17 @@ class SyncOpsNotifier extends AsyncNotifier<SyncResult?> {
         return SyncResult(error: 'Server nicht erreichbar: $pingError');
       }
 
-      final syncStart = DateTime.now();
-      final masterCursor = DateTime.tryParse(
-              await db.getSetting(_kMasterSyncCursor) ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0);
+      // Full two-way sync: pull the server's dump and apply it, then push
+      // ours. Every user table travels (see SyncDao.syncTableNames); LWW on
+      // updated_at tables, insert-or-ignore for the rest. item_states is
+      // rebuilt from inventory_entries on both sides.
+      final remote = await client.pullFull();
+      final pulled = await db.importFromSync(remote);
 
-      // 1. Master data BOTH ways, before events — pulled events for items
-      //    that don't exist locally would otherwise be orphans (F3).
-      final localMaster = await db.masterDataSince(masterCursor);
-      final masterPushed = await client.pushMasterData(localMaster);
-      final remoteMaster = await client.pullMasterData(masterCursor);
-      final masterPulled = await _db.applyMasterData(remoteMaster);
+      final localDump = await db.exportForSync();
+      final pushed = await client.pushFull(localDump);
 
-      // 2. Push own unsynced events, then mark them (F1).
-      final allLocal = await db.getItemEventsSince(
-          DateTime.fromMillisecondsSinceEpoch(0));
-      final myUnsynced = allLocal
-          .where((e) => e.deviceId == deviceId && e.syncStatus != 'synced')
-          .toList();
-      final pushed = await client.pushEvents(myUnsynced);
-      await db.markEventsSynced(myUnsynced.map((e) => e.id).toList());
-
-      // 3. Pull foreign events and APPLY them to the inventory (F2).
-      final since = await db.lastSyncedAt(localDeviceId: deviceId);
-      final remoteJson = await client.pullEvents(since);
-      final companions =
-          remoteJson.map(SyncServer.jsonToCompanion).toList();
-      final pulledCount = await db.ingestForeignEvents(companions);
-
-      await db.setSetting(
-          _kMasterSyncCursor, syncStart.toIso8601String());
-
-      return SyncResult(
-        pushed: pushed,
-        pulled: pulledCount,
-        masterPushed: masterPushed,
-        masterPulled: masterPulled,
-      );
+      return SyncResult(pushed: pushed, pulled: pulled);
     } catch (e) {
       return SyncResult(error: e.toString());
     }

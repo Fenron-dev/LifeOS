@@ -1,193 +1,135 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifeos/db/database.dart';
 
-/// Sync foundation (Phase S): append-only event insert, projection rebuild
-/// and applying foreign events to the inventory.
+/// Full vault sync (Phase S, rev. 2): every user table travels, LWW on
+/// updated_at tables, insert-or-ignore otherwise, item_states rebuilt from
+/// inventory_entries. Round-trips through JSON like the real transport.
 void main() {
-  late AppDatabase db;
+  late AppDatabase a;
+  late AppDatabase b;
 
   setUp(() {
-    db = AppDatabase.forTesting(NativeDatabase.memory());
+    a = AppDatabase.forTesting(NativeDatabase.memory());
+    b = AppDatabase.forTesting(NativeDatabase.memory());
   });
 
   tearDown(() async {
-    await db.close();
+    await a.close();
+    await b.close();
   });
 
-  Future<void> insertItem(String id) => db.into(db.items).insert(
-        ItemsCompanion.insert(
+  Future<void> seedItem(AppDatabase db, String id,
+      {String name = 'Item', double? qty}) async {
+    await db.into(db.items).insert(ItemsCompanion.insert(
           id: id,
-          name: 'Item $id',
+          name: name,
           categoryId: 'food',
           productType: const Value('ingredient'),
-        ),
-      );
+        ));
+    if (qty != null) {
+      await db.into(db.inventoryEntries).insert(
+          InventoryEntriesCompanion.insert(
+              id: 'entry_$id', itemId: id, quantity: qty, unit: 'Stück'));
+    }
+  }
 
-  ItemEventsCompanion purchaseEvent({
-    required String id,
-    required String itemId,
-    required String entryId,
-    double qty = 5,
-    DateTime? at,
-  }) =>
-      ItemEventsCompanion.insert(
-        id: id,
-        type: 'purchase',
-        itemId: itemId,
-        inventoryEntryId: Value(entryId),
-        quantity: Value(qty),
-        unit: const Value('Stück'),
-        deviceId: 'remote-device',
-        createdAt: Value(at ?? DateTime(2026, 7, 1)),
-      );
+  /// Simulates the wire: export from [from], JSON round-trip, import into [to].
+  Future<int> syncOneWay(AppDatabase from, AppDatabase to) async {
+    final dump = await from.exportForSync();
+    final wire = jsonDecode(jsonEncode(dump)) as Map<String, dynamic>;
+    return to.importFromSync(wire);
+  }
 
-  test('insertSyncedEvents ignoriert vorhandene IDs (append-only, S5)',
+  test('kompletter Round-Trip: Produkte + Bestand + Aufgaben + Rezepte',
       () async {
-    await insertItem('i1');
-    final e = purchaseEvent(id: 'e1', itemId: 'i1', entryId: 'entry1');
-    expect(await db.ingestForeignEvents([e]), 1);
+    await seedItem(a, 'i1', name: 'Milch', qty: 3);
+    await seedItem(a, 'i2', name: 'Eier', qty: 10);
+    await a.into(a.tasks).insert(
+        TasksCompanion.insert(id: 't1', title: 'Einkaufen'));
+    await a.into(a.recipes).insert(
+        RecipesCompanion.insert(id: 'r1', name: 'Rührei'));
 
-    // Second insert with same id but different quantity must NOT overwrite.
-    final tampered = purchaseEvent(
-        id: 'e1', itemId: 'i1', entryId: 'entry1', qty: 999);
-    expect(await db.ingestForeignEvents([tampered]), 0);
-    final stored = await (db.select(db.itemEvents)
-          ..where((x) => x.id.equals('e1')))
-        .getSingle();
-    expect(stored.quantity, 5);
+    await syncOneWay(a, b);
+
+    expect((await b.select(b.items).get()).length, 2);
+    expect((await b.select(b.inventoryEntries).get()).length, 2);
+    expect((await b.select(b.tasks).get()).length, 1);
+    expect((await b.select(b.recipes).get()).length, 1);
   });
 
-  test('markEventsSynced setzt syncStatus + syncedAt (F1)', () async {
-    await insertItem('i1');
-    await db.ingestForeignEvents(
-        [purchaseEvent(id: 'e1', itemId: 'i1', entryId: 'n1')]);
-    await db.markEventsSynced(['e1']);
-    final stored = await (db.select(db.itemEvents)
-          ..where((x) => x.id.equals('e1')))
-        .getSingle();
-    expect(stored.syncStatus, 'synced');
-    expect(stored.syncedAt, isNotNull);
-  });
-
-  test('applyForeignEvents materialisiert purchase + consumption (F2)',
+  test('Bestand erscheint auf der Gegenseite (item_states neu berechnet)',
       () async {
-    await insertItem('i1');
-    final purchase = purchaseEvent(
-        id: 'e1', itemId: 'i1', entryId: 'entry1', qty: 5,
-        at: DateTime(2026, 7, 1));
-    final consumption = ItemEventsCompanion.insert(
-      id: 'e2',
-      type: 'consumption',
-      itemId: 'i1',
-      inventoryEntryId: const Value('entry1'),
-      quantity: const Value(2),
-      unit: const Value('Stück'),
-      deviceId: 'remote-device',
-      createdAt: Value(DateTime(2026, 7, 2)),
-    );
+    await seedItem(a, 'i1', name: 'Milch', qty: 5);
 
-    expect(await db.ingestForeignEvents([purchase, consumption]), 2);
+    await syncOneWay(a, b);
 
-    final entry = await (db.select(db.inventoryEntries)
-          ..where((x) => x.id.equals('entry1')))
-        .getSingle();
-    expect(entry.quantity, 3); // 5 gekauft − 2 verbraucht
-
-    final states = await (db.select(db.itemStates)
+    // Kernbeschwerde des Nutzers: „92 Produkte, 0 Inventar".
+    final states = await (b.select(b.itemStates)
           ..where((s) => s.itemId.equals('i1')))
         .get();
     expect(states, hasLength(1));
-    expect(states.first.currentQuantity, 3);
+    expect(states.first.currentQuantity, 5);
   });
 
-  test('applyForeignEvents löscht Entry+State bei Verbrauch auf 0', () async {
-    await insertItem('i1');
-    await db.ingestForeignEvents([
-      purchaseEvent(id: 'e1', itemId: 'i1', entryId: 'entry1', qty: 2,
-          at: DateTime(2026, 7, 1)),
-      ItemEventsCompanion.insert(
-        id: 'e2',
-        type: 'consumption',
-        itemId: 'i1',
-        inventoryEntryId: const Value('entry1'),
-        quantity: const Value(2),
-        deviceId: 'remote-device',
-        createdAt: Value(DateTime(2026, 7, 2)),
-      ),
-    ]);
+  test('LWW: neueres Item gewinnt, älteres wird verworfen', () async {
+    await seedItem(a, 'i1', name: 'Original');
+    await seedItem(b, 'i1', name: 'Lokal neuer');
+    final local = await b.itemById('i1');
+    await (b.update(b.items)..where((i) => i.id.equals('i1'))).write(
+        ItemsCompanion(
+            updatedAt: Value(local!.updatedAt.add(const Duration(days: 1)))));
 
-    expect(
-        await (db.select(db.inventoryEntries)
-              ..where((x) => x.id.equals('entry1')))
-            .getSingleOrNull(),
-        isNull);
-    expect(
-        await (db.select(db.itemStates)
-              ..where((s) => s.itemId.equals('i1')))
-            .get(),
-        isEmpty);
+    await syncOneWay(a, b); // a ist älter → darf b nicht überschreiben
+    expect((await b.itemById('i1'))!.name, 'Lokal neuer');
+
+    await (a.update(a.items)..where((i) => i.id.equals('i1'))).write(
+        ItemsCompanion(
+            name: const Value('Ferngewinner'),
+            updatedAt: Value(DateTime.now().add(const Duration(days: 2)))));
+    await syncOneWay(a, b);
+    expect((await b.itemById('i1'))!.name, 'Ferngewinner');
   });
 
-  test('applyForeignEvents überspringt Events für unbekannte Items', () async {
-    // Must not throw and must not create anything (item unknown → dropped).
-    expect(
-        await db.ingestForeignEvents(
-            [purchaseEvent(id: 'e1', itemId: 'ghost', entryId: 'entry1')]),
-        0);
-    expect(
-        await (db.select(db.inventoryEntries)
-              ..where((x) => x.id.equals('entry1')))
-            .getSingleOrNull(),
-        isNull);
-  });
-
-  test('rebuildItemStates stellt Projektion aus Entries wieder her (F4)',
+  test('insert-or-ignore: bestehende Zeile ohne updated_at bleibt lokal',
       () async {
-    await insertItem('i1');
-    await db.into(db.inventoryEntries).insert(
-        InventoryEntriesCompanion.insert(
-            id: 'entry1', itemId: 'i1', quantity: 7, unit: 'g'));
-    // Kaputte Projektion: falsche Menge + Waisen-State.
-    await db.into(db.itemStates).insert(ItemStatesCompanion.insert(
+    await a.into(a.locations).insert(
+        LocationsCompanion.insert(id: 'loc1', name: 'Küche A'));
+    await b.into(b.locations).insert(
+        LocationsCompanion.insert(id: 'loc1', name: 'Küche B (lokal)'));
+
+    await syncOneWay(a, b);
+    final loc = await (b.select(b.locations)..where((l) => l.id.equals('loc1')))
+        .getSingle();
+    expect(loc.name, 'Küche B (lokal)'); // kein Datenverlust
+  });
+
+  test('app_settings + item_states sind vom Sync ausgeschlossen', () async {
+    await a.setSetting('sync_client_url', 'http://geheim:7070');
+    await syncOneWay(a, b);
+    expect(await b.getSetting('sync_client_url'), isNull);
+    expect(SyncDao.syncTableNames.contains('app_settings'), isFalse);
+    expect(SyncDao.syncTableNames.contains('item_states'), isFalse);
+  });
+
+  test('rebuildItemStates repariert kaputte Projektion', () async {
+    await seedItem(a, 'i1', qty: 7);
+    await a.into(a.itemStates).insert(ItemStatesCompanion.insert(
         itemId: 'i1',
-        inventoryEntryId: 'entry1',
+        inventoryEntryId: 'entry_i1',
         currentQuantity: 999,
-        unit: 'g',
+        unit: 'Stück',
         state: 'fresh',
         lastEventAt: DateTime(2026)));
 
-    await db.rebuildItemStates();
+    await a.rebuildItemStates();
 
-    final states = await (db.select(db.itemStates)
-          ..where((s) => s.itemId.equals('i1')))
-        .get();
-    expect(states, hasLength(1));
-    expect(states.first.currentQuantity, 7);
-  });
-
-  test('applyMasterData: LWW für Items, insert-or-ignore für Shops',
-      () async {
-    await insertItem('i1');
-    final local = await db.itemById('i1');
-    final newer = local!
-        .copyWith(
-          name: 'Umbenannt vom Peer',
-          updatedAt: local.updatedAt.add(const Duration(days: 1)),
-        )
-        .toJson();
-    final older = local
-        .copyWith(
-          name: 'Veraltet',
-          updatedAt: local.updatedAt.subtract(const Duration(days: 1)),
-        )
-        .toJson();
-
-    await db.applyMasterData({'items': [older]});
-    expect((await db.itemById('i1'))!.name, 'Item i1'); // LWW: lokal gewinnt
-
-    await db.applyMasterData({'items': [newer]});
-    expect((await db.itemById('i1'))!.name, 'Umbenannt vom Peer');
+    final s =
+        await (a.select(a.itemStates)..where((x) => x.itemId.equals('i1')))
+            .getSingle();
+    expect(s.currentQuantity, 7);
   });
 }

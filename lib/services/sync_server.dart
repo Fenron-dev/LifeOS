@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
-import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import 'sync_auth.dart';
@@ -115,103 +113,28 @@ class SyncServer {
     r.get('/api/v1/ping',
         (Request req) => json({'status': 'ok', 'device': deviceId}));
 
-    // Pull events: GET /api/v1/events?since=<iso>&device_id=<id>
-    r.get('/api/v1/events', (Request req) async {
-      final since = DateTime.tryParse(
-              req.url.queryParameters['since'] ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0);
-      final requestingDevice = req.url.queryParameters['device_id'] ?? '';
-      final events = await db.getItemEventsSince(since,
-          excludeDeviceId: requestingDevice.isEmpty ? null : requestingDevice);
-      return json(events.map(eventToJson).toList());
+    // Pull the full vault dump: GET /api/v1/full
+    r.get('/api/v1/full', (Request req) async {
+      return json({'version': 1, 'tables': await db.exportForSync()});
     });
 
-    // Push events: POST /api/v1/events  body: [{event}, ...]
-    r.post('/api/v1/events', (Request req) async {
-      final List<dynamic> list;
+    // Push a full vault dump: POST /api/v1/full  body: {version, tables}
+    r.post('/api/v1/full', (Request req) async {
+      final Map<String, dynamic> body;
       try {
-        list = jsonDecode(_bodyOf(req)) as List<dynamic>;
+        body = jsonDecode(_bodyOf(req)) as Map<String, dynamic>;
       } catch (_) {
         return json({'error': 'invalid json'}, status: 400);
       }
-      final companions = list
-          .whereType<Map<String, dynamic>>()
-          .map(SyncServer.jsonToCompanion)
-          .toList();
-      final inserted = await db.ingestForeignEvents(companions);
-      return json({'inserted': inserted});
-    });
-
-    // Pull master data: GET /api/v1/entities?since=<iso>
-    r.get('/api/v1/entities', (Request req) async {
-      final since = DateTime.tryParse(
-              req.url.queryParameters['since'] ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0);
-      return json(await db.masterDataSince(since));
-    });
-
-    // Push master data: POST /api/v1/entities
-    r.post('/api/v1/entities', (Request req) async {
-      final Map<String, dynamic> data;
-      try {
-        data = jsonDecode(_bodyOf(req)) as Map<String, dynamic>;
-      } catch (_) {
-        return json({'error': 'invalid json'}, status: 400);
+      final tables = body['tables'];
+      if (tables is! Map) {
+        return json({'error': 'missing tables'}, status: 400);
       }
-      final applied = await db.applyMasterData(data);
+      final applied =
+          await db.importFromSync(Map<String, dynamic>.from(tables));
       return json({'applied': applied});
     });
 
     return r;
-  }
-
-  static Map<String, dynamic> eventToJson(ItemEvent e) => {
-        'id': e.id,
-        'type': e.type,
-        'item_id': e.itemId,
-        if (e.inventoryEntryId != null) 'inventory_entry_id': e.inventoryEntryId,
-        if (e.quantity != null) 'quantity': e.quantity,
-        if (e.unit != null) 'unit': e.unit,
-        if (e.price != null) 'price': e.price,
-        if (e.store != null) 'store': e.store,
-        if (e.fromLocationId != null) 'from_location_id': e.fromLocationId,
-        if (e.toLocationId != null) 'to_location_id': e.toLocationId,
-        if (e.fromState != null) 'from_state': e.fromState,
-        if (e.toState != null) 'to_state': e.toState,
-        if (e.containerId != null) 'container_id': e.containerId,
-        if (e.consumptionReason != null) 'consumption_reason': e.consumptionReason,
-        if (e.thumbRating != null) 'thumb_rating': e.thumbRating,
-        'device_id': e.deviceId,
-        'sync_status': e.syncStatus,
-        if (e.syncedAt != null) 'synced_at': e.syncedAt!.toIso8601String(),
-        if (e.notes != null) 'notes': e.notes,
-        'created_at': e.createdAt.toIso8601String(),
-      };
-
-  static ItemEventsCompanion jsonToCompanion(Map<String, dynamic> j) {
-    return ItemEventsCompanion.insert(
-      id: j['id'] as String? ?? const Uuid().v4(),
-      type: j['type'] as String? ?? 'unknown',
-      itemId: j['item_id'] as String? ?? '',
-      inventoryEntryId: Value(j['inventory_entry_id'] as String?),
-      quantity: Value((j['quantity'] as num?)?.toDouble()),
-      unit: Value(j['unit'] as String?),
-      price: Value((j['price'] as num?)?.toDouble()),
-      store: Value(j['store'] as String?),
-      fromLocationId: Value(j['from_location_id'] as String?),
-      toLocationId: Value(j['to_location_id'] as String?),
-      fromState: Value(j['from_state'] as String?),
-      toState: Value(j['to_state'] as String?),
-      containerId: Value(j['container_id'] as String?),
-      consumptionReason: Value(j['consumption_reason'] as String?),
-      thumbRating: Value(j['thumb_rating'] as String?),
-      deviceId: j['device_id'] as String? ?? 'unknown',
-      syncStatus: const Value('synced'),
-      syncedAt: Value(DateTime.now()),
-      notes: Value(j['notes'] as String?),
-      createdAt:
-          Value(DateTime.tryParse(j['created_at'] as String? ?? '') ??
-              DateTime.now()),
-    );
   }
 }
