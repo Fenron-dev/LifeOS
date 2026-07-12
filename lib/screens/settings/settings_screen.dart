@@ -7,11 +7,22 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../db/database.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/vault_provider.dart';
 import '../../services/backup_service.dart';
 import '../../services/data_export_service.dart';
+
+Future<void> _rebuildStates(BuildContext context, WidgetRef ref) async {
+  final db = ref.read(databaseProvider);
+  if (db == null) return;
+  final messenger = ScaffoldMessenger.of(context);
+  final count = await db.rebuildItemStates();
+  messenger.showSnackBar(
+    SnackBar(content: Text('Bestand für $count Artikel neu berechnet')),
+  );
+}
 
 Future<void> _editBudget(
     BuildContext context, WidgetRef ref, AppSettingsData settings) async {
@@ -225,6 +236,14 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Desktop ↔ Android über WLAN'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/sync'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.build_circle_outlined),
+            title: const Text('Bestand neu berechnen'),
+            subtitle: const Text(
+                'Repariert Inkonsistenzen zwischen Bestand und Anzeige'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _rebuildStates(context, ref),
           ),
           const Divider(),
           // ── Benachrichtigungen ──────────────────────────────────────────

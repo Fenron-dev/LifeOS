@@ -8,19 +8,26 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import 'sync_auth.dart';
 
 /// Shelf-based HTTP sync server. Runs on Desktop (the "hub") so that Android
-/// clients can push/pull item events over the local Wi-Fi network.
+/// clients can push/pull item events and master data over the local network.
 ///
-/// Authentication: every request must include `Authorization: Bearer <psk>`.
-/// PSK is a user-visible token generated once and stored in secure storage.
+/// Authentication (S1): every request must carry an HMAC-SHA256 signature
+/// over `timestamp\nmethod\npath\nbody` (see [SyncAuth]) — the PSK itself is
+/// never transmitted. Brute-force attempts are rate-limited per IP (S3),
+/// signature comparison is constant-time (S4) and bodies above
+/// [maxBodyBytes] are rejected (S6).
 class SyncServer {
+  static const maxBodyBytes = 10 * 1024 * 1024; // 10 MB
+
   final AppDatabase db;
   final String psk;
   final int port;
   final String deviceId;
 
   HttpServer? _server;
+  final _rateLimiter = SyncRateLimiter();
 
   SyncServer({
     required this.db,
@@ -34,8 +41,7 @@ class SyncServer {
   Future<void> start() async {
     if (_server != null) return;
     final pipeline = const Pipeline()
-        .addMiddleware(_pskMiddleware())
-        .addMiddleware(logRequests())
+        .addMiddleware(_authMiddleware())
         .addHandler(_router.call);
     _server = await shelf_io.serve(pipeline, InternetAddress.anyIPv4, port);
   }
@@ -45,59 +51,115 @@ class SyncServer {
     _server = null;
   }
 
-  Middleware _pskMiddleware() => (Handler inner) {
-        return (Request request) {
+  static String _clientIp(Request request) {
+    final info = request.context['shelf.io.connection_info']
+        as HttpConnectionInfo?;
+    return info?.remoteAddress.address ?? 'unknown';
+  }
+
+  /// Reads the body once, enforces the size limit and verifies the HMAC
+  /// signature. The body is handed to the route handlers via the request
+  /// context (a shelf body can only be read once).
+  Middleware _authMiddleware() => (Handler inner) {
+        return (Request request) async {
           if (request.url.path == 'api/v1/ping') return inner(request);
-          final auth = request.headers['authorization'] ?? '';
-          final token = auth.startsWith('Bearer ') ? auth.substring(7) : '';
-          if (token != psk) {
-            return Response(401, body: '{"error":"unauthorized"}',
+
+          final ip = _clientIp(request);
+          if (_rateLimiter.isLocked(ip)) {
+            return Response(429,
+                body: '{"error":"too many attempts"}',
                 headers: {'content-type': 'application/json'});
           }
-          return inner(request);
+
+          final declaredLength = request.contentLength;
+          if (declaredLength != null && declaredLength > maxBodyBytes) {
+            return Response(413,
+                body: '{"error":"payload too large"}',
+                headers: {'content-type': 'application/json'});
+          }
+          final body = await request.readAsString();
+          if (body.length > maxBodyBytes) {
+            return Response(413,
+                body: '{"error":"payload too large"}',
+                headers: {'content-type': 'application/json'});
+          }
+
+          final ok = SyncAuth.verify(
+            psk: psk,
+            timestamp: request.headers[SyncAuth.timestampHeader],
+            signature: request.headers[SyncAuth.signatureHeader],
+            method: request.method,
+            path: '/${request.url.path}',
+            body: body,
+          );
+          if (!ok) {
+            _rateLimiter.registerFailure(ip);
+            return Response(401,
+                body: '{"error":"unauthorized"}',
+                headers: {'content-type': 'application/json'});
+          }
+          _rateLimiter.registerSuccess(ip);
+          return inner(request.change(context: {'sync.body': body}));
         };
       };
 
+  static String _bodyOf(Request req) =>
+      req.context['sync.body'] as String? ?? '';
+
   Router get _router {
     final r = Router();
+    Response json(Object data, {int status = 200}) => Response(status,
+        body: jsonEncode(data),
+        headers: {'content-type': 'application/json'});
 
-    r.get('/api/v1/ping', (Request req) => Response.ok(
-        jsonEncode({'status': 'ok', 'device': deviceId}),
-        headers: {'content-type': 'application/json'}));
+    r.get('/api/v1/ping',
+        (Request req) => json({'status': 'ok', 'device': deviceId}));
 
-    // Pull: GET /api/v1/events?since=<iso>&device_id=<id>
+    // Pull events: GET /api/v1/events?since=<iso>&device_id=<id>
     r.get('/api/v1/events', (Request req) async {
-      final sinceStr = req.url.queryParameters['since'];
+      final since = DateTime.tryParse(
+              req.url.queryParameters['since'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
       final requestingDevice = req.url.queryParameters['device_id'] ?? '';
-      final since = sinceStr != null
-          ? DateTime.tryParse(sinceStr) ?? DateTime.fromMillisecondsSinceEpoch(0)
-          : DateTime.fromMillisecondsSinceEpoch(0);
-
       final events = await db.getItemEventsSince(since,
           excludeDeviceId: requestingDevice.isEmpty ? null : requestingDevice);
-      final json = events.map(eventToJson).toList();
-      return Response.ok(jsonEncode(json),
-          headers: {'content-type': 'application/json'});
+      return json(events.map(eventToJson).toList());
     });
 
-    // Push: POST /api/v1/events  body: [{event}, ...]
+    // Push events: POST /api/v1/events  body: [{event}, ...]
     r.post('/api/v1/events', (Request req) async {
-      final body = await req.readAsString();
       final List<dynamic> list;
       try {
-        list = jsonDecode(body) as List<dynamic>;
+        list = jsonDecode(_bodyOf(req)) as List<dynamic>;
       } catch (_) {
-        return Response(400, body: '{"error":"invalid json"}',
-            headers: {'content-type': 'application/json'});
+        return json({'error': 'invalid json'}, status: 400);
       }
       final companions = list
           .whereType<Map<String, dynamic>>()
           .map(SyncServer.jsonToCompanion)
           .toList();
-      await db.insertSyncedEvents(companions);
-      return Response.ok(
-          jsonEncode({'inserted': companions.length}),
-          headers: {'content-type': 'application/json'});
+      final inserted = await db.ingestForeignEvents(companions);
+      return json({'inserted': inserted});
+    });
+
+    // Pull master data: GET /api/v1/entities?since=<iso>
+    r.get('/api/v1/entities', (Request req) async {
+      final since = DateTime.tryParse(
+              req.url.queryParameters['since'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return json(await db.masterDataSince(since));
+    });
+
+    // Push master data: POST /api/v1/entities
+    r.post('/api/v1/entities', (Request req) async {
+      final Map<String, dynamic> data;
+      try {
+        data = jsonDecode(_bodyOf(req)) as Map<String, dynamic>;
+      } catch (_) {
+        return json({'error': 'invalid json'}, status: 400);
+      }
+      final applied = await db.applyMasterData(data);
+      return json({'applied': applied});
     });
 
     return r;

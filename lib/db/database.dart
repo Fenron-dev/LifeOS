@@ -3007,8 +3007,11 @@ extension BodyPhotosDao on AppDatabase {
     return rows.fold<double>(0, (sum, e) => sum + (e.price ?? 0));
   }
 
-  // ── Sync ──────────────────────────────────────────────────────────────────
+}
 
+/// Sync-Fundament (Phase S): Event-Austausch, Projektion-Rebuild und
+/// Stammdaten-Abgleich. Extension — Nutzer brauchen den database.dart-Import.
+extension SyncDao on AppDatabase {
   /// Returns all item events created after [since], optionally excluding
   /// events from [excludeDeviceId] (the requesting device's own events).
   Future<List<ItemEvent>> getItemEventsSince(
@@ -3024,13 +3027,174 @@ extension BodyPhotosDao on AppDatabase {
     return query.get();
   }
 
-  /// Batch-inserts events received from a sync peer. Events whose IDs already
-  /// exist in the database are skipped (insert-or-ignore).
-  Future<void> insertSyncedEvents(List<ItemEventsCompanion> events) async {
-    if (events.isEmpty) return;
-    await batch((b) {
-      b.insertAllOnConflictUpdate(itemEvents, events);
+  /// Marks pushed events as synced so the next push skips them (F1).
+  Future<void> markEventsSynced(List<String> eventIds) async {
+    if (eventIds.isEmpty) return;
+    final now = DateTime.now();
+    await transaction(() async {
+      for (final id in eventIds) {
+        await (update(itemEvents)..where((e) => e.id.equals(id))).write(
+          ItemEventsCompanion(
+            syncStatus: const Value('synced'),
+            syncedAt: Value(now),
+          ),
+        );
+      }
     });
+  }
+
+  /// Ingests events from a sync peer: inserts them append-only (existing IDs
+  /// are never overwritten — S5) AND applies their effect to the inventory in
+  /// the same transaction (F2).
+  ///
+  /// Insert and apply are interleaved because item_events.inventory_entry_id
+  /// carries a foreign key — a pulled purchase event must materialize its
+  /// inventory entry BEFORE the event row can be inserted.
+  ///
+  /// Events for locally unknown items are dropped (master data syncs first;
+  /// remaining orphans are rare — e.g. item deleted on this device).
+  /// Returns the number of newly ingested events.
+  Future<int> ingestForeignEvents(List<ItemEventsCompanion> events) async {
+    if (events.isEmpty) return 0;
+    var inserted = 0;
+    final affectedItems = <String>{};
+    final sorted = [...events]..sort((a, b) {
+        final at = a.createdAt.present
+            ? a.createdAt.value
+            : DateTime.fromMillisecondsSinceEpoch(0);
+        final bt = b.createdAt.present
+            ? b.createdAt.value
+            : DateTime.fromMillisecondsSinceEpoch(0);
+        return at.compareTo(bt);
+      });
+
+    await transaction(() async {
+      for (final e in sorted) {
+        final exists = await (select(itemEvents)
+              ..where((x) => x.id.equals(e.id.value))
+              ..limit(1))
+            .getSingleOrNull();
+        if (exists != null) continue;
+
+        final item = await itemById(e.itemId.value);
+        if (item == null) continue; // FK on item_id would fail
+
+        final type = e.type.value;
+        final qty = e.quantity.present ? e.quantity.value : null;
+        final entryId =
+            e.inventoryEntryId.present ? e.inventoryEntryId.value : null;
+        var entry = entryId == null
+            ? null
+            : await (select(inventoryEntries)
+                  ..where((x) => x.id.equals(entryId)))
+                .getSingleOrNull();
+
+        // Purchase materializes its entry BEFORE the event insert (FK).
+        if (type == 'purchase' &&
+            entryId != null &&
+            entry == null &&
+            qty != null) {
+          await into(inventoryEntries).insert(
+            InventoryEntriesCompanion.insert(
+              id: entryId,
+              itemId: e.itemId.value,
+              quantity: qty,
+              unit: e.unit.present ? (e.unit.value ?? 'Stück') : 'Stück',
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+          entry = await (select(inventoryEntries)
+                ..where((x) => x.id.equals(entryId)))
+              .getSingleOrNull();
+          affectedItems.add(item.id);
+        }
+
+        // Insert the event — null the entry ref when the entry is unknown
+        // here, so the FK never fails and the log entry still survives.
+        final toInsert = (entryId != null && entry == null)
+            ? e.copyWith(inventoryEntryId: const Value(null))
+            : e;
+        await into(itemEvents)
+            .insert(toInsert, mode: InsertMode.insertOrIgnore);
+        inserted++;
+
+        // Apply consumption/stocktake to the entry.
+        if ((type == 'consumption' || type == 'stocktake') &&
+            entry != null &&
+            qty != null) {
+          final newQty = type == 'stocktake'
+              ? qty
+              : (entry.quantity - qty).clamp(0.0, double.infinity);
+          if (newQty <= 0) {
+            await (delete(itemStates)
+                  ..where((s) => s.inventoryEntryId.equals(entry!.id)))
+                .go();
+            await (delete(inventoryEntries)
+                  ..where((x) => x.id.equals(entry!.id)))
+                .go();
+          } else {
+            await (update(inventoryEntries)
+                  ..where((x) => x.id.equals(entry!.id)))
+                .write(InventoryEntriesCompanion(
+              quantity: Value(newQty),
+              updatedAt: Value(DateTime.now()),
+            ));
+          }
+          affectedItems.add(item.id);
+        }
+        // Other event types (state_change, relocation, opened, …) only touch
+        // entry metadata — the projection rebuild below covers visible state.
+      }
+
+      for (final itemId in affectedItems) {
+        await _rebuildStatesForItem(itemId);
+      }
+    });
+    return inserted;
+  }
+
+  /// Rebuilds the item_states projection from inventory_entries (F4).
+  /// [itemIds] limits the rebuild; null rebuilds everything (repair tool).
+  Future<int> rebuildItemStates({Set<String>? itemIds}) async {
+    var rebuilt = 0;
+    await transaction(() async {
+      final ids = itemIds ??
+          (await select(items).get()).map((i) => i.id).toSet();
+      for (final id in ids) {
+        await _rebuildStatesForItem(id);
+        rebuilt++;
+      }
+      // Remove orphaned states (entry no longer exists).
+      await customStatement(
+          'DELETE FROM item_states WHERE inventory_entry_id NOT IN '
+          '(SELECT id FROM inventory_entries)');
+    });
+    return rebuilt;
+  }
+
+  /// Replaces all state rows of one item with fresh projections of its
+  /// current inventory entries. Must run inside a transaction.
+  Future<void> _rebuildStatesForItem(String itemId) async {
+    await (delete(itemStates)..where((s) => s.itemId.equals(itemId))).go();
+    final entries = await (select(inventoryEntries)
+          ..where((e) => e.itemId.equals(itemId)))
+        .get();
+    final now = DateTime.now();
+    for (final e in entries) {
+      await into(itemStates).insert(
+        ItemStatesCompanion.insert(
+          itemId: itemId,
+          inventoryEntryId: e.id,
+          currentQuantity: e.quantity,
+          unit: e.unit,
+          locationId: Value(e.locationId),
+          state: e.state,
+          expiryDate: Value(e.expiryDate),
+          lastEventAt: now,
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+    }
   }
 
   /// Returns the timestamp of the most recent event from a foreign device,
@@ -3042,5 +3206,92 @@ extension BodyPhotosDao on AppDatabase {
           ..limit(1))
         .getSingleOrNull();
     return result?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  // ── Sync: Stammdaten (F3) ─────────────────────────────────────────────────
+
+  /// Master data changed since [since] — items by updatedAt, locations/shops
+  /// by createdAt (create-only sync, they carry no updatedAt).
+  Future<Map<String, List<Map<String, dynamic>>>> masterDataSince(
+      DateTime since) async {
+    final changedItems = await (select(items)
+          ..where((i) => i.updatedAt.isBiggerThanValue(since)))
+        .get();
+    final newLocations = await (select(locations)
+          ..where((l) => l.createdAt.isBiggerThanValue(since)))
+        .get();
+    final newShops = await (select(shops)
+          ..where((s) => s.createdAt.isBiggerThanValue(since)))
+        .get();
+    return {
+      'items': changedItems.map((i) => i.toJson()).toList(),
+      'locations': newLocations.map((l) => l.toJson()).toList(),
+      'shops': newShops.map((s) => s.toJson()).toList(),
+    };
+  }
+
+  /// Applies master data from a peer: locations/shops insert-or-ignore,
+  /// items last-write-wins on updatedAt. Invalid rows are skipped.
+  Future<int> applyMasterData(Map<String, dynamic> data) async {
+    var applied = 0;
+    await transaction(() async {
+      for (final raw in (data['locations'] as List? ?? const [])) {
+        try {
+          final loc = Location.fromJson(raw as Map<String, dynamic>);
+          await into(locations)
+              .insert(loc, mode: InsertMode.insertOrIgnore);
+          applied++;
+        } catch (_) {/* skip malformed row */}
+      }
+      for (final raw in (data['shops'] as List? ?? const [])) {
+        try {
+          final shop = Shop.fromJson(raw as Map<String, dynamic>);
+          await into(shops).insert(shop, mode: InsertMode.insertOrIgnore);
+          applied++;
+        } catch (_) {/* skip malformed row */}
+      }
+      for (final raw in (data['items'] as List? ?? const [])) {
+        try {
+          final incoming = Item.fromJson(raw as Map<String, dynamic>);
+          final existing = await itemById(incoming.id);
+          if (existing != null &&
+              !incoming.updatedAt.isAfter(existing.updatedAt)) {
+            continue; // local version is newer or same — LWW
+          }
+          // Foreign references that don't exist here would violate FKs.
+          final safe = incoming.copyWith(
+            defaultLocationId: Value(await _locationExists(
+                    incoming.defaultLocationId)
+                ? incoming.defaultLocationId
+                : null),
+            preferredShopId: Value(
+                await _shopExists(incoming.preferredShopId)
+                    ? incoming.preferredShopId
+                    : null),
+            containerItemId: Value(incoming.containerItemId != null &&
+                    await itemById(incoming.containerItemId!) != null
+                ? incoming.containerItemId
+                : null),
+          );
+          await into(items).insertOnConflictUpdate(safe);
+          applied++;
+        } catch (_) {/* skip malformed row */}
+      }
+    });
+    return applied;
+  }
+
+  Future<bool> _locationExists(String? id) async {
+    if (id == null) return false;
+    return await (select(locations)..where((l) => l.id.equals(id)))
+            .getSingleOrNull() !=
+        null;
+  }
+
+  Future<bool> _shopExists(String? id) async {
+    if (id == null) return false;
+    return await (select(shops)..where((s) => s.id.equals(id)))
+            .getSingleOrNull() !=
+        null;
   }
 }

@@ -100,6 +100,7 @@ class _LifeOSAppState extends ConsumerState<LifeOSApp> {
     ref.watch(homeWidgetUpdaterProvider);
     ref.watch(syncServerProvider); // starts shelf server when enabled (Desktop)
     ref.watch(autoBackupProvider); // runs due auto-backups (all platforms)
+    ref.watch(autoSyncProvider); // periodic sync when a server is configured
 
     return MaterialApp.router(
       title: 'LifeOS',

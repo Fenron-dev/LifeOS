@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../services/secret_storage.dart';
 import '../services/sync_client.dart';
 import '../services/sync_server.dart';
 import 'vault_provider.dart';
@@ -14,10 +16,15 @@ import 'vault_provider.dart';
 
 const _kServerEnabled = 'sync_server_enabled';
 const _kServerPort = 'sync_server_port';
+// PSKs live in SecretStorage (Keychain/Keystore/libsecret) — S2. The literal
+// values double as the legacy SharedPreferences keys for one-time migration.
 const _kServerPsk = 'sync_server_psk';
 const _kDeviceId = 'sync_device_id';
 const _kClientUrl = 'sync_client_url';
 const _kClientPsk = 'sync_client_psk';
+
+/// Cursor for the master-data exchange, stored per vault in the DB.
+const _kMasterSyncCursor = 'sync_master_cursor';
 
 // ── Device ID ─────────────────────────────────────────────────────────────────
 
@@ -61,9 +68,12 @@ class SyncServerSettingsNotifier
   @override
   Future<SyncServerSettings> build() async {
     final prefs = await SharedPreferences.getInstance();
-    final psk = prefs.getString(_kServerPsk) ?? _generatePsk();
-    if (!prefs.containsKey(_kServerPsk)) {
-      await prefs.setString(_kServerPsk, psk);
+    // Secure storage first; migrates a legacy plaintext PSK automatically.
+    var psk =
+        await SecretStorage.read(_kServerPsk, legacyPrefsKey: _kServerPsk);
+    if (psk == null) {
+      psk = _generatePsk();
+      await SecretStorage.write(_kServerPsk, psk);
     }
     return SyncServerSettings(
       enabled: prefs.getBool(_kServerEnabled) ?? false,
@@ -76,28 +86,26 @@ class SyncServerSettingsNotifier
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kServerEnabled, v);
     state = AsyncData((await future).copyWith(enabled: v));
-    ref.invalidateSelf();
   }
 
   Future<void> setPort(int v) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kServerPort, v);
     state = AsyncData((await future).copyWith(port: v));
-    ref.invalidateSelf();
   }
 
   Future<void> regeneratePsk() async {
     final psk = _generatePsk();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kServerPsk, psk);
+    await SecretStorage.write(_kServerPsk, psk);
     state = AsyncData((await future).copyWith(psk: psk));
-    ref.invalidateSelf();
   }
 
+  /// 12 chars from a 32-char alphabet ≈ 60 bit — combined with the per-IP
+  /// rate limiter this is out of brute-force reach on a LAN.
   static String _generatePsk() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final rng = Random.secure();
-    return List.generate(8, (_) => chars[rng.nextInt(chars.length)]).join();
+    return List.generate(12, (_) => chars[rng.nextInt(chars.length)]).join();
   }
 }
 
@@ -154,14 +162,16 @@ class SyncClientSettingsNotifier
     final prefs = await SharedPreferences.getInstance();
     return SyncClientSettings(
       serverUrl: prefs.getString(_kClientUrl) ?? '',
-      psk: prefs.getString(_kClientPsk) ?? '',
+      psk: await SecretStorage.read(_kClientPsk,
+              legacyPrefsKey: _kClientPsk) ??
+          '',
     );
   }
 
   Future<void> save({required String serverUrl, required String psk}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kClientUrl, serverUrl);
-    await prefs.setString(_kClientPsk, psk);
+    await SecretStorage.write(_kClientPsk, psk);
     state = AsyncData(SyncClientSettings(serverUrl: serverUrl, psk: psk));
   }
 }
@@ -172,9 +182,17 @@ class SyncClientSettingsNotifier
 class SyncResult {
   final int pushed;
   final int pulled;
+  final int masterPushed;
+  final int masterPulled;
   final String? error;
 
-  const SyncResult({this.pushed = 0, this.pulled = 0, this.error});
+  const SyncResult({
+    this.pushed = 0,
+    this.pulled = 0,
+    this.masterPushed = 0,
+    this.masterPulled = 0,
+    this.error,
+  });
   bool get success => error == null;
 }
 
@@ -189,16 +207,19 @@ class SyncOpsNotifier extends AsyncNotifier<SyncResult?> {
 
   Future<SyncResult> sync() async {
     state = const AsyncLoading();
-    final deviceId =
-        await ref.read(syncDeviceIdProvider.future);
+    final result = await _run();
+    state = AsyncData(result);
+    return result;
+  }
+
+  Future<SyncResult> _run() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return const SyncResult(error: 'Kein Vault geöffnet');
+    final deviceId = await ref.read(syncDeviceIdProvider.future);
     final clientSettings =
         await ref.read(syncClientSettingsProvider.future);
-
     if (!clientSettings.isConfigured) {
-      final result =
-          const SyncResult(error: 'Kein Server konfiguriert');
-      state = AsyncData(result);
-      return result;
+      return const SyncResult(error: 'Kein Server konfiguriert');
     }
 
     final client = SyncClient(
@@ -208,42 +229,78 @@ class SyncOpsNotifier extends AsyncNotifier<SyncResult?> {
     );
 
     try {
-      // Ping
       final pingError = await client.ping();
       if (pingError != null) {
-        final result = SyncResult(error: 'Server nicht erreichbar: $pingError');
-        state = AsyncData(result);
-        return result;
+        return SyncResult(error: 'Server nicht erreichbar: $pingError');
       }
 
-      // Push: local events not yet synced
-      final localEvents = await _db.getItemEventsSince(
-        DateTime.fromMillisecondsSinceEpoch(0),
-        excludeDeviceId: null, // push everything local
-      );
-      final myEvents = localEvents
+      final syncStart = DateTime.now();
+      final masterCursor = DateTime.tryParse(
+              await db.getSetting(_kMasterSyncCursor) ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+
+      // 1. Master data BOTH ways, before events — pulled events for items
+      //    that don't exist locally would otherwise be orphans (F3).
+      final localMaster = await db.masterDataSince(masterCursor);
+      final masterPushed = await client.pushMasterData(localMaster);
+      final remoteMaster = await client.pullMasterData(masterCursor);
+      final masterPulled = await _db.applyMasterData(remoteMaster);
+
+      // 2. Push own unsynced events, then mark them (F1).
+      final allLocal = await db.getItemEventsSince(
+          DateTime.fromMillisecondsSinceEpoch(0));
+      final myUnsynced = allLocal
           .where((e) => e.deviceId == deviceId && e.syncStatus != 'synced')
           .toList();
-      final pushed = await client.pushEvents(myEvents);
+      final pushed = await client.pushEvents(myUnsynced);
+      await db.markEventsSynced(myUnsynced.map((e) => e.id).toList());
 
-      // Pull: events from server since our last sync
-      final since = await _db.lastSyncedAt(localDeviceId: deviceId);
+      // 3. Pull foreign events and APPLY them to the inventory (F2).
+      final since = await db.lastSyncedAt(localDeviceId: deviceId);
       final remoteJson = await client.pullEvents(since);
-      final companions = remoteJson
-          .map(SyncServer.jsonToCompanion)
-          .toList();
-      await _db.insertSyncedEvents(companions);
+      final companions =
+          remoteJson.map(SyncServer.jsonToCompanion).toList();
+      final pulledCount = await db.ingestForeignEvents(companions);
 
-      final result = SyncResult(pushed: pushed, pulled: companions.length);
-      state = AsyncData(result);
-      return result;
+      await db.setSetting(
+          _kMasterSyncCursor, syncStart.toIso8601String());
+
+      return SyncResult(
+        pushed: pushed,
+        pulled: pulledCount,
+        masterPushed: masterPushed,
+        masterPulled: masterPulled,
+      );
     } catch (e) {
-      final result = SyncResult(error: e.toString());
-      state = AsyncData(result);
-      return result;
+      return SyncResult(error: e.toString());
     }
   }
 }
+
+// ── Auto-Sync ─────────────────────────────────────────────────────────────────
+
+/// Side-effect provider: when a sync server is configured, syncs shortly
+/// after vault open and every 15 minutes while the app runs. Failures are
+/// silent — the last result stays visible in the sync settings.
+final autoSyncProvider = Provider<void>((ref) {
+  final db = ref.watch(databaseProvider);
+  final client = ref.watch(syncClientSettingsProvider).valueOrNull;
+  if (db == null || client == null || !client.isConfigured) return;
+
+  Future<void> run() async {
+    try {
+      await ref.read(syncOpsProvider.notifier).sync();
+    } catch (_) {/* silent — status visible in settings */}
+  }
+
+  final startTimer = Timer(const Duration(seconds: 10), run);
+  final periodic =
+      Timer.periodic(const Duration(minutes: 15), (_) => run());
+  ref.onDispose(() {
+    startTimer.cancel();
+    periodic.cancel();
+  });
+});
 
 // ── Local network IP addresses ────────────────────────────────────────────────
 
