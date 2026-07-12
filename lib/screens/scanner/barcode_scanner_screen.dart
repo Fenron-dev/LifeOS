@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/ean_validator.dart';
+
 /// Vollbild-Kamerascanner. Gibt den ersten erkannten Barcode via [Navigator.pop] zurück.
 class BarcodeScannerScreen extends StatefulWidget {
   const BarcodeScannerScreen({super.key});
@@ -23,9 +25,12 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
 
   void _onDetect(BarcodeCapture capture) {
     if (_detected) return;
+    // Checksum-invalid EAN-8/13 reads are almost always camera misreads —
+    // keep scanning instead of returning garbage (#3).
     final value = capture.barcodes
         .map((b) => b.rawValue)
-        .firstWhere((v) => v != null && v.isNotEmpty, orElse: () => null);
+        .firstWhere((v) => v != null && isAcceptableEan(v),
+            orElse: () => null);
     if (value == null) return;
     _detected = true;
     Navigator.pop(context, value);

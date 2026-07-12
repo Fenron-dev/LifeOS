@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/ean_validator.dart';
 import '../../db/database.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/vault_provider.dart';
@@ -164,7 +165,8 @@ class _PurchaseSessionScreenState
   Future<void> _onDetect(BarcodeCapture capture) async {
     final ean = capture.barcodes
         .map((b) => b.rawValue)
-        .firstWhere((v) => v != null && v.isNotEmpty, orElse: () => null);
+        .firstWhere((v) => v != null && isAcceptableEan(v),
+            orElse: () => null);
     if (ean == null || _saving || _navigating) return;
     if (_pendingLookups.contains(ean)) return;
 

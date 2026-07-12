@@ -663,6 +663,10 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Nutrition log rating helpers ──────────────────────────────────────────
 
+  Future<NutritionLog?> nutritionLogById(String id) =>
+      (select(nutritionLogs)..where((l) => l.id.equals(id)))
+          .getSingleOrNull();
+
   Future<void> setNutritionLogThumb(String id, String? thumbRating) =>
       (update(nutritionLogs)..where((l) => l.id.equals(id))).write(
         NutritionLogsCompanion(thumbRating: Value(thumbRating)),

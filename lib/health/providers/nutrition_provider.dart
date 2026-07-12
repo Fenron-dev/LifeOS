@@ -120,25 +120,46 @@ class NutritionOpsNotifier extends AsyncNotifier<void> {
     return logId;
   }
 
+  /// Invalidates only the affected calendar day instead of every cached
+  /// day of the family — editing yesterday's log no longer flushes today.
+  void _invalidateDayOf(DateTime? loggedAt) {
+    if (loggedAt == null) {
+      ref.invalidate(nutritionLogsForDayProvider); // fallback: all days
+      return;
+    }
+    final local = loggedAt.toLocal();
+    ref.invalidate(nutritionLogsForDayProvider(
+        DateTime(local.year, local.month, local.day)));
+  }
+
   Future<void> setThumbRating(String logId, String? thumbRating) async {
     await _db.setNutritionLogThumb(logId, thumbRating);
-    ref.invalidate(nutritionLogsForDayProvider);
+    _invalidateDayOf((await _db.nutritionLogById(logId))?.loggedAt);
   }
 
   Future<void> setInventoryDeducted(String logId, bool deducted) async {
     await _db.setNutritionLogDeducted(logId, deducted);
-    ref.invalidate(nutritionLogsForDayProvider);
+    _invalidateDayOf((await _db.nutritionLogById(logId))?.loggedAt);
   }
 
   Future<void> updateLog(NutritionLogsCompanion entry) async {
+    // Fetch BEFORE the update: if loggedAt itself changes, both the old and
+    // the new day need a refresh.
+    final before = entry.id.present
+        ? await _db.nutritionLogById(entry.id.value)
+        : null;
     await _db.updateNutritionLog(entry);
-    // Drift streams auto-emit; dailyTotalsProvider watches nutritionLogsForDayProvider
-    // and rebuilds automatically — no explicit invalidation needed.
-    ref.invalidate(nutritionLogsForDayProvider);
+    _invalidateDayOf(before?.loggedAt);
+    if (entry.loggedAt.present &&
+        before != null &&
+        entry.loggedAt.value != before.loggedAt) {
+      _invalidateDayOf(entry.loggedAt.value);
+    }
   }
 
   Future<void> deleteLog(String id) async {
+    final before = await _db.nutritionLogById(id);
     await _db.deleteNutritionLog(id);
-    ref.invalidate(nutritionLogsForDayProvider);
+    _invalidateDayOf(before?.loggedAt);
   }
 }
