@@ -39,7 +39,9 @@ class _HaushaltGrid extends ConsumerWidget {
     final wishlistCount = ref.watch(wishlistProvider).valueOrNull?.length ?? 0;
 
     final width = MediaQuery.sizeOf(context).width;
-    final crossAxisCount = width >= 900 ? 3 : 2;
+    // Cap tile size instead of column count — on wide desktop windows a
+    // fixed 3-column grid produced huge cards.
+    final crossAxisCount = (width / 280).floor().clamp(2, 6);
 
     final cards = [
       _CardData(

@@ -49,21 +49,18 @@ class VaultSelectionScreen extends ConsumerWidget {
                   const SizedBox(height: 40),
                   // On mobile: single button uses default path (always writable).
                   // On desktop: offer both default and custom folder.
+                  // Desktop: creating ALWAYS asks for the storage location
+                  // (system folder picker). Mobile: app documents dir — SAF
+                  // content-URIs kann SQLite nicht öffnen.
                   FilledButton.icon(
-                    onPressed: () => _createDefaultVault(context, ref),
+                    onPressed: () => _isMobile
+                        ? _createDefaultVault(context, ref)
+                        : _pickVault(context, ref),
                     icon: const Icon(Icons.create_new_folder_outlined),
                     label: Text(_isMobile
                         ? 'Vault erstellen'
-                        : 'Standard-Vault erstellen'),
+                        : 'Vault erstellen / öffnen — Ordner wählen'),
                   ),
-                  if (!_isMobile) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => _pickVault(context, ref),
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Ordner auswählen'),
-                    ),
-                  ],
                   const SizedBox(height: 32),
                   recentAsync.when(
                     loading: () => const SizedBox.shrink(),

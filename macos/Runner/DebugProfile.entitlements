@@ -6,8 +6,11 @@
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
 	<!-- Sandbox: all file/network access goes through entitlements below -->
+	<!-- Sandbox disabled: local distribution only (kein App Store).
+	     Erlaubt frei wählbare Vault-Ordner, die auch nach App-Neustart
+	     zugänglich bleiben (Sandbox vergisst user-selected-Freigaben). -->
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
 	<!-- Sync server: listen on local network -->
 	<key>com.apple.security.network.server</key>
 	<true/>

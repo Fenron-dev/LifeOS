@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../services/secret_storage.dart';
 import 'package:path/path.dart' as p;
 
 /// Handles AES-256-GCM encryption for private body photos.
@@ -15,25 +15,21 @@ import 'package:path/path.dart' as p;
 ///  - Decryption happens in memory only – no cleartext is ever written to disk.
 class PhotoEncryptionService {
   static const _keyStorageKey = 'lifeos_photo_key_v1';
-  // macOS: login keychain instead of data-protection keychain — the latter
-  // needs the keychain-access-groups entitlement (paid dev cert), otherwise
-  // every call fails with errSecMissingEntitlement (-34018).
-  static const _storage = FlutterSecureStorage(
-    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
-  );
 
   static final _algo = AesGcm.with256bits();
 
   /// Returns (or creates) the vault-wide photo key.
+  /// Storage goes through [SecretStorage] — Keystore/Keychain on mobile,
+  /// app preferences on macOS (see SecretStorage for the rationale).
   static Future<SecretKey> _getOrCreateKey() async {
-    final stored = await _storage.read(key: _keyStorageKey);
+    final stored = await SecretStorage.read(_keyStorageKey);
     if (stored != null) {
       final bytes = base64.decode(stored);
       return SecretKey(bytes);
     }
     final key = await _algo.newSecretKey();
     final bytes = await key.extractBytes();
-    await _storage.write(key: _keyStorageKey, value: base64.encode(bytes));
+    await SecretStorage.write(_keyStorageKey, base64.encode(bytes));
     return key;
   }
 
